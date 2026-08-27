@@ -11,22 +11,6 @@ body {
   -webkit-font-smoothing: antialiased
 }
 
-.fakeheader {
-  position: sticky; top: 0;
-  background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid #2f3336;
-  padding: 14px 20px;
-  font-weight: 800; font-size: 18px;
-  z-index: 1
-}
-
-.fakenote {
-  max-width: 600px; margin: 0 auto;
-  padding: 10px 20px; color: #71767b;
-  font-size: 12px; line-height: 1.5
-}
-
 .faketimeline {
   max-width: 600px; margin: 0 auto;
   border-left: 1px solid #2f3336;

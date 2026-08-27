@@ -6,23 +6,21 @@
   const ACTIONS = ["follow", "mute", "block"];
   const COLORS = ["#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e"];
   let colorcursor = 0;
+  let createcount = 0;
 
   let list = [];
   const listeners = new Set();
-  let loaded = false;
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
 
   const uid = () => "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
-
   function persist() {tum.storage.set(list)}
 
   async function load() {
     const v = await tum.storage.get();
     list = Array.isArray(v) ? v : [];
-    loaded = true;
     resolveready();
     emit();
   }
@@ -45,11 +43,14 @@
     list: () => list.slice(),
     get: id => list.find(f => f.id === id),
     create(partial) {
+      createcount++;
       const folder = {
         id: uid(),
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : "follow",
         color: partial.color || nextcolor(),
+        x: typeof partial.x === "number" ? partial.x : 30 + (createcount % 6) * 8,
+        y: typeof partial.y === "number" ? partial.y : 30 + (createcount % 4) * 8,
         members: []
       };
       list.push(folder);
@@ -65,20 +66,36 @@
       emit();
       return f;
     },
+    move(id, x, y) {
+      const f = list.find(x2 => x2.id === id);
+      if (!f) return;
+      f.x = x; f.y = y;
+      persist();
+      emit();
+    },
     remove(id) {
       list = list.filter(f => f.id !== id);
       persist();
       emit();
     },
     // members are a plain serializable snapshot (not the live DOM/badge data on a dragged
-    // user) since this is what actually gets persisted to storage
+    // user) since this is what actually gets persisted to storage. callers can pass along
+    // reason/sourceurl explicitly (e.g. when moving a member from another folder) so that
+    // metadata carries over instead of resetting
     addmember(id, user) {
       const f = list.find(x => x.id === id);
       if (!f) return null;
       if (!Array.isArray(f.members)) f.members = [];
       const key = (user.handle || "").toLowerCase();
+      const existing = f.members.find(m => m.handle.toLowerCase() === key);
       f.members = f.members.filter(m => m.handle.toLowerCase() !== key);
-      f.members.unshift({handle: user.handle, displayname: user.displayname, avatarurl: user.avatarurl});
+      f.members.unshift({
+        handle: user.handle,
+        displayname: user.displayname,
+        avatarurl: user.avatarurl,
+        sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
+        reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || ""
+      });
       persist();
       emit();
       return f;
@@ -91,6 +108,15 @@
       persist();
       emit();
       return f;
+    },
+    setmemberreason(id, handle, reason) {
+      const f = list.find(x => x.id === id);
+      if (!f || !Array.isArray(f.members)) return;
+      const m = f.members.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
+      if (!m) return;
+      m.reason = reason;
+      persist();
+      emit();
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };

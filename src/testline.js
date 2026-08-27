@@ -1,28 +1,42 @@
 (function () {
   "use strict";
 
-  // sampled from a real x.com home timeline so the preview's proportions/wrapping match reality
-  // more closely than made-up placeholder text does
+  // fake handles paired with text sampled/genericized from a real x.com home timeline, so
+  // proportions and wrapping match reality without using anyone's actual account
   const USERS = [
-    {handle: "scryocat", name: "scryo", color: "#1d9bf0"},
-    {handle: "3amdeeptxtings", name: "y", color: "#f91880", verified: true},
-    {handle: "yennoroto", name: "Yen", color: "#00ba7c"},
-    {handle: "777bun__ny", name: "slavicbunny", color: "#7856ff"},
-    {handle: "jetsetworm", name: "wormy", color: "#ffd400", verified: true},
-    {handle: "rekmiint", name: "✦ Rekmii ✦", color: "#f4212e"},
-    {handle: "NodusfallVerse", name: "Nodusfall Updates", color: "#1d9bf0"},
-    {handle: "brainrotpostig", name: "brainrot dimension", color: "#00ba7c", verified: true}
+    {handle: "soggycat", name: "soggy cat"},
+    {handle: "glassrunner", name: "glass runner"},
+    {handle: "coldbrewfan", name: "cold brew fan", verified: true},
+    {handle: "nightbus", name: "night bus"},
+    {handle: "papertowns", name: "paper towns"},
+    {handle: "quietstorm", name: "quiet storm", verified: true},
+    {handle: "driftwood_", name: "driftwood"},
+    {handle: "saltmoth", name: "salt moth"},
+    {handle: "tinshelf", name: "tin shelf", verified: true},
+    {handle: "duskbicycle", name: "dusk bicycle"},
+    {handle: "greywren", name: "grey wren"},
+    {handle: "paperlanes", name: "paper lanes"},
+    {handle: "nofilterfog", name: "no filter fog"},
+    {handle: "coldmail", name: "cold mail"}
   ];
 
   const TEXTS = [
     "just shipped a thing, feels good",
     "how it feels posting with 0 followers",
-    "replying to this because it's true",
-    "my culture ❤️ 🇵🇱",
-    "I made a fully working cobblestone generator in #deadlock",
-    "system requirements: OS Windows 10 (64-bit), CPU Intel 12th gen, RAM 16GB, GPU RTX 4060",
+    "does anyone else's brain just stop working after 6pm",
+    "hot take: cereal is a soup",
+    "3 days into the new keyboard, no regrets",
+    "why is everything a subscription now",
     "finally finished the book, 10/10",
-    "hoyo even copied the entire boss fight from elden ring lmaooo these devs have no shame 😭"
+    "rain sounds > lofi playlists, fight me",
+    "the most beautiful station in the southern hemisphere",
+    "more updates coming soon!",
+    "system requirements: OS Windows 10 (64-bit), CPU Intel 12th gen, RAM 16GB, GPU RTX 4060",
+    "I made a fully working cobblestone generator in #deadlock",
+    "replying to this because it's true",
+    "my culture ❤️",
+    "ok but can I make one too",
+    "no notes, 10/10"
   ];
 
   const ICONS = {
@@ -36,6 +50,14 @@
     verified: '<svg viewBox="0 0 24 24" fill="#1d9bf0"><path d="M12 2l2.4 1.4 2.7-.4 1.3 2.4 2.4 1.3-.4 2.7L22 12l-1.6 2.4.4 2.7-2.4 1.3-1.3 2.4-2.7-.4L12 22l-2.4-1.6-2.7.4-1.3-2.4-2.4-1.3.4-2.7L2 12l1.6-2.4-.4-2.7 2.4-1.3 1.3-2.4 2.7.4L12 2z"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
+  // one shared generic silhouette avatar for everyone, same as what x.com itself shows for any
+  // account without a custom photo - closer to "real" than a colorful letter-circle per user
+  const DEFAULTAVATAR = "data:image/svg+xml;base64," + btoa(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#2f3336"/>' +
+    '<circle cx="48" cy="38" r="18" fill="#71767b"/>' +
+    '<path d="M14 92c0-24 15-38 34-38s34 14 34 38" fill="#71767b"/></svg>'
+  );
+
   function actionrow(counts) {
     return `
       <div class="fakerow">
@@ -47,11 +69,6 @@
         <span class="fakeaction">${ICONS.share}</span>
       </div>
     `;
-  }
-
-  function avatardata(color, initial) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="${color}"/><text x="40" y="52" font-size="34" font-family="Arial" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
-    return "data:image/svg+xml;base64," + btoa(svg);
   }
 
   function closemenus() {
@@ -105,19 +122,19 @@
     document.body.appendChild(backdrop);
   }
 
-  function buildtweet(user, text, isreply) {
+  function buildtweet(user, text, statusid, isreply) {
     const article = document.createElement("article");
     article.setAttribute("data-testid", "tweet");
     article.setAttribute("role", "article");
     if (isreply) article.classList.add("fakereply");
 
     article.innerHTML = `
-      <div class="fakeavatar" data-testid="Tweet-User-Avatar"><img src="${avatardata(user.color, user.name[0].toUpperCase())}"></div>
+      <div class="fakeavatar" data-testid="Tweet-User-Avatar"><img src="${DEFAULTAVATAR}"></div>
       <div class="fakebody">
         <div data-testid="User-Name">
           <a role="link" href="/${user.handle}"><span class="fakedisplayname">${user.name}</span>${user.verified ? `<span class="fakebadge">${ICONS.verified}</span>` : ""}</a>
           <a role="link" href="/${user.handle}"><span class="fakehandle">@${user.handle}</span></a>
-          <span class="faketime">· 2h</span>
+          <a role="link" href="/${user.handle}/status/${statusid}"><span class="faketime">· 2h</span></a>
         </div>
         <div class="faketext">${text}</div>
         ${actionrow(["12", "4", "88", "1.2K"])}
@@ -136,11 +153,13 @@
   function build() {
     const timeline = document.querySelector(".faketimeline");
     if (!timeline) return;
+    let sid = 1000000, nexttext = USERS.length; // texts past one-per-user are reserved for replies
+    const replyafter = [1, 4];
     USERS.forEach((user, i) => {
-      timeline.appendChild(buildtweet(user, TEXTS[i % TEXTS.length], false));
-      if (i % 3 === 1) {
-        const replyuser = USERS[(i + 3) % USERS.length];
-        timeline.appendChild(buildtweet(replyuser, TEXTS[(i + 2) % TEXTS.length], true));
+      timeline.appendChild(buildtweet(user, TEXTS[i], sid++, false));
+      if (replyafter.includes(i) && nexttext < TEXTS.length) {
+        const replyauthor = USERS[(i + 7) % USERS.length];
+        timeline.appendChild(buildtweet(replyauthor, TEXTS[nexttext++], sid++, true));
       }
     });
   }

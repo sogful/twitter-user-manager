@@ -13,8 +13,19 @@
 
 .tumroot {
   position: absolute; inset: 0;
-  pointer-events: none
+  pointer-events: none;
+  user-select: none
 }
+
+/* twitter's own scrollbar: thin, rounded, just a faint gray thumb, no visible track */
+.tumroot ::-webkit-scrollbar {width: 8px; height: 8px}
+.tumroot ::-webkit-scrollbar-track {background: transparent}
+.tumroot ::-webkit-scrollbar-thumb {
+  background-color: rgba(113,118,123,0.4);
+  border-radius: 999px; border: 2px solid transparent;
+  background-clip: padding-box
+}
+.tumroot * {scrollbar-width: thin; scrollbar-color: rgba(113,118,123,0.4) transparent}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -33,42 +44,40 @@
 
 .tumcanvas {
   position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-end;
-  gap: 22px; padding: 24px 24px 6%;
   opacity: 0; visibility: hidden;
-  transition: opacity .18s ease, visibility .18s ease;
   pointer-events: none
 }
 .tumroot.tumactive .tumcanvas {
   opacity: 1; visibility: visible
 }
 
+.tumfreeform {
+  position: absolute; inset: 0
+}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
-.tumfolderdock {
-  display: flex; flex-wrap: wrap;
-  justify-content: center; align-items: flex-end;
-  gap: 16px; max-width: 92vw
-}
-
 .tumfolder {
-  width: 190px; border-radius: 14px;
-  overflow: hidden; pointer-events: auto;
+  position: absolute;
+  transform: translate(-50%,-50%);
+  width: 200px; height: 260px;
+  display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  pointer-events: auto;
   box-shadow: 0 6px 20px rgba(0,0,0,0.45);
-  transition: transform .12s ease;
   --tumcolor: #1d9bf0
 }
-.tumfolder.tumover {transform: scale(1.05)}
-.tumfolder.tumoverremove {transform: scale(0.94); opacity: .6}
+.tumfolder.tumover {outline: 3px solid #fff}
+.tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
 
 .tumfolderhead {
   background: var(--tumcolor);
   padding: 10px 8px 10px 12px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
-  cursor: pointer
+  cursor: grab; flex-shrink: 0
 }
+.tumfolderdragging .tumfolderhead {cursor: grabbing}
 .tumfoldertitle {
   display: flex; align-items: center;
   gap: 6px; min-width: 0
@@ -88,7 +97,8 @@
   width: 20px; height: 20px;
   border-radius: 50%; background: rgba(0,0,0,0.25);
   display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0
+  justify-content: center; flex-shrink: 0;
+  cursor: pointer
 }
 .tumfolderremove svg {
   width: 10px; height: 10px;
@@ -98,7 +108,7 @@
 
 .tumfolderlist {
   background: #16181c;
-  max-height: 220px; overflow-y: auto;
+  flex: 1; min-height: 0; overflow-y: auto;
   padding: 6px; display: flex;
   flex-direction: column; gap: 1px;
   overscroll-behavior: contain
@@ -112,41 +122,82 @@
   text-align: center; padding: 6px
 }
 
-.tumfoldermember {
+/*//////////////////////////////////////////////////////////////////////*/
+/* member rows (folders) and loose chips (unsorted) share the same two-row text layout as
+   the drag chip - same avatar size throughout, just wrapped onto two lines so the handle
+   actually has room to breathe instead of getting crushed onto one line with the name */
+
+.tumfoldermember, .tumloosechip {
   display: flex; align-items: center;
   gap: 8px; padding: 5px 6px;
-  border-radius: 8px
+  border-radius: 8px; cursor: grab
 }
 .tumfoldermember:hover {background: rgba(255,255,255,0.06)}
-.tumfoldermemberavatar {
+.tumfoldermemberavatar, .tumloosechipavatar {
   width: 24px; height: 24px;
   border-radius: 50%; object-fit: cover;
   flex-shrink: 0; background: #2f3336
 }
-.tumfoldermembertext {
+.tumfoldermembertext, .tumloosechipinfo {
   flex: 1; min-width: 0;
-  white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; font-size: 12px
+  display: flex; flex-direction: column
 }
-.tumfoldermembername {color: #e7e9ea; font-weight: 700}
-.tumfoldermemberhandle {color: #71767b; margin-left: 4px}
-.tumfoldermemberremove {
+.tumfoldermembernamerow, .tumloosechipnamerow {
+  display: flex; align-items: center; gap: 4px;
+  min-width: 0
+}
+.tumfoldermembername, .tumloosechipname {
+  color: #e7e9ea; font-weight: 700;
+  font-size: 12px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis
+}
+.tumfoldermemberhandle, .tumloosechiphandle {
+  color: #71767b; font-size: 11px;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis
+}
+.tumcopy {cursor: pointer}
+.tumcopy:hover {text-decoration: underline}
+
+.tumreasonbadge {
+  flex-shrink: 0; display: inline-flex;
+  cursor: pointer
+}
+.tumreasonbadge svg {
+  width: 11px; height: 11px;
+  stroke: #1d9bf0; fill: none;
+  stroke-width: 2.4
+}
+
+.tumfoldermemberremove, .tumloosechipremove {
   width: 16px; height: 16px;
   background: none; border: none;
   cursor: pointer; opacity: .5;
   flex-shrink: 0; padding: 0
 }
-.tumfoldermemberremove:hover {opacity: 1}
-.tumfoldermemberremove svg {
+.tumfoldermemberremove:hover, .tumloosechipremove:hover {opacity: 1}
+.tumfoldermemberremove svg, .tumloosechipremove svg {
   width: 10px; height: 10px;
   stroke: #71767b; fill: none;
   stroke-width: 2.2
 }
 
+.tumloosechip {
+  position: absolute;
+  transform: translate(-50%,-50%);
+  width: 190px; padding: 8px;
+  background: #16181c; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  pointer-events: auto;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4)
+}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
 .tumquickrow {
-  display: flex; gap: 22px
+  position: absolute; left: 0; right: 0; bottom: 6%;
+  display: flex; justify-content: center;
+  gap: 22px; pointer-events: none
 }
 .tumquick {
   display: flex; flex-direction: column;
@@ -154,16 +205,15 @@
   pointer-events: auto; cursor: default;
   user-select: none
 }
+.tumquick.tumdisabled {opacity: .35; pointer-events: none}
 .tumquickicon {
   width: 48px; height: 48px;
   border-radius: 50%; background: rgba(255,255,255,0.12);
   border: 2px dashed rgba(255,255,255,0.4);
   display: flex; align-items: center;
-  justify-content: center;
-  transition: transform .12s ease, background .12s ease, border-color .12s ease
+  justify-content: center
 }
 .tumquick.tumover .tumquickicon {
-  transform: scale(1.15);
   background: rgba(255,255,255,0.22);
   border-color: #fff; border-style: solid
 }
@@ -222,14 +272,12 @@
 
 .tummodal, .tumreasonmodal {
   position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%) scale(0.94);
+  transform: translate(-50%,-50%);
   opacity: 0; visibility: hidden;
-  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
   pointer-events: none; z-index: 3
 }
 .tummodal.tumshow, .tumreasonmodal.tumshow {
   opacity: 1; visibility: visible;
-  transform: translate(-50%,-50%) scale(1);
   pointer-events: auto
 }
 .tummodalcard {
@@ -241,17 +289,30 @@
   display: flex; gap: 8px;
   align-items: center; margin-bottom: 14px
 }
+.tummodalhead span {
+  flex: 1; color: #e7e9ea;
+  font-weight: 700; font-size: 14px;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis
+}
 .tummodalname, .tumreasoninput {
   flex: 1; background: #000; color: #e5eaec;
-  border: 1px solid #37434d; border-radius: 999px;
+  border: 1px solid #37434d;
   padding: 8px 14px; font-size: 14px
+}
+.tummodalname {border-radius: 999px}
+.tumreasoninput {
+  border-radius: 14px; width: 100%;
+  min-height: 100px; resize: vertical;
+  margin-bottom: 10px; font-family: inherit
 }
 .tummodalname:focus, .tumreasoninput:focus {outline: none; border-color: #1d9bf0}
 .tummodalclose, .tumreasonclose {
   width: 28px; height: 28px;
   border-radius: 50%; border: none;
   background: transparent; cursor: pointer;
-  display: flex; align-items: center; justify-content: center
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0
 }
 .tummodalclose svg, .tumreasonclose svg {
   width: 16px; height: 16px;
@@ -292,7 +353,7 @@
 }
 .tummodalcolor.tumselected {border-color: #fff}
 
-.tummodalsave, .tumreasonsave {
+.tummodalsave, .tumreasonsave, .tumreasonedit {
   width: 100%; background: #1d9bf0;
   color: #fff; border: none;
   border-radius: 999px; padding: 10px 20px;
@@ -300,20 +361,33 @@
   font-size: 14px
 }
 
+.tumreasonview, .tumreasonform {display: none}
+.tumreasonview.tumshow, .tumreasonform.tumshow {display: block}
+.tumreasontext {
+  color: #e7e9ea; font-size: 14px;
+  line-height: 1.4; white-space: pre-wrap;
+  word-break: break-word; margin-bottom: 10px;
+  max-height: 200px; overflow-y: auto
+}
+.tumreasontext a {color: #1d9bf0}
+.tumreasonsource {
+  display: block; color: #1d9bf0;
+  font-size: 13px; margin-bottom: 12px
+}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
 .tumtoast {
   position: absolute; top: 24px; left: 50%;
-  transform: translateX(-50%) translateY(-10px);
+  transform: translateX(-50%);
   background: #16181c; color: #e5eaec;
   padding: 10px 18px; border-radius: 999px;
   font-size: 13px; font-weight: 600;
   opacity: 0; visibility: hidden;
-  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+  transition: opacity .12s ease, visibility .12s ease;
   box-shadow: 0 6px 18px rgba(0,0,0,0.5);
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {
-  opacity: 1; visibility: visible;
-  transform: translateX(-50%) translateY(0)
+  opacity: 1; visibility: visible
 }

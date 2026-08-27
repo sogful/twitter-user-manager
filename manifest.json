@@ -26,6 +26,7 @@
         "src/storage.js",
         "src/theme.js",
         "src/folders.js",
+        "src/unsorted.js",
         "src/actions.js",
         "src/dragdetect.js",
         "src/overlay.js",

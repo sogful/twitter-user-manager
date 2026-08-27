@@ -49,7 +49,11 @@
       }
     }
     if (!handle) return null;
-    return {handle, displayname: displayname || handle, avatarurl, badges, article, source: "live"};
+    // the tweet permalink, if this drag actually came from a tweet card - a profile header or
+    // bio isn't wrapped in one, so there's nothing to attach in that case, which is intentional
+    const statuslink = article.querySelector('a[href*="/status/"]');
+    const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
+    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, article, source: "live"};
   }
 
   let tracking = null; // {startx, starty, user, dragging}
