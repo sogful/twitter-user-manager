@@ -24,6 +24,7 @@
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": [
         "src/storage.js",
+        "src/theme.js",
         "src/folders.js",
         "src/actions.js",
         "src/dragdetect.js",
@@ -35,7 +36,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css"],
+      "resources": ["src/css/overlay.css", "fonts/*.woff2"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

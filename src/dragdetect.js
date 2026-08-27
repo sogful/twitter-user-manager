@@ -20,7 +20,7 @@
 
   function extractuser(article) {
     const namebox = article.querySelector('[data-testid="User-Name"]');
-    let handle = null, displayname = null;
+    let handle = null, displayname = null, badges = [];
     if (namebox) {
       const links = namebox.querySelectorAll('a[role="link"][href^="/"]');
       for (const a of links) {
@@ -30,8 +30,14 @@
           break;
         }
       }
-      const namespan = namebox.querySelector('span');
-      if (namespan) displayname = namespan.textContent || null;
+      // the display-name link (always first) carries the nickname text plus any verified/
+      // automated/etc badges as inline img/svg siblings of that text - clone them as-is so the
+      // drag chip can show the exact same badges without guessing which ones apply
+      const namelink = links[0];
+      if (namelink) {
+        displayname = namelink.textContent || null;
+        badges = [...namelink.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
+      }
     }
     const avatarimg = article.querySelector('[data-testid="Tweet-User-Avatar"] img, [data-testid^="UserAvatar-Container-"] img');
     const avatarurl = avatarimg ? avatarimg.src : null;
@@ -43,7 +49,7 @@
       }
     }
     if (!handle) return null;
-    return {handle, displayname: displayname || handle, avatarurl, article, source: "live"};
+    return {handle, displayname: displayname || handle, avatarurl, badges, article, source: "live"};
   }
 
   let tracking = null; // {startx, starty, user, dragging}

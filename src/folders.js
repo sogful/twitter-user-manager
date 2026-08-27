@@ -49,7 +49,8 @@
         id: uid(),
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : "follow",
-        color: partial.color || nextcolor()
+        color: partial.color || nextcolor(),
+        members: []
       };
       list.push(folder);
       persist();
@@ -68,6 +69,28 @@
       list = list.filter(f => f.id !== id);
       persist();
       emit();
+    },
+    // members are a plain serializable snapshot (not the live DOM/badge data on a dragged
+    // user) since this is what actually gets persisted to storage
+    addmember(id, user) {
+      const f = list.find(x => x.id === id);
+      if (!f) return null;
+      if (!Array.isArray(f.members)) f.members = [];
+      const key = (user.handle || "").toLowerCase();
+      f.members = f.members.filter(m => m.handle.toLowerCase() !== key);
+      f.members.unshift({handle: user.handle, displayname: user.displayname, avatarurl: user.avatarurl});
+      persist();
+      emit();
+      return f;
+    },
+    removemember(id, handle) {
+      const f = list.find(x => x.id === id);
+      if (!f || !Array.isArray(f.members)) return null;
+      const key = (handle || "").toLowerCase();
+      f.members = f.members.filter(m => m.handle.toLowerCase() !== key);
+      persist();
+      emit();
+      return f;
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };

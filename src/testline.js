@@ -1,26 +1,28 @@
 (function () {
   "use strict";
 
+  // sampled from a real x.com home timeline so the preview's proportions/wrapping match reality
+  // more closely than made-up placeholder text does
   const USERS = [
-    {handle: "soggycat", name: "soggy cat", color: "#1d9bf0"},
-    {handle: "pixelnomad", name: "pixel nomad", color: "#00ba7c"},
-    {handle: "duskrunner", name: "dusk runner", color: "#f91880"},
-    {handle: "glassmoth", name: "glass moth", color: "#7856ff"},
-    {handle: "coldbrewfan", name: "cold brew fan", color: "#ffd400"},
-    {handle: "nightbus", name: "night bus", color: "#f4212e"},
-    {handle: "papertowns", name: "paper towns", color: "#1d9bf0"},
-    {handle: "quietstorm", name: "quiet storm", color: "#00ba7c"}
+    {handle: "scryocat", name: "scryo", color: "#1d9bf0"},
+    {handle: "3amdeeptxtings", name: "y", color: "#f91880", verified: true},
+    {handle: "yennoroto", name: "Yen", color: "#00ba7c"},
+    {handle: "777bun__ny", name: "slavicbunny", color: "#7856ff"},
+    {handle: "jetsetworm", name: "wormy", color: "#ffd400", verified: true},
+    {handle: "rekmiint", name: "✦ Rekmii ✦", color: "#f4212e"},
+    {handle: "NodusfallVerse", name: "Nodusfall Updates", color: "#1d9bf0"},
+    {handle: "brainrotpostig", name: "brainrot dimension", color: "#00ba7c", verified: true}
   ];
 
   const TEXTS = [
     "just shipped a thing, feels good",
-    "does anyone else's brain just stop working after 6pm",
+    "how it feels posting with 0 followers",
     "replying to this because it's true",
-    "hot take: cereal is a soup",
-    "3 days into the new keyboard, no regrets",
-    "why is everything a subscription now",
+    "my culture ❤️ 🇵🇱",
+    "I made a fully working cobblestone generator in #deadlock",
+    "system requirements: OS Windows 10 (64-bit), CPU Intel 12th gen, RAM 16GB, GPU RTX 4060",
     "finally finished the book, 10/10",
-    "rain sounds > lofi playlists, fight me"
+    "hoyo even copied the entire boss fight from elden ring lmaooo these devs have no shame 😭"
   ];
 
   const ICONS = {
@@ -30,7 +32,8 @@
     views: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     bookmark: '<svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></svg>',
     share: '<svg viewBox="0 0 24 24"><path d="M12 4v12M8 8l4-4 4 4M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
-    dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>'
+    dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>',
+    verified: '<svg viewBox="0 0 24 24" fill="#1d9bf0"><path d="M12 2l2.4 1.4 2.7-.4 1.3 2.4 2.4 1.3-.4 2.7L22 12l-1.6 2.4.4 2.7-2.4 1.3-1.3 2.4-2.7-.4L12 22l-2.4-1.6-2.7.4-1.3-2.4-2.4-1.3.4-2.7L2 12l1.6-2.4-.4-2.7 2.4-1.3 1.3-2.4 2.7.4L12 2z"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
   function actionrow(counts) {
@@ -112,7 +115,7 @@
       <div class="fakeavatar" data-testid="Tweet-User-Avatar"><img src="${avatardata(user.color, user.name[0].toUpperCase())}"></div>
       <div class="fakebody">
         <div data-testid="User-Name">
-          <a role="link" href="/${user.handle}"><span class="fakedisplayname">${user.name}</span></a>
+          <a role="link" href="/${user.handle}"><span class="fakedisplayname">${user.name}</span>${user.verified ? `<span class="fakebadge">${ICONS.verified}</span>` : ""}</a>
           <a role="link" href="/${user.handle}"><span class="fakehandle">@${user.handle}</span></a>
           <span class="faketime">· 2h</span>
         </div>
