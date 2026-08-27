@@ -1,0 +1,240 @@
+:host {
+  all: initial;
+  position: fixed; inset: 0;
+  z-index: 999999;
+  pointer-events: none
+}
+
+* {box-sizing: border-box; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+
+.tumroot {
+  position: absolute; inset: 0;
+  pointer-events: none
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tumbackdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.72);
+  opacity: 0; visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease;
+  pointer-events: none
+}
+.tumroot.tumactive .tumbackdrop {
+  opacity: 1; visibility: visible;
+  pointer-events: auto
+}
+
+.tumcanvas {
+  position: absolute; inset: 0;
+  opacity: 0; visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease;
+  pointer-events: none
+}
+.tumroot.tumactive .tumcanvas {
+  opacity: 1; visibility: visible
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tumfolder {
+  position: absolute;
+  transform: translate(-50%,-50%);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+  pointer-events: auto; cursor: pointer;
+  user-select: none;
+  --tumcolor: #1d9bf0
+}
+.tumfoldericon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--tumcolor);
+  display: flex; align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  transition: transform .12s ease, box-shadow .12s ease;
+  border: 3px solid transparent
+}
+.tumfoldericon svg {
+  width: 30px; height: 30px;
+  fill: none; stroke: #fff;
+  stroke-width: 2; stroke-linecap: round;
+  stroke-linejoin: round
+}
+.tumfolder.tumover .tumfoldericon {
+  transform: scale(1.18);
+  border-color: #fff
+}
+.tumfolderlabel {
+  color: #fff; font-size: 13px;
+  font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  max-width: 110px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.tumaddfolder .tumfoldericon {
+  background: rgba(255,255,255,0.12);
+  border: 2px dashed rgba(255,255,255,0.4)
+}
+.tumaddfolder svg {stroke: rgba(255,255,255,0.7)}
+.tumaddfolder .tumfolderlabel {display: none}
+.tumroot:not(.tummanaging):not(.tumdragging) .tumaddfolder {
+  opacity: 0; pointer-events: none
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tumchip {
+  position: fixed; top: 0; left: 0;
+  transform: translate(-50%,-50%);
+  display: none; align-items: center;
+  gap: 8px; padding: 6px 14px 6px 6px;
+  background: #16181c; border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  pointer-events: none; z-index: 2
+}
+.tumroot.tumdragging .tumchip {display: flex}
+.tumchipavatar {
+  width: 32px; height: 32px;
+  border-radius: 50%; object-fit: cover
+}
+.tumchipname {
+  color: #e5eaec; font-size: 14px;
+  font-weight: 700
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tumfab {
+  position: fixed; right: 20px; bottom: 20px;
+  width: 48px; height: 48px;
+  border-radius: 50%; border: none;
+  background: #1d9bf0; cursor: pointer;
+  display: flex; align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  pointer-events: auto
+}
+.tumfab svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: #fff;
+  stroke-width: 2; stroke-linecap: round
+}
+.tumroot.tummanaging .tumfab {background: #536471}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tummodal {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%) scale(0.94);
+  opacity: 0; visibility: hidden;
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+  pointer-events: none; z-index: 3
+}
+.tummodal.tumshow {
+  opacity: 1; visibility: visible;
+  transform: translate(-50%,-50%) scale(1);
+  pointer-events: auto
+}
+.tummodalcard {
+  width: 300px; background: #16181c;
+  border-radius: 16px; padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55)
+}
+.tummodalhead {
+  display: flex; gap: 8px;
+  align-items: center; margin-bottom: 14px
+}
+.tummodalname {
+  flex: 1; background: #000; color: #e5eaec;
+  border: 1px solid #37434d; border-radius: 999px;
+  padding: 8px 14px; font-size: 14px
+}
+.tummodalname:focus {outline: none; border-color: #1d9bf0}
+.tummodalclose {
+  width: 28px; height: 28px;
+  border-radius: 50%; border: none;
+  background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center
+}
+.tummodalclose svg {
+  width: 16px; height: 16px;
+  stroke: #6b7f8e; fill: none;
+  stroke-width: 2
+}
+
+.tummodalactions {
+  display: flex; gap: 8px;
+  margin-bottom: 14px
+}
+.tummodalaction {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  padding: 10px 0; border-radius: 12px;
+  border: 1px solid #37434d;
+  background: transparent; color: #6b7f8e;
+  cursor: pointer; font-size: 11px
+}
+.tummodalaction svg {
+  width: 18px; height: 18px;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round
+}
+.tummodalaction.tumselected {
+  border-color: #1d9bf0; color: #1d9bf0;
+  background: rgba(29,155,240,0.1)
+}
+
+.tummodalcolors {
+  display: flex; gap: 8px;
+  margin-bottom: 16px; flex-wrap: wrap
+}
+.tummodalcolor {
+  width: 26px; height: 26px;
+  border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; padding: 0
+}
+.tummodalcolor.tumselected {border-color: #fff}
+
+.tummodalfoot {
+  display: flex; align-items: center;
+  justify-content: space-between
+}
+.tummodaldelete {
+  display: flex; align-items: center; gap: 6px;
+  background: transparent; border: none;
+  color: #f4212e; cursor: pointer;
+  font-size: 13px; font-weight: 700
+}
+.tummodaldelete svg {
+  width: 15px; height: 15px;
+  stroke: #f4212e; fill: none;
+  stroke-width: 2
+}
+.tummodalsave {
+  background: #1d9bf0; color: #fff;
+  border: none; border-radius: 999px;
+  padding: 8px 20px; font-weight: 700;
+  cursor: pointer; font-size: 14px
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tumtoast {
+  position: absolute; top: 24px; left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: #16181c; color: #e5eaec;
+  padding: 10px 18px; border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+  opacity: 0; visibility: hidden;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  pointer-events: none; z-index: 4
+}
+.tumtoast.tumshow {
+  opacity: 1; visibility: visible;
+  transform: translateX(-50%) translateY(0)
+}

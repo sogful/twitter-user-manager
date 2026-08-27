@@ -1,0 +1,125 @@
+html, body {margin: 0; height: 100%}
+* {box-sizing: border-box}
+
+body {
+  background: #000; color: #e5eaec;
+  font: 15px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing: antialiased
+}
+
+.fakeheader {
+  position: sticky; top: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #2f3336;
+  padding: 14px 20px;
+  font-weight: 800; font-size: 18px;
+  z-index: 10
+}
+
+.fakenote {
+  max-width: 600px; margin: 0 auto;
+  padding: 10px 20px; color: #6b7f8e;
+  font-size: 12px; line-height: 1.5
+}
+
+.faketimeline {
+  max-width: 600px; margin: 0 auto;
+  border-left: 1px solid #2f3336;
+  border-right: 1px solid #2f3336
+}
+
+article {
+  display: flex; gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2f3336;
+  position: relative
+}
+article.fakereply {
+  padding-left: 46px;
+  background: rgba(255,255,255,0.015)
+}
+
+.fakeavatar img {
+  width: 40px; height: 40px;
+  border-radius: 50%; display: block
+}
+
+.fakebody {flex: 1; min-width: 0}
+
+[data-testid="User-Name"] {
+  display: flex; align-items: baseline;
+  gap: 4px; flex-wrap: wrap
+}
+[data-testid="User-Name"] a {
+  color: inherit; text-decoration: none
+}
+.fakedisplayname {font-weight: 700}
+.fakehandle, .faketime {color: #6b7f8e}
+.fakehandle::before {content: ""}
+
+.faketext {
+  margin-top: 2px; line-height: 1.4;
+  white-space: pre-wrap
+}
+
+.fakerow {
+  display: flex; gap: 34px;
+  margin-top: 10px; color: #6b7f8e;
+  font-size: 13px
+}
+
+[data-testid="caret"] {
+  position: absolute; top: 10px; right: 10px;
+  width: 30px; height: 30px;
+  border-radius: 50%; display: flex;
+  align-items: center; justify-content: center;
+  cursor: pointer; color: #6b7f8e
+}
+[data-testid="caret"]:hover {
+  background: rgba(29,155,240,0.1);
+  color: #1d9bf0
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+[role="menu"] {
+  position: fixed; min-width: 220px;
+  background: #16181c; border: 1px solid #2f3336;
+  border-radius: 12px; padding: 6px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  z-index: 99998
+}
+[role="menuitem"] {
+  padding: 10px 12px; border-radius: 8px;
+  cursor: pointer; font-size: 14px;
+  font-weight: 700
+}
+[role="menuitem"]:hover {background: rgba(255,255,255,0.08)}
+
+.fakesheetbackdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99998;
+  display: flex; align-items: flex-end;
+  justify-content: center
+}
+[data-testid="confirmationSheetDialog"] {
+  width: 100%; max-width: 500px;
+  background: #16181c; border-radius: 16px 16px 0 0;
+  padding: 20px; text-align: center
+}
+[data-testid="confirmationSheetConfirm"] {
+  width: 100%; margin-top: 14px;
+  background: #f4212e; color: #fff;
+  border: none; border-radius: 999px;
+  padding: 12px; font-weight: 700;
+  font-size: 15px; cursor: pointer
+}
+.fakesheetcancel {
+  width: 100%; margin-top: 10px;
+  background: transparent; color: #e5eaec;
+  border: 1px solid #536471; border-radius: 999px;
+  padding: 12px; font-weight: 700;
+  font-size: 15px; cursor: pointer
+}
