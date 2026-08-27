@@ -10,6 +10,7 @@
 }
 
 * {box-sizing: border-box; font-family: "Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+img {-webkit-user-drag: none; user-drag: none}
 
 .tumroot {
   position: absolute; inset: 0;
@@ -123,17 +124,16 @@
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* member rows (folders) and loose chips (unsorted) share the same two-row text layout as
-   the drag chip - same avatar size throughout, just wrapped onto two lines so the handle
-   actually has room to breathe instead of getting crushed onto one line with the name */
+/* member rows (folders) and loose chips (unsorted) both use a two-row text layout so the
+   handle has room to breathe instead of getting crushed onto one line with the name */
 
 .tumfoldermember, .tumloosechip {
   display: flex; align-items: center;
-  gap: 8px; padding: 5px 6px;
-  border-radius: 8px; cursor: grab
+  gap: 8px; cursor: grab
 }
+.tumfoldermember {padding: 5px 6px; border-radius: 8px}
 .tumfoldermember:hover {background: rgba(255,255,255,0.06)}
-.tumfoldermemberavatar, .tumloosechipavatar {
+.tumfoldermemberavatar {
   width: 24px; height: 24px;
   border-radius: 50%; object-fit: cover;
   flex-shrink: 0; background: #2f3336
@@ -146,12 +146,12 @@
   display: flex; align-items: center; gap: 4px;
   min-width: 0
 }
-.tumfoldermembername, .tumloosechipname {
+.tumfoldermembername {
   color: #e7e9ea; font-weight: 700;
   font-size: 12px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis
 }
-.tumfoldermemberhandle, .tumloosechiphandle {
+.tumfoldermemberhandle {
   color: #71767b; font-size: 11px;
   white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis
@@ -182,14 +182,30 @@
   stroke-width: 2.2
 }
 
+/* deliberately identical to .tumchip (same avatar size, padding, font sizes) - a user
+   shouldn't visually change between being held and being released */
 .tumloosechip {
   position: absolute;
   transform: translate(-50%,-50%);
-  width: 190px; padding: 8px;
-  background: #16181c; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
+  padding: 8px 18px 8px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(128,136,142,0.35);
   pointer-events: auto;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.4)
+  --tumfg: #e7e9ea
+}
+.tumloosechipavatar {
+  width: 40px; height: 40px;
+  border-radius: 50%; object-fit: cover;
+  flex-shrink: 0; background: #2f3336
+}
+.tumloosechipname {
+  color: var(--tumfg); font-size: 14px;
+  font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis
+}
+.tumloosechiphandle {
+  color: var(--tumfg); opacity: .6;
+  font-size: 13px; white-space: nowrap
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
@@ -373,6 +389,48 @@
 .tumreasonsource {
   display: block; color: #1d9bf0;
   font-size: 13px; margin-bottom: 12px
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+/* matches x.com's own confirmation dialog (e.g. "Delete post?") pixel for pixel: solid
+   black card, centered, red filled confirm pill, black+bordered cancel pill underneath */
+
+.tumconfirmsheet {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  opacity: 0; visibility: hidden;
+  pointer-events: none; z-index: 5
+}
+.tumconfirmsheet.tumshow {
+  opacity: 1; visibility: visible;
+  pointer-events: auto
+}
+.tumconfirmcard {
+  width: 300px; background: #000;
+  border: 1px solid #2f3336; border-radius: 16px;
+  padding: 20px; text-align: center
+}
+.tumconfirmtitle {
+  color: #e7e9ea; font-weight: 800;
+  font-size: 17px; margin-bottom: 6px
+}
+.tumconfirmbody {
+  color: #71767b; font-size: 14px;
+  line-height: 1.4; margin-bottom: 16px
+}
+.tumconfirmok {
+  width: 100%; background: #f4212e;
+  color: #fff; border: none;
+  border-radius: 999px; padding: 12px;
+  font-weight: 700; font-size: 15px;
+  cursor: pointer
+}
+.tumconfirmcancel {
+  width: 100%; margin-top: 10px;
+  background: #000; color: #e7e9ea;
+  border: 1px solid #536471; border-radius: 999px;
+  padding: 12px; font-weight: 700;
+  font-size: 15px; cursor: pointer
 }
 
 /*//////////////////////////////////////////////////////////////////////*/

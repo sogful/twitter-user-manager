@@ -1,44 +1,6 @@
 (function () {
   "use strict";
 
-  // fake handles paired with text sampled/genericized from a real x.com home timeline, so
-  // proportions and wrapping match reality without using anyone's actual account
-  const USERS = [
-    {handle: "soggycat", name: "soggy cat"},
-    {handle: "glassrunner", name: "glass runner"},
-    {handle: "coldbrewfan", name: "cold brew fan", verified: true},
-    {handle: "nightbus", name: "night bus"},
-    {handle: "papertowns", name: "paper towns"},
-    {handle: "quietstorm", name: "quiet storm", verified: true},
-    {handle: "driftwood_", name: "driftwood"},
-    {handle: "saltmoth", name: "salt moth"},
-    {handle: "tinshelf", name: "tin shelf", verified: true},
-    {handle: "duskbicycle", name: "dusk bicycle"},
-    {handle: "greywren", name: "grey wren"},
-    {handle: "paperlanes", name: "paper lanes"},
-    {handle: "nofilterfog", name: "no filter fog"},
-    {handle: "coldmail", name: "cold mail"}
-  ];
-
-  const TEXTS = [
-    "just shipped a thing, feels good",
-    "how it feels posting with 0 followers",
-    "does anyone else's brain just stop working after 6pm",
-    "hot take: cereal is a soup",
-    "3 days into the new keyboard, no regrets",
-    "why is everything a subscription now",
-    "finally finished the book, 10/10",
-    "rain sounds > lofi playlists, fight me",
-    "the most beautiful station in the southern hemisphere",
-    "more updates coming soon!",
-    "system requirements: OS Windows 10 (64-bit), CPU Intel 12th gen, RAM 16GB, GPU RTX 4060",
-    "I made a fully working cobblestone generator in #deadlock",
-    "replying to this because it's true",
-    "my culture ❤️",
-    "ok but can I make one too",
-    "no notes, 10/10"
-  ];
-
   const ICONS = {
     reply: '<svg viewBox="0 0 24 24"><path d="M21 12c0 4.4-4 8-9 8-1.4 0-2.7-.3-3.9-.8L3 20l1-4.5C3.4 14.2 3 13.1 3 12c0-4.4 4-8 9-8s9 3.6 9 8z"/></svg>',
     retweet: '<svg viewBox="0 0 24 24"><path d="M6 5.5h9.5a3 3 0 0 1 3 3V13M18 18.5H8.5a3 3 0 0 1-3-3V11"/><path d="M9 2.5 6 5.5l3 3M15 21.5l3-3-3-3"/></svg>',
@@ -108,7 +70,7 @@
     backdrop.innerHTML = `
       <div data-testid="confirmationSheetDialog">
         <div style="font-weight:800;font-size:17px">block @${user.handle}?</div>
-        <div style="color:#6b7f8e;margin-top:6px;font-size:14px">they won't be able to follow or message you.</div>
+        <div style="color:#71767b;margin-top:6px;font-size:14px">they won't be able to follow or message you.</div>
         <button data-testid="confirmationSheetConfirm">block</button>
         <button class="fakesheetcancel">cancel</button>
       </div>
@@ -150,7 +112,7 @@
     return article;
   }
 
-  function build() {
+  function build(USERS, TEXTS) {
     const timeline = document.querySelector(".faketimeline");
     if (!timeline) return;
     let sid = 1000000, nexttext = USERS.length; // texts past one-per-user are reserved for replies
@@ -164,5 +126,8 @@
     });
   }
 
-  build();
+  fetch("configs/testline.json")
+    .then(r => r.json())
+    .then(data => build(data.users, data.texts))
+    .catch(e => console.error("[faketwitter] couldn't load configs/testline.json:", e));
 })();

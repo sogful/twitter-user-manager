@@ -20,7 +20,7 @@
   let els = {};
   // state.drag describes whatever is currently being carried around: {kind:"user"|"folder",
   // user, source: {type:"page"} | {type:"folder", id} | {type:"unsorted"}, folderid}
-  let state = {drag: null, open: false, modalopen: false, reasonopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit"};
+  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -142,6 +142,14 @@
           </div>
         </div>
       </div>
+      <div class="tumconfirmsheet">
+        <div class="tumconfirmcard">
+          <div class="tumconfirmtitle"></div>
+          <div class="tumconfirmbody"></div>
+          <button class="tumconfirmok">delete</button>
+          <button class="tumconfirmcancel">cancel</button>
+        </div>
+      </div>
       <div class="tumtoast"></div>
     `;
     shadow.appendChild(root);
@@ -174,6 +182,11 @@
       reasonform: root.querySelector(".tumreasonform"),
       reasoninput: root.querySelector(".tumreasoninput"),
       reasonsave: root.querySelector(".tumreasonsave"),
+      confirmsheet: root.querySelector(".tumconfirmsheet"),
+      confirmtitle: root.querySelector(".tumconfirmtitle"),
+      confirmbody: root.querySelector(".tumconfirmbody"),
+      confirmok: root.querySelector(".tumconfirmok"),
+      confirmcancel: root.querySelector(".tumconfirmcancel"),
       toast: root.querySelector(".tumtoast")
     };
 
@@ -192,6 +205,11 @@
     els.reasonclose.addEventListener("click", closereasonmodal);
     els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
     els.reasonsave.addEventListener("click", savereason);
+    els.confirmcancel.addEventListener("click", closeconfirmsheet);
+    els.confirmok.addEventListener("click", () => {
+      if (state.confirmtarget) tum.folders.remove(state.confirmtarget);
+      closeconfirmsheet();
+    });
 
     els.quickadd.addEventListener("click", () => {if (!state.drag) opencreatemodal()});
 
@@ -218,7 +236,7 @@
     root.classList.add("tumactive");
   }
   function hidebackdrop() {
-    if (state.drag || state.open || state.modalopen || state.reasonopen) return;
+    if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
     document.documentElement.style.overflow = scrollprev || "";
     document.body.style.overflow = "";
@@ -227,6 +245,7 @@
     state.open = false;
     closemodal();
     closereasonmodal();
+    closeconfirmsheet();
     hidebackdrop();
   }
 
@@ -275,7 +294,7 @@
     attachfolderdrag(node, f);
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
       e.stopPropagation();
-      tum.folders.remove(f.id);
+      confirmfolderdelete(f);
     });
     return node;
   }
@@ -312,6 +331,8 @@
     chip.dataset.handle = u.handle;
     chip.style.left = u.x + "%";
     chip.style.top = u.y + "%";
+    chip.style.background = tum.theme.css();
+    chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
       <img class="tumloosechipavatar" src="${u.avatarurl || ""}">
       <div class="tumloosechipinfo">
@@ -392,7 +413,10 @@
 
   function attachmemberdrag(row, source, m) {
     row.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumcopy, .tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge")) return;
+      // the remove/reason buttons stay click-only (no threshold), but everything else -
+      // including the copyable name/handle text - can start a drag once it moves enough,
+      // same threshold pattern as the click-vs-drag split everywhere else in this file
+      if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge")) return;
       const startx = e.clientX, starty = e.clientY;
       let tracking = true, dragging = false;
       const move = ev => {
@@ -409,7 +433,11 @@
         tracking = false;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
-        if (dragging) enddrag(ev.clientX, ev.clientY);
+        if (dragging) {
+          enddrag(ev.clientX, ev.clientY);
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
@@ -418,9 +446,17 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  // while a live tweet's user is held, dim the actual on-page avatar/name/handle/time as if
+  // that data had really been lifted out - restored the moment the drag ends, one way or another
+  function dimsource(targets, on) {
+    if (!targets) return;
+    for (const t of targets) if (t) t.style.opacity = on ? "0.25" : "";
+  }
+
   function begindrag(user, x, y, source) {
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
+    dimsource(user.dimtargets, true);
     els.chipavatar.src = user.avatarurl || "";
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
     els.chipname.textContent = user.displayname || user.handle;
@@ -491,6 +527,7 @@
     const zone = quickzone(x, y);
     root.classList.remove("tumdragging");
     state.drag = null;
+    dimsource(user.dimtargets, false);
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
     els.quickadd.classList.remove("tumover");
     els.quickdiscard.classList.remove("tumover");
@@ -498,7 +535,7 @@
 
     if (target && target.zone === "remove") {
       const folder = tum.folders.get(target.id);
-      if (folder) tum.folders.remove(target.id);
+      if (folder) confirmfolderdelete(folder);
     } else if (target && target.zone === "body") {
       // moving between/into folders doesn't re-trigger follow/mute/block - that only happens
       // once, on the original live drag off a real tweet
@@ -538,6 +575,7 @@
   }
 
   function canceldrag() {
+    if (state.drag) dimsource(state.drag.user.dimtargets, false);
     root.classList.remove("tumdragging");
     state.drag = null;
     hidebackdrop();
@@ -663,6 +701,28 @@
     closereasonmodal();
     state.open = true;
     render();
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+  // styled after x.com's own "Delete post?" confirmation dialog - only asked for the actually
+  // destructive case (a folder that isn't basically empty already)
+
+  function confirmfolderdelete(folder) {
+    const members = Array.isArray(folder.members) ? folder.members : [];
+    if (members.length <= 1) {tum.folders.remove(folder.id); return}
+    state.confirmopen = true;
+    state.confirmtarget = folder.id;
+    els.confirmtitle.textContent = "Delete " + folder.name + "?";
+    els.confirmbody.textContent = `This removes the folder and its ${members.length} people - it can't be undone.`;
+    showbackdrop();
+    els.confirmsheet.classList.add("tumshow");
+  }
+
+  function closeconfirmsheet() {
+    els.confirmsheet.classList.remove("tumshow");
+    state.confirmopen = false;
+    state.confirmtarget = null;
+    hidebackdrop();
   }
 
   /*//////////////////////////////////////////////////////////////////////*/

@@ -20,7 +20,7 @@
 
   function extractuser(article) {
     const namebox = article.querySelector('[data-testid="User-Name"]');
-    let handle = null, displayname = null, badges = [];
+    let handle = null, displayname = null, badges = [], namelink = null, handlelink = null;
     if (namebox) {
       const links = namebox.querySelectorAll('a[role="link"][href^="/"]');
       for (const a of links) {
@@ -33,27 +33,28 @@
       // the display-name link (always first) carries the nickname text plus any verified/
       // automated/etc badges as inline img/svg siblings of that text - clone them as-is so the
       // drag chip can show the exact same badges without guessing which ones apply
-      const namelink = links[0];
+      namelink = links[0];
+      handlelink = links[1];
       if (namelink) {
         displayname = namelink.textContent || null;
         badges = [...namelink.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
       }
     }
-    const avatarimg = article.querySelector('[data-testid="Tweet-User-Avatar"] img, [data-testid^="UserAvatar-Container-"] img');
+    const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
+    const avatarimg = avatarcontainer && avatarcontainer.querySelector("img");
     const avatarurl = avatarimg ? avatarimg.src : null;
-    if (!handle) {
-      const anyavatarlink = article.querySelector('[data-testid^="UserAvatar-Container-"]');
-      if (anyavatarlink) {
-        const m = /UserAvatar-Container-(.+)$/.exec(anyavatarlink.getAttribute("data-testid") || "");
-        if (m) handle = m[1];
-      }
+    if (!handle && avatarcontainer) {
+      const m = /UserAvatar-Container-(.+)$/.exec(avatarcontainer.getAttribute("data-testid") || "");
+      if (m) handle = m[1];
     }
     if (!handle) return null;
     // the tweet permalink, if this drag actually came from a tweet card - a profile header or
     // bio isn't wrapped in one, so there's nothing to attach in that case, which is intentional
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
-    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, article, source: "live"};
+    // as if the info had actually been lifted off the page - dimmed while held, restored on release
+    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink].filter(Boolean);
+    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets, article, source: "live"};
   }
 
   let tracking = null; // {startx, starty, user, dragging}

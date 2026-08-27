@@ -1,0 +1,36 @@
+{
+  "users": [
+    {"handle": "soggycat", "name": "soggy cat"},
+    {"handle": "glassrunner", "name": "glass runner"},
+    {"handle": "coldbrewfan", "name": "cold brew fan", "verified": true},
+    {"handle": "nightbus", "name": "night bus"},
+    {"handle": "papertowns", "name": "paper towns"},
+    {"handle": "quietstorm", "name": "quiet storm", "verified": true},
+    {"handle": "driftwood_", "name": "driftwood"},
+    {"handle": "saltmoth", "name": "salt moth"},
+    {"handle": "tinshelf", "name": "tin shelf", "verified": true},
+    {"handle": "duskbicycle", "name": "dusk bicycle"},
+    {"handle": "greywren", "name": "grey wren"},
+    {"handle": "paperlanes", "name": "paper lanes"},
+    {"handle": "nofilterfog", "name": "no filter fog"},
+    {"handle": "coldmail", "name": "cold mail"}
+  ],
+  "texts": [
+    "just shipped a thing, feels good",
+    "how it feels posting with 0 followers",
+    "does anyone else's brain just stop working after 6pm",
+    "hot take: cereal is a soup",
+    "3 days into the new keyboard, no regrets",
+    "why is everything a subscription now",
+    "finally finished the book, 10/10",
+    "rain sounds > lofi playlists, fight me",
+    "the most beautiful station in the southern hemisphere",
+    "more updates coming soon!",
+    "system requirements: OS Windows 10 (64-bit), CPU Intel 12th gen, RAM 16GB, GPU RTX 4060",
+    "I made a fully working cobblestone generator in #deadlock",
+    "replying to this because it's true",
+    "my culture ❤️",
+    "ok but can I make one too",
+    "no notes, 10/10"
+  ]
+}

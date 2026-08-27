@@ -2,6 +2,7 @@
 @font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../fonts/chirpbold.woff2") format("woff2")}
 @font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../fonts/chirpheavy.woff2") format("woff2")}
 
+html {scrollbar-gutter: stable}
 html, body {margin: 0; height: 100%}
 * {box-sizing: border-box}
 
@@ -10,6 +11,18 @@ body {
   font: 15px "Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-font-smoothing: antialiased
 }
+
+/* twitter's own scrollbar: thin, rounded, faint gray thumb, no visible track.
+   scrollbar-gutter above keeps its reserved space constant so it never shifts layout,
+   which is as close to a true non-reflowing overlay scrollbar as CSS alone gets in chromium */
+::-webkit-scrollbar {width: 8px; height: 8px}
+::-webkit-scrollbar-track {background: transparent}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(113,118,123,0.4);
+  border-radius: 999px; border: 2px solid transparent;
+  background-clip: padding-box
+}
+* {scrollbar-width: thin; scrollbar-color: rgba(113,118,123,0.4) transparent}
 
 .faketimeline {
   max-width: 600px; margin: 0 auto;
@@ -101,20 +114,23 @@ article.fakereply {
 }
 [role="menuitem"]:hover {background: rgba(255,255,255,0.08)}
 
+/* matches the real x.com confirmation dialog (e.g. "Delete post?") - solid black card,
+   centered, red filled confirm pill, black+bordered cancel pill underneath */
 .fakesheetbackdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(91,112,131,0.4);
   z-index: 99998;
-  display: flex; align-items: flex-end;
+  display: flex; align-items: center;
   justify-content: center
 }
 [data-testid="confirmationSheetDialog"] {
-  width: 100%; max-width: 500px;
-  background: #16181c; border-radius: 16px 16px 0 0;
-  padding: 20px; text-align: center
+  width: 100%; max-width: 340px;
+  background: #000; border: 1px solid #2f3336;
+  border-radius: 16px; padding: 20px;
+  text-align: center
 }
 [data-testid="confirmationSheetConfirm"] {
-  width: 100%; margin-top: 14px;
+  width: 100%; margin-top: 16px;
   background: #f4212e; color: #fff;
   border: none; border-radius: 999px;
   padding: 12px; font-weight: 700;
@@ -122,7 +138,7 @@ article.fakereply {
 }
 .fakesheetcancel {
   width: 100%; margin-top: 10px;
-  background: transparent; color: #e5eaec;
+  background: #000; color: #e7e9ea;
   border: 1px solid #536471; border-radius: 999px;
   padding: 12px; font-weight: 700;
   font-size: 15px; cursor: pointer
