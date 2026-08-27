@@ -49,9 +49,7 @@
         id: uid(),
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : "follow",
-        color: partial.color || nextcolor(),
-        x: typeof partial.x === "number" ? partial.x : 50,
-        y: typeof partial.y === "number" ? partial.y : 50
+        color: partial.color || nextcolor()
       };
       list.push(folder);
       persist();

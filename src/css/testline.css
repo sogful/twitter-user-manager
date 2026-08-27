@@ -2,7 +2,7 @@ html, body {margin: 0; height: 100%}
 * {box-sizing: border-box}
 
 body {
-  background: #000; color: #e5eaec;
+  background: #000; color: #e7e9ea;
   font: 15px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-font-smoothing: antialiased
 }
@@ -19,7 +19,7 @@ body {
 
 .fakenote {
   max-width: 600px; margin: 0 auto;
-  padding: 10px 20px; color: #6b7f8e;
+  padding: 10px 20px; color: #71767b;
   font-size: 12px; line-height: 1.5
 }
 
@@ -30,18 +30,18 @@ body {
 }
 
 article {
-  display: flex; gap: 10px;
+  display: flex; gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid #2f3336;
   position: relative
 }
 article.fakereply {
-  padding-left: 46px;
+  padding-left: 50px;
   background: rgba(255,255,255,0.015)
 }
 
 .fakeavatar img {
-  width: 40px; height: 40px;
+  width: 48px; height: 48px;
   border-radius: 50%; display: block
 }
 
@@ -55,18 +55,28 @@ article.fakereply {
   color: inherit; text-decoration: none
 }
 .fakedisplayname {font-weight: 700}
-.fakehandle, .faketime {color: #6b7f8e}
+.fakehandle, .faketime {color: #71767b}
 .fakehandle::before {content: ""}
 
 .faketext {
-  margin-top: 2px; line-height: 1.4;
+  margin-top: 2px; line-height: 1.3125;
   white-space: pre-wrap
 }
 
 .fakerow {
-  display: flex; gap: 34px;
-  margin-top: 10px; color: #6b7f8e;
-  font-size: 13px
+  display: flex; justify-content: space-between;
+  max-width: 425px; margin-top: 12px;
+  color: #71767b
+}
+.fakeaction {
+  display: flex; align-items: center;
+  gap: 4px; font-size: 13px
+}
+.fakeaction svg {
+  width: 18px; height: 18px;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round;
+  stroke-linejoin: round
 }
 
 [data-testid="caret"] {
@@ -74,7 +84,11 @@ article.fakereply {
   width: 30px; height: 30px;
   border-radius: 50%; display: flex;
   align-items: center; justify-content: center;
-  cursor: pointer; color: #6b7f8e
+  cursor: pointer; color: #71767b
+}
+[data-testid="caret"] svg {
+  width: 18px; height: 18px;
+  fill: currentColor
 }
 [data-testid="caret"]:hover {
   background: rgba(29,155,240,0.1);

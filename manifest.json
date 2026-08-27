@@ -4,7 +4,7 @@
   "version": "0.1",
   "description": "TODO: write a real description",
   "author": "TODO",
-  "homepage_url": "TODO",
+  "homepage_url": "https://github.com/sogful/twitter-user-manager",
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
@@ -35,7 +35,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["css/overlay.css"],
+      "resources": ["src/css/overlay.css"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

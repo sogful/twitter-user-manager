@@ -8,14 +8,14 @@
     mute: '<svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .9-.4 1.8-1 2.5l-1 1.2c-.5.6 0 1.5.8 1.5h13.4c.8 0 1.3-.9.8-1.5l-1-1.2c-.6-.7-1-1.6-1-2.5V8a5 5 0 0 0-5-5z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg>',
     block: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
-    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>',
-    close: '<svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>',
-    gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>'
+    close: '<svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>'
   };
 
   let shadow = null, root = null;
   let els = {};
-  let state = {dragging: false, managing: false, user: null, overfolder: null, pendingcreate: null, editing: null};
+  // no separate "manage mode" - the dock only exists while a user is being dragged, and every
+  // folder action (create/remove) happens by releasing the dragged user onto the right spot in it
+  let state = {dragging: false, user: null, pendingcreate: null};
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -27,7 +27,7 @@
   function loadcss() {
     return new Promise(res => {
       let href = null;
-      try {href = chrome.runtime.getURL("css/overlay.css")} catch {}
+      try {href = chrome.runtime.getURL("src/css/overlay.css")} catch {}
       if (href) {
         fetch(href).then(r => r.text()).then(css => {
           shadow.appendChild(el("style", null, css));
@@ -36,7 +36,7 @@
       } else {
         const link = document.createElement("link");
         link.rel = "stylesheet";
-        link.href = "css/overlay.css";
+        link.href = "src/css/overlay.css";
         link.addEventListener("load", () => res(), {once: true});
         link.addEventListener("error", () => res(), {once: true});
         shadow.appendChild(link);
@@ -64,7 +64,6 @@
       <div class="tumbackdrop"></div>
       <div class="tumcanvas"></div>
       <div class="tumchip"><img class="tumchipavatar"><span class="tumchipname"></span></div>
-      <button class="tumfab" title="manage folders">${ICONS.gear}</button>
       <div class="tummodal">
         <div class="tummodalcard">
           <div class="tummodalhead">
@@ -77,10 +76,7 @@
             <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
           </div>
           <div class="tummodalcolors"></div>
-          <div class="tummodalfoot">
-            <button class="tummodaldelete">${ICONS.trash}<span>delete</span></button>
-            <button class="tummodalsave">save</button>
-          </div>
+          <button class="tummodalsave">create</button>
         </div>
       </div>
       <div class="tumtoast"></div>
@@ -93,13 +89,11 @@
       chip: root.querySelector(".tumchip"),
       chipavatar: root.querySelector(".tumchipavatar"),
       chipname: root.querySelector(".tumchipname"),
-      fab: root.querySelector(".tumfab"),
       modal: root.querySelector(".tummodal"),
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
       modalcolors: root.querySelector(".tummodalcolors"),
-      modaldelete: root.querySelector(".tummodaldelete"),
       modalsave: root.querySelector(".tummodalsave"),
       toast: root.querySelector(".tumtoast")
     };
@@ -112,11 +106,8 @@
       els.modalcolors.appendChild(sw);
     }
 
-    els.fab.addEventListener("click", () => state.managing ? closemanage() : openmanage());
-    els.backdrop.addEventListener("click", () => {if (state.managing) closemanage()});
     els.modalclose.addEventListener("click", closemodal);
     els.modalsave.addEventListener("click", savemodal);
-    els.modaldelete.addEventListener("click", deletemodal);
     for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action));
 
     tum.folders.subscribe(renderfolders);
@@ -126,7 +117,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function showbackdrop() {root.classList.add("tumactive")}
-  function hidebackdrop() {if (!state.managing && !state.dragging && !state.modalopen) root.classList.remove("tumactive")}
+  function hidebackdrop() {if (!state.dragging && !state.modalopen) root.classList.remove("tumactive")}
 
   function renderfolders() {
     if (!els.canvas) return;
@@ -134,25 +125,19 @@
     els.canvas.innerHTML = "";
     for (const f of folders) els.canvas.appendChild(buildfoldernode(f));
     const add = el("div", "tumfolder tumaddfolder");
-    add.innerHTML = ICONS.plus;
-    add.style.left = "50%";
-    add.style.top = "88%";
-    add.addEventListener("click", e => {e.stopPropagation(); if (state.managing) opencreatemodal(50, 88)});
+    add.innerHTML = `<div class="tumfoldericon">${ICONS.plus}</div>`;
     els.canvas.appendChild(add);
   }
 
   function buildfoldernode(f) {
     const node = el("div", "tumfolder");
-    node.style.left = f.x + "%";
-    node.style.top = f.y + "%";
     node.style.setProperty("--tumcolor", f.color);
     node.dataset.id = f.id;
-    node.innerHTML = `<div class="tumfoldericon">${ICONS[f.action] || ICONS.follow}</div><div class="tumfolderlabel">${escapehtml(f.name)}</div>`;
-    if (state.managing) attachreposition(node, f);
-    node.addEventListener("click", e => {
-      e.stopPropagation();
-      if (state.managing) openeditmodal(f);
-    });
+    node.innerHTML = `
+      <div class="tumfoldericon">${ICONS[f.action] || ICONS.follow}</div>
+      <div class="tumfolderremove">${ICONS.close}</div>
+      <div class="tumfolderlabel">${escapehtml(f.name)}</div>
+    `;
     return node;
   }
 
@@ -160,52 +145,6 @@
     const d = document.createElement("div");
     d.textContent = s;
     return d.innerHTML;
-  }
-
-  function attachreposition(node, f) {
-    let moved = false;
-    node.addEventListener("pointerdown", e => {
-      e.stopPropagation();
-      const rect = els.canvas.getBoundingClientRect();
-      moved = false;
-      const move = ev => {
-        moved = true;
-        const x = clamp((ev.clientX - rect.left) / rect.width * 100, 3, 97);
-        const y = clamp((ev.clientY - rect.top) / rect.height * 100, 3, 97);
-        node.style.left = x + "%";
-        node.style.top = y + "%";
-      };
-      const up = ev => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        if (moved) {
-          const rect2 = els.canvas.getBoundingClientRect();
-          const x = clamp((ev.clientX - rect2.left) / rect2.width * 100, 3, 97);
-          const y = clamp((ev.clientY - rect2.top) / rect2.height * 100, 3, 97);
-          tum.folders.update(f.id, {x, y});
-        }
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
-    });
-  }
-
-  function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  function openmanage() {
-    state.managing = true;
-    root.classList.add("tummanaging");
-    showbackdrop();
-    renderfolders();
-  }
-  function closemanage() {
-    state.managing = false;
-    root.classList.remove("tummanaging");
-    closemodal();
-    hidebackdrop();
-    renderfolders();
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -227,11 +166,16 @@
     els.chip.style.top = y + "px";
   }
 
-  function folderunderpoint(x, y) {
+  // a folder node has two drop zones: the small "remove" badge in its corner, and the rest
+  // of the node (its body, which runs the folder's action)
+  function foldertargetunderpoint(x, y) {
     const nodes = els.canvas.querySelectorAll(".tumfolder:not(.tumaddfolder)");
     for (const n of nodes) {
+      const badge = n.querySelector(".tumfolderremove");
+      const br = badge.getBoundingClientRect();
+      if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) return {id: n.dataset.id, zone: "remove"};
       const r = n.getBoundingClientRect();
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return n.dataset.id;
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return {id: n.dataset.id, zone: "body"};
     }
     return null;
   }
@@ -246,35 +190,42 @@
   function updatedrag(x, y) {
     if (!state.dragging) return;
     movechip(x, y);
-    const id = folderunderpoint(x, y);
-    for (const n of els.canvas.querySelectorAll(".tumfolder")) n.classList.toggle("tumover", n.dataset.id === id);
+    const target = foldertargetunderpoint(x, y);
+    for (const n of els.canvas.querySelectorAll(".tumfolder:not(.tumaddfolder)")) {
+      n.classList.toggle("tumover", !!target && target.zone === "body" && n.dataset.id === target.id);
+      n.classList.toggle("tumoverremove", !!target && target.zone === "remove" && n.dataset.id === target.id);
+    }
     const add = els.canvas.querySelector(".tumaddfolder");
     if (add) add.classList.toggle("tumover", addzoneunderpoint(x, y));
-    state.overfolder = id;
   }
 
-  async function enddrag(x, y) {
+  function enddrag(x, y) {
     if (!state.dragging) return;
     const user = state.user;
-    const id = state.overfolder;
+    const target = foldertargetunderpoint(x, y);
     const overadd = addzoneunderpoint(x, y);
     root.classList.remove("tumdragging");
     state.dragging = false;
-    state.overfolder = null;
-    for (const n of els.canvas.querySelectorAll(".tumfolder")) n.classList.remove("tumover");
+    for (const n of els.canvas.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
 
-    if (id) {
-      const folder = tum.folders.get(id);
+    if (target && target.zone === "remove") {
+      const folder = tum.folders.get(target.id);
+      if (folder) {
+        tum.folders.remove(target.id);
+        toast("removed " + folder.name);
+      }
+    } else if (target && target.zone === "body") {
+      const folder = tum.folders.get(target.id);
       if (folder) {
         toast("dropped @" + user.handle + " on " + folder.name);
         tum.actions.run(folder.action, user);
       }
     } else if (overadd) {
       state.pendingcreate = user;
-      opencreatemodal(50, 88);
       state.user = null;
       hidebackdrop();
       renderfolders();
+      opencreatemodal();
       return;
     }
     state.user = null;
@@ -286,7 +237,6 @@
     root.classList.remove("tumdragging");
     state.dragging = false;
     state.user = null;
-    state.overfolder = null;
     hidebackdrop();
   }
 
@@ -303,57 +253,30 @@
     for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
   }
 
-  function opencreatemodal(x, y) {
-    state.editing = null;
+  function opencreatemodal() {
     state.modalopen = true;
     els.modalname.value = "";
-    els.modaldelete.style.display = "none";
     selectaction("follow");
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
     showbackdrop();
     els.modal.classList.add("tumshow");
     els.modalname.focus();
-    els.modal.dataset.x = x;
-    els.modal.dataset.y = y;
-  }
-
-  function openeditmodal(f) {
-    state.editing = f.id;
-    state.modalopen = true;
-    els.modalname.value = f.name;
-    els.modaldelete.style.display = "";
-    selectaction(f.action);
-    selectcolor(f.color);
-    showbackdrop();
-    els.modal.classList.add("tumshow");
   }
 
   function closemodal() {
     els.modal.classList.remove("tumshow");
     state.pendingcreate = null;
-    state.editing = null;
     state.modalopen = false;
     hidebackdrop();
   }
 
   function savemodal() {
     const name = (els.modalname.value || "").trim() || "unnamed";
-    if (state.editing) {
-      tum.folders.update(state.editing, {name, action: modalaction, color: modalcolor});
-    } else {
-      const x = parseFloat(els.modal.dataset.x) || 50;
-      const y = parseFloat(els.modal.dataset.y) || 50;
-      const folder = tum.folders.create({name, action: modalaction, color: modalcolor, x, y});
-      if (state.pendingcreate) {
-        toast("dropped @" + state.pendingcreate.handle + " on " + folder.name);
-        tum.actions.run(folder.action, state.pendingcreate);
-      }
+    const folder = tum.folders.create({name, action: modalaction, color: modalcolor});
+    if (state.pendingcreate) {
+      toast("dropped @" + state.pendingcreate.handle + " on " + folder.name);
+      tum.actions.run(folder.action, state.pendingcreate);
     }
-    closemodal();
-  }
-
-  function deletemodal() {
-    if (state.editing) tum.folders.remove(state.editing);
     closemodal();
   }
 

@@ -4,8 +4,19 @@
   window.tum = window.tum || {};
 
   const THRESHOLD = 6;
-  const HANDLESEL = '[data-testid="User-Name"], [data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]';
+  const AVATARSEL = '[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]';
   const ARTICLESEL = 'article[data-testid="tweet"], article[role="article"]';
+
+  // only the nickname (display name) and the avatar should start a drag - not the @handle text,
+  // which sits in its own link right next to it inside the same User-Name block
+  function isdraghandle(target) {
+    if (target.closest(AVATARSEL)) return true;
+    const namebox = target.closest('[data-testid="User-Name"]');
+    if (!namebox) return false;
+    const link = target.closest('a[role="link"]');
+    if (!link) return false;
+    return !(link.textContent || "").trim().startsWith("@");
+  }
 
   function extractuser(article) {
     const namebox = article.querySelector('[data-testid="User-Name"]');
@@ -39,8 +50,7 @@
 
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
-    const handle = e.target.closest(HANDLESEL);
-    if (!handle) return;
+    if (!isdraghandle(e.target)) return;
     const article = e.target.closest(ARTICLESEL);
     if (!article) return;
     const user = extractuser(article);
@@ -79,8 +89,16 @@
     tracking = null;
   }
 
+  function ondragstart(e) {
+    // the avatar img and the name/handle links are natively draggable by the browser,
+    // which hijacks the gesture into an HTML5 drag before our pointermove threshold ever
+    // fires - kill it on our handles so the custom pointer-based drag can take over
+    if (isdraghandle(e.target)) e.preventDefault();
+  }
+
   window.tum.dragdetect = {
     init() {
+      document.addEventListener("dragstart", ondragstart, true);
       document.addEventListener("pointerdown", onpointerdown, true);
       document.addEventListener("pointermove", onpointermove, true);
       document.addEventListener("pointerup", onpointerup, true);

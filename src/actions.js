@@ -6,15 +6,15 @@
   const LOG = true;
   const log = (...a) => {if (LOG) try {console.log("%c[tum]", "color:#1d9bf0;font-weight:700", ...a)} catch {}};
 
-  // TODO: verify these against a live x.com session, twitter reshuffles data-testids often.
-  // menu items are matched by visible text since that's the most stable thing across app versions.
+  // verified live against x.com: follow/block items read "follow @handle" / "block @handle",
+  // but mute reads just "mute" with no handle - matching on a trailing "@" would silently miss it.
   const MENUTEXT = {
-    follow: /^follow @/i,
-    unfollow: /^unfollow @/i,
-    mute: /^mute @/i,
-    unmute: /^unmute @/i,
-    block: /^block @/i,
-    unblock: /^unblock @/i
+    follow: /^follow(\s|$)/i,
+    unfollow: /^unfollow(\s|$)/i,
+    mute: /^mute(\s|$)/i,
+    unmute: /^unmute(\s|$)/i,
+    block: /^block(\s|$)/i,
+    unblock: /^unblock(\s|$)/i
   };
 
   function waitfor(check, timeout) {
