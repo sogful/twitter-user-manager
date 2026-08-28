@@ -32,6 +32,7 @@
         "src/js/page/dragdetect.js",
         "src/js/ui/overlay.js",
         "src/js/page/badges.js",
+        "src/js/page/suggest.js",
         "src/js/main.js"
       ],
       "run_at": "document_idle"

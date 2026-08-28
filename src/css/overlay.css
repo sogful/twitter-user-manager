@@ -123,6 +123,11 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-linejoin: round
 }
 
+.tumgridlayer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-repeat: repeat
+}
 .tumfreeform {
   position: absolute; inset: 0
 }
@@ -158,6 +163,22 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldertitle {
   display: flex; align-items: center;
   gap: 6px; min-width: 0
+}
+.tumfoldertitlelines {
+  display: flex; flex-direction: column;
+  gap: 1px; min-width: 0
+}
+.tumfolderauto {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--tumheaderfg, #fff); opacity: .85;
+  font-size: 11px; font-weight: 400;
+  white-space: nowrap
+}
+.tumfolderautoicon svg {
+  width: 11px; height: 11px;
+  fill: none; stroke: var(--tumheaderfg, #fff);
+  stroke-width: 2.2; stroke-linecap: round;
+  stroke-linejoin: round; display: block
 }
 .tumfolderactionicon svg {
   width: 15px; height: 15px;

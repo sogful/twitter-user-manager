@@ -154,11 +154,16 @@
       dot.dataset.folder = entry.id;
       dot.style.cssText = "position:absolute;bottom:-1px;right:-1px;width:17px;height:17px;border-radius:50%;z-index:2;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid " + pagebg;
       filldot(dot, entry, pagebg);
+      // the dot sits inside a profile-link avatar; stop the press from reaching twitter's own
+      // navigation (capture-phase, but only stopPropagation - preventDefault on pointerdown would
+      // also kill the click that follows), then open the folder on the click itself
+      const stop = e => e.stopPropagation();
+      for (const ev of ["pointerdown", "pointerup", "mousedown", "mouseup"]) dot.addEventListener(ev, stop, true);
       dot.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
         tum.overlay.openandflash(dot.dataset.folder);
-      });
+      }, true);
       av.appendChild(dot);
     }
   }
@@ -169,11 +174,12 @@
     scanavatars();
   }
 
-  let scheduled = false;
+  // setTimeout rather than requestAnimationFrame: rAF is throttled/paused when the tab isn't
+  // focused, which would leave note pencils and folder dots missing until you interacted
+  let scheduled = 0;
   function schedulescan() {
     if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {scheduled = false; scan()});
+    scheduled = setTimeout(() => {scheduled = 0; scan()}, 100);
   }
 
   window.tum.badges = {

@@ -126,7 +126,20 @@
   // the freeform is an infinite canvas - folders/loose people live in an unbounded space that
   // this offset pans around, so nothing is clamped to the screen edge anymore. session-only
   let pan = {x: 0, y: 0};
-  function applypan() {if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`}
+  function applypan() {
+    if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
+    // scroll the grid pattern along with the content so the "screen chunks" stay pinned to it
+    if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+  }
+  // a faint dashed grid where each cell is exactly one viewport - a subtle hint that the canvas
+  // extends past the screen edges. purely decorative, tied to the real window size so it lines up
+  function updategrid() {
+    if (!els.gridlayer) return;
+    const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.1)";
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><path d='M${w - 0.5} 0V${h}M0 ${h - 0.5}H${w}' fill='none' stroke='${line}' stroke-width='1' stroke-dasharray='7 7'/></svg>`;
+    els.gridlayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }
+  window.addEventListener("resize", updategrid);
 
   // drag empty canvas (left or middle button) to pan the whole board around; a plain left click
   // that never moved still closes the overlay, same as tapping the old backdrop did
@@ -181,6 +194,7 @@
     root.innerHTML = `
       <div class="tumbackdrop"></div>
       <div class="tumcanvas">
+        <div class="tumgridlayer"></div>
         <label class="tumkeepopen" title="keep the overlay open after filing someone into a folder">
           <input type="checkbox" class="tumkeepopencb">
           <span class="tumkeepopenbox">${ICONS.check}</span>
@@ -259,6 +273,7 @@
     els = {
       backdrop: root.querySelector(".tumbackdrop"),
       canvas: root.querySelector(".tumcanvas"),
+      gridlayer: root.querySelector(".tumgridlayer"),
       freeform: root.querySelector(".tumfreeform"),
       quickadd: root.querySelector(".tumquickadd"),
       quickdiscard: root.querySelector(".tumquickdiscard"),
@@ -346,6 +361,7 @@
     Promise.all([tum.folders.ready, tum.unsorted.ready]).then(render);
 
     applytheme();
+    updategrid();
     pinhost();
   }
 
@@ -440,7 +456,10 @@
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
           <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
-          <span class="tumfoldername">${escapehtml(f.name)}</span>
+          <div class="tumfoldertitlelines">
+            <span class="tumfoldername">${escapehtml(f.name)}</span>
+            ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>auto${f.action}</span>` : ""}
+          </div>
         </div>
         <div class="tumfolderheadbtns">
           <span class="tumfoldercount">${members.length}</span>
