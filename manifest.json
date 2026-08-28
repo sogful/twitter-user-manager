@@ -25,11 +25,13 @@
       "js": [
         "src/storage.js",
         "src/theme.js",
+        "src/iconpicker.js",
         "src/folders.js",
         "src/unsorted.js",
         "src/actions.js",
         "src/dragdetect.js",
         "src/overlay.js",
+        "src/badges.js",
         "src/main.js"
       ],
       "run_at": "document_idle"
@@ -37,7 +39,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "fonts/*.woff2"],
+      "resources": ["src/css/overlay.css", "fonts/*.woff2", "configs/icons.json"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

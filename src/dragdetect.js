@@ -14,8 +14,11 @@
   // this scopes to the header's own avatar-photo link and its one <h2>
   const PROFILEAVATARSEL = 'a[href$="/photo"]';
 
+  // the big nickname is plain text on a profile page (nowhere to navigate to from your own
+  // page), and dragging it would fight with just wanting to select/copy it normally - only the
+  // photo starts a drag here, same as the avatar is the drag handle everywhere else
   function inprofileheader(target) {
-    return !!(target.closest(PROFILEAVATARSEL) || target.closest("main h2"));
+    return !!target.closest(PROFILEAVATARSEL);
   }
 
   // only the nickname (display name) and the avatar should start a drag - not the @handle text,
@@ -52,6 +55,23 @@
     return null;
   }
 
+  // twitter doesn't tag the sticky-header name or the @handle line under the big heading with
+  // any stable testid, so find them by exact text match instead of guessing a class name -
+  // only leaf nodes (no children) so a match can't accidentally swallow the bio text next to it
+  function findprofilenametargets(heading, handle) {
+    const targets = [heading];
+    const name = (heading.textContent || "").trim();
+    const scope = document.querySelector("main");
+    if (!scope) return targets;
+    for (const node of scope.querySelectorAll("div, span")) {
+      if (node === heading || node.children.length) continue;
+      const t = (node.textContent || "").trim();
+      if (!t) continue;
+      if (t === name || t === "@" + handle) targets.push(node);
+    }
+    return targets;
+  }
+
   function extractprofileheaderuser() {
     const m = /^\/([A-Za-z0-9_]+)\/?$/.exec(location.pathname);
     if (!m || SKIPPATH.test(location.pathname)) return null;
@@ -63,8 +83,9 @@
     const displayname = heading.textContent || handle;
     const badges = [...heading.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
     // no specific tweet to attach and nothing to dim to a percent besides the header itself -
-    // "or none if directly from profile" is intentional, not a gap
-    const dimtargets = [avatarlink, heading].filter(Boolean);
+    // "or none if directly from profile" is intentional, not a gap. covers the sticky-header
+    // duplicate of the name too, not just the big one, so nothing readable is left behind
+    const dimtargets = [avatarlink, ...findprofilenametargets(heading, handle)].filter(Boolean);
     return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
   }
 

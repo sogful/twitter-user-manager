@@ -49,7 +49,8 @@
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : null,
         color: partial.color || nextcolor(),
-        icon: (partial.icon || "").slice(0, 4),
+        // an id into the icon picker's manifest now, not a raw emoji character - needs more room
+        icon: (partial.icon || "").slice(0, 64),
         sort: "added",
         collapsed: false,
         x: typeof partial.x === "number" ? partial.x : 30 + (createcount % 6) * 8,

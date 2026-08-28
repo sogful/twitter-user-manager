@@ -15,15 +15,6 @@
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>'
   };
-  // curated, not exhaustive - just enough spread to be useful for a folder icon
-  const EMOJIPICK = [
-    "😀","😂","😍","😎","🥳","😭","😡","🤔","😴","🤯","🥺","😏","👻","💀","🤖","👽",
-    "❤️","💔","🔥","⭐","✨","💯","⚡","🎯","🎉","🏆","💎","🎵","📌","🔖","🚩","🏳️",
-    "👀","👍","👎","🙌","🤝","💪","🙏","✌️","👑","🕶️",
-    "🐱","🐶","🦊","🐸","🦄","🐍","🦋","🐢","🦉","🐙",
-    "☕","🍕","🍎","🍿","🎮","📸","🎨","🎧","📚","💰",
-    "🌙","☀️","⛈️","❄️","🌈","🌵","🌴","🍀"
-  ];
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
 
@@ -136,9 +127,6 @@
             <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
             <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
           </div>
-          <div class="tumemojipicker">
-            <div class="tumemojigrid"></div>
-          </div>
           <div class="tummodalcolors"></div>
           <button class="tummodalsave">create</button>
         </div>
@@ -155,6 +143,11 @@
             <button class="tumreasonedit">edit</button>
           </div>
           <div class="tumreasonform">
+            <div class="tumreasonactions">
+              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
+              <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
+              <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
+            </div>
             <textarea class="tumreasoninput" maxlength="500" placeholder="why? (just for you, nothing is sent)"></textarea>
             <button class="tumreasonsave">save note</button>
           </div>
@@ -186,8 +179,6 @@
       chiphandle: root.querySelector(".tumchiphandle"),
       modal: root.querySelector(".tummodal"),
       modaliconbtn: root.querySelector(".tummodaliconbtn"),
-      emojipicker: root.querySelector(".tumemojipicker"),
-      emojigrid: root.querySelector(".tumemojigrid"),
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
@@ -201,6 +192,8 @@
       reasonsource: root.querySelector(".tumreasonsource"),
       reasonedit: root.querySelector(".tumreasonedit"),
       reasonform: root.querySelector(".tumreasonform"),
+      reasonactions: root.querySelector(".tumreasonactions"),
+      reasonactionbtns: root.querySelectorAll(".tumreasonactions .tummodalaction"),
       reasoninput: root.querySelector(".tumreasoninput"),
       reasonsave: root.querySelector(".tumreasonsave"),
       confirmsheet: root.querySelector(".tumconfirmsheet"),
@@ -218,17 +211,14 @@
       sw.addEventListener("click", () => selectcolor(c));
       els.modalcolors.appendChild(sw);
     }
-    for (const e of EMOJIPICK) {
-      const btn = el("button", "tumemojiitem", e);
-      btn.addEventListener("click", () => selecticon(e));
-      els.emojigrid.appendChild(btn);
-    }
+    tum.iconpicker.mount(root);
 
     els.backdrop.addEventListener("click", () => closeoverlay());
     els.modalclose.addEventListener("click", closemodal);
     els.modalsave.addEventListener("click", savemodal);
-    els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); els.emojipicker.classList.toggle("tumshow")});
+    els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => selecticon(id))});
     for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action === modalaction ? null : b.dataset.action));
+    for (const b of els.reasonactionbtns) b.addEventListener("click", () => selectreasonaction(b.dataset.action === reasonaction ? null : b.dataset.action));
     els.reasonclose.addEventListener("click", closereasonmodal);
     els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
     els.reasonsave.addEventListener("click", savereason);
@@ -254,12 +244,18 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let scrollprev = "";
+  let scrollprev = "", lockedx = 0, lockedy = 0;
   function showbackdrop() {
     if (!root.classList.contains("tumactive")) {
+      // a live page like x.com reflows heavily (images, cards) - dropping the scrollbar via
+      // overflow:hidden can shrink the document just enough for the browser to clamp scrollTop,
+      // which reads as the whole page snapping to the top the instant a drag starts. pinning the
+      // scroll position back explicitly, same tick, cancels that out
+      lockedx = window.scrollX; lockedy = window.scrollY;
       scrollprev = document.documentElement.style.overflow;
       document.documentElement.style.overflow = "hidden";
       document.body.style.overflow = "hidden";
+      window.scrollTo(lockedx, lockedy);
     }
     root.classList.add("tumactive");
   }
@@ -268,6 +264,8 @@
     root.classList.remove("tumactive");
     document.documentElement.style.overflow = scrollprev || "";
     document.body.style.overflow = "";
+    window.scrollTo(lockedx, lockedy);
+    undimall();
   }
   function closeoverlay() {
     state.open = false;
@@ -314,7 +312,7 @@
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
-          <span class="tumfolderactionicon">${f.icon ? escapehtml(f.icon) : (ICONS[f.action] || ICONS.folder)}</span>
+          <span class="tumfolderactionicon">${(f.icon && tum.iconpicker.svgfor(f.icon)) || ICONS[f.action] || ICONS.folder}</span>
           <span class="tumfoldername">${escapehtml(f.name)}</span>
         </div>
         <div class="tumfolderheadbtns">
@@ -439,8 +437,13 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumfolderremove")) return;
-      tracking = {startx: e.clientX, starty: e.clientY, dragging: false};
+      if (e.target.closest(".tumfolderremove, .tumfoldercollapse")) return;
+      // folders are positioned by their top-left corner (not centered), so track the exact
+      // spot within the folder the user grabbed it - without this, starting a drag from the
+      // header snaps the whole folder to re-center itself under the cursor instead of moving
+      // smoothly from wherever it was actually grabbed
+      const rect = node.getBoundingClientRect();
+      tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
       const move = ev => {
         if (!tracking) return;
         const dx = ev.clientX - tracking.startx, dy = ev.clientY - tracking.starty;
@@ -449,19 +452,19 @@
           tracking.dragging = true;
           root.classList.add("tumfolderdragging");
         }
-        const x = clamp(ev.clientX / window.innerWidth * 100, 4, 96);
-        const y = clamp(ev.clientY / window.innerHeight * 100, 6, 94);
-        node.style.left = x + "%";
-        node.style.top = y + "%";
+        const px = clamp(ev.clientX - tracking.offsetx, 0, window.innerWidth - node.offsetWidth);
+        const py = clamp(ev.clientY - tracking.offsety, 0, window.innerHeight - node.offsetHeight);
+        node.style.left = (px / window.innerWidth * 100) + "%";
+        node.style.top = (py / window.innerHeight * 100) + "%";
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         root.classList.remove("tumfolderdragging");
         if (tracking && tracking.dragging) {
-          const x = clamp(ev.clientX / window.innerWidth * 100, 4, 96);
-          const y = clamp(ev.clientY / window.innerHeight * 100, 6, 94);
-          tum.folders.move(f.id, x, y);
+          const px = clamp(ev.clientX - tracking.offsetx, 0, window.innerWidth - node.offsetWidth);
+          const py = clamp(ev.clientY - tracking.offsety, 0, window.innerHeight - node.offsetHeight);
+          tum.folders.move(f.id, px / window.innerWidth * 100, py / window.innerHeight * 100);
         } else if (tracking) {
           openeditmodal(f);
         }
@@ -507,17 +510,33 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // while a live tweet's user is held, dim the actual on-page avatar/name/handle/time as if
-  // that data had really been lifted out - restored the moment the drag ends, one way or another
-  function dimsource(targets, on) {
+  // while a live tweet's user is held (or once they've been let go somewhere in the canvas),
+  // dim the actual on-page avatar/name/handle as if that data had really been lifted out - it
+  // stays dimmed for as long as the overlay itself is open, not just for the drag, and only
+  // comes back once the whole canvas fades away
+  let dimmedtargets = [];
+  function dimsource(targets) {
     if (!targets) return;
-    for (const t of targets) if (t) t.style.opacity = on ? "0.25" : "";
+    for (const t of targets) if (t) {t.style.opacity = "0.25"; dimmedtargets.push(t)}
+  }
+  function undimtargets(targets) {
+    if (!targets) return;
+    for (const t of targets) {
+      if (!t) continue;
+      t.style.opacity = "";
+      const i = dimmedtargets.indexOf(t);
+      if (i !== -1) dimmedtargets.splice(i, 1);
+    }
+  }
+  function undimall() {
+    for (const t of dimmedtargets) if (t) t.style.opacity = "";
+    dimmedtargets = [];
   }
 
   function begindrag(user, x, y, source) {
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
-    dimsource(user.dimtargets, true);
+    dimsource(user.dimtargets);
     els.chipavatar.src = user.avatarurl || "";
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
     els.chipname.textContent = user.displayname || user.handle;
@@ -588,7 +607,6 @@
     const zone = quickzone(x, y);
     root.classList.remove("tumdragging");
     state.drag = null;
-    dimsource(user.dimtargets, false);
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
     els.quickadd.classList.remove("tumover");
     els.quickdiscard.classList.remove("tumover");
@@ -613,8 +631,8 @@
       return;
     } else if (zone === "discard") {
       removefromsource(source, user.handle);
-      state.open = true;
       render();
+      closeoverlay();
       return;
     } else if (zone === "reason") {
       state.pendingcreate = {user, source, x, y};
@@ -636,7 +654,7 @@
   }
 
   function canceldrag() {
-    if (state.drag) dimsource(state.drag.user.dimtargets, false);
+    if (state.drag) undimtargets(state.drag.user.dimtargets);
     root.classList.remove("tumdragging");
     state.drag = null;
     hidebackdrop();
@@ -655,15 +673,15 @@
     for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
     refreshiconbtn();
   }
-  // the icon button shows the custom emoji if one was picked, otherwise whatever action icon
-  // is currently selected, otherwise a plain default - always reflects the live modal state
+  // the icon button shows the custom icon if one was picked (stored as an id, resolved through
+  // the icon picker's own manifest), otherwise whatever action icon is currently selected,
+  // otherwise a plain default - always reflects the live modal state
   function refreshiconbtn() {
-    els.modaliconbtn.innerHTML = modalicon || ICONS[modalaction] || ICONS.folder;
+    els.modaliconbtn.innerHTML = (modalicon && tum.iconpicker.svgfor(modalicon)) || ICONS[modalaction] || ICONS.folder;
   }
-  function selecticon(e) {
-    modalicon = e;
+  function selecticon(id) {
+    modalicon = id;
     refreshiconbtn();
-    els.emojipicker.classList.remove("tumshow");
   }
 
   function opencreatemodal() {
@@ -700,7 +718,7 @@
 
   function closemodal() {
     els.modal.classList.remove("tumshow");
-    els.emojipicker.classList.remove("tumshow");
+    tum.iconpicker.close();
     state.pendingcreate = null;
     state.editing = null;
     state.modalopen = false;
@@ -730,10 +748,20 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  let reasonaction = null;
+
+  function selectreasonaction(a) {
+    reasonaction = a;
+    for (const b of els.reasonactionbtns) b.classList.toggle("tumselected", b.dataset.action === a);
+  }
+
   function setreasonmode(mode) {
     state.reasonmode = mode;
     els.reasonview.classList.toggle("tumshow", mode === "view");
     els.reasonform.classList.toggle("tumshow", mode === "edit");
+    // an action picker only makes sense while filing someone fresh off a live drag - editing
+    // an existing member's note later shouldn't be able to re-trigger follow/mute/block
+    els.reasonactions.style.display = state.pendingcreate ? "" : "none";
     if (mode === "edit") els.reasoninput.focus();
   }
 
@@ -743,6 +771,7 @@
     state.reasontarget = null;
     els.reasontitle.textContent = "note for @" + user.handle;
     els.reasoninput.value = user.reason || "";
+    selectreasonaction(null);
     showbackdrop();
     els.reasonmodal.classList.add("tumshow");
     setreasonmode("edit");
@@ -778,6 +807,7 @@
       const px = clamp((x != null ? x : window.innerWidth / 2) / window.innerWidth * 100, 3, 97);
       const py = clamp((y != null ? y : window.innerHeight / 2) / window.innerHeight * 100, 4, 96);
       tum.unsorted.add(withreason, px, py);
+      if (source.type === "page") tum.actions.run(reasonaction, user);
     } else if (state.reasontarget) {
       const {source, handle} = state.reasontarget;
       if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);
@@ -823,6 +853,7 @@
   window.tum.overlay = {
     mount() {build()},
     begindrag: (user, x, y) => begindrag(user, x, y, {type: "page"}),
-    updatedrag, enddrag, canceldrag, toast
+    updatedrag, enddrag, canceldrag, toast,
+    openreasonview
   };
 })();

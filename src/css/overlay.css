@@ -63,7 +63,6 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolder {
   position: absolute;
-  transform: translate(-50%,-50%);
   width: 200px; height: 288px;
   display: flex; flex-direction: column;
   border-radius: 14px; overflow: hidden;
@@ -216,15 +215,16 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldermemberremove, .tumloosechipremove {
   width: 16px; height: 16px;
   background: none; border: none;
-  cursor: pointer; opacity: .5;
+  cursor: pointer; opacity: .7;
   flex-shrink: 0; padding: 0
 }
 .tumfoldermemberremove:hover, .tumloosechipremove:hover {opacity: 1}
 .tumfoldermemberremove svg, .tumloosechipremove svg {
   width: 10px; height: 10px;
-  stroke: #71767b; fill: none;
+  stroke: #9aa5ab; fill: none;
   stroke-width: 2.2
 }
+.tumfoldermemberremove:hover svg, .tumloosechipremove:hover svg {stroke: #e7e9ea}
 
 /* deliberately identical to .tumchip (same avatar size, padding, font sizes) - a user
    shouldn't visually change between being held and being released */
@@ -255,29 +255,31 @@ img {-webkit-user-drag: none; user-drag: none}
 /*//////////////////////////////////////////////////////////////////////*/
 
 .tumquickrow {
-  position: absolute; left: 0; right: 0; bottom: 6%;
+  position: absolute; left: 0; right: 0; bottom: 2.5%;
   display: flex; justify-content: center;
-  gap: 22px; pointer-events: none
+  gap: 34px; pointer-events: none
 }
+/* a pill (icon + label side by side) rather than a circle - a wider hit target is less likely
+   to catch an accidental drop meant for the pill right next to it */
 .tumquick {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 6px;
+  display: flex; flex-direction: row;
+  align-items: center; gap: 8px;
+  padding: 12px 22px; border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
   user-select: none
 }
 .tumquick.tumdisabled {opacity: .35; pointer-events: none}
-.tumquickicon {
-  width: 48px; height: 48px;
-  border-radius: 50%; background: rgba(255,255,255,0.12);
-  border: 2px dashed rgba(255,255,255,0.4);
-  display: flex; align-items: center;
-  justify-content: center
-}
-.tumquick.tumover .tumquickicon {
+.tumquick.tumover {
   background: rgba(255,255,255,0.22);
   border-color: #fff; border-style: solid
 }
-.tumquickdiscard.tumover .tumquickicon {border-color: #f4212e; background: rgba(244,33,46,0.25)}
+.tumquickdiscard.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
+.tumquickicon {
+  display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0
+}
 .tumquickicon svg {
   width: 20px; height: 20px;
   fill: none; stroke: rgba(255,255,255,0.8);
@@ -285,8 +287,9 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-linejoin: round
 }
 .tumquick span {
-  color: #fff; font-size: 12px;
-  font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.6)
+  color: #fff; font-size: 13px;
+  font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  white-space: nowrap
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
@@ -389,11 +392,13 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tummodalclose svg, .tumreasonclose svg {
   width: 16px; height: 16px;
-  stroke: #6b7f8e; fill: none;
+  stroke: #9aa5ab; fill: none;
   stroke-width: 2
 }
+.tummodalclose:hover, .tumreasonclose:hover {background: rgba(255,255,255,0.1)}
+.tummodalclose:hover svg, .tumreasonclose:hover svg {stroke: #e7e9ea}
 
-.tummodalactions {
+.tummodalactions, .tumreasonactions {
   display: flex; gap: 8px;
   margin-bottom: 14px
 }
@@ -416,26 +421,47 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tummodalaction.tumdimmed {opacity: .5}
 
-.tumemojipicker {
-  max-height: 0; overflow: hidden;
-  margin-bottom: 0
+/* a separate floating panel anchored to the icon button (like a twemoji/kaomoji picker) rather
+   than something squeezed into the modal's own flow - its own component, its own file */
+.tumiconpicker {
+  position: fixed; width: 280px; max-height: 340px;
+  background: #000; border: 1px solid #2f3336; border-radius: 16px;
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+  z-index: 7; box-shadow: 0 10px 30px rgba(0,0,0,0.55)
 }
-.tumemojipicker.tumshow {
-  max-height: 140px; overflow-y: auto;
-  margin-bottom: 14px
+.tumiconpicker.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
+.tumipsearch {
+  display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px; flex-shrink: 0;
+  border: 1px solid #37434d; border-radius: 999px
 }
-.tumemojigrid {
-  display: flex; flex-wrap: wrap;
-  gap: 2px; padding: 4px
+.tumipsearch:focus-within {border-color: #1d9bf0}
+.tumipsearch svg {
+  width: 15px; height: 15px; flex-shrink: 0;
+  fill: none; stroke: #71767b; stroke-width: 2
 }
-.tumemojiitem {
-  width: 32px; height: 32px;
-  background: transparent; border: none;
-  border-radius: 8px; cursor: pointer;
-  font-size: 18px; line-height: 1;
-  display: flex; align-items: center; justify-content: center
+.tumipsearchinput {
+  flex: 1; min-width: 0; background: transparent;
+  border: none; outline: none; color: #e7e9ea; font-size: 13px
 }
-.tumemojiitem:hover {background: rgba(255,255,255,0.08)}
+.tumipgrid {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  gap: 2px
+}
+.tumipitem {
+  width: 34px; height: 34px; background: transparent;
+  border: none; border-radius: 8px; cursor: pointer;
+  color: #9aa5ab; display: flex; align-items: center; justify-content: center
+}
+.tumipitem svg {width: 17px; height: 17px}
+.tumipitem:hover {background: rgba(255,255,255,0.08); color: #e7e9ea}
+.tumipempty {
+  width: 100%; text-align: center; color: #71767b;
+  font-size: 12px; padding: 20px 0
+}
 
 .tummodalcolors {
   display: flex; gap: 8px;
