@@ -76,12 +76,21 @@
   // a path reference is enough. category names/order copied from x.com's own compose picker
 
   const EMOJICATORDER = ["Smileys & people", "Animals & nature", "Food & drink", "Activity", "Travel & places", "Objects", "Symbols", "Flags"];
+  // the exact category-tab emoji x.com's own picker uses (read live from its category buttons),
+  // by codepoint - so our tab row mirrors theirs instead of just grabbing the first emoji
+  const CATICON = {
+    "Smileys & people": "1f600", "Animals & nature": "1f43b", "Food & drink": "1f354",
+    "Activity": "26bd", "Travel & places": "1f698", "Objects": "1f4a1",
+    "Symbols": "1f523", "Flags": "1f6a9"
+  };
   let emojilist = [];
   let emojicategories = [];
   let emojiready = null;
 
+  // twitter's own emoji cdn (abs.twimg.com) - x.com's CSP allows it, unlike the jsdelivr twemoji
+  // fork which img-src blocks. same twemoji artwork, same codepoint filenames
   function emojiurl(id) {
-    return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${id}.svg`;
+    return `https://abs.twimg.com/emoji/v2/svg/${id}.svg`;
   }
 
   function loademoji() {
@@ -258,13 +267,13 @@
     }
     for (const cat of emojicategories) {
       addcattab(emojicats, "emoji:" + cat, cat, btn => {
+        const cp = CATICON[cat];
         const first = emojilist.find(e => e.category === cat);
-        if (first) {
-          const img = document.createElement("img");
-          img.src = emojiurl(first.id);
-          img.addEventListener("error", () => {img.remove(); btn.textContent = first.char}, {once: true});
-          btn.appendChild(img);
-        }
+        if (!cp && !first) return;
+        const img = document.createElement("img");
+        img.src = emojiurl(cp || first.id);
+        img.addEventListener("error", () => {img.remove(); if (first) btn.textContent = first.char}, {once: true});
+        btn.appendChild(img);
       });
     }
     selectcat(categories[0]);

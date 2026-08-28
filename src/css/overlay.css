@@ -483,26 +483,28 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; min-width: 0; background: transparent;
   border: none; outline: none; color: var(--tumtext,#e7e9ea); font-size: 15px
 }
-/* every icon folder gets a tab here, and every emoji category gets its own tab on a second,
-   visually separate row right below it - condensed onto multiple lines instead of one
-   scrolling strip, since a single row was too cramped to browse comfortably */
+/* every icon folder gets a tab here, and every emoji category gets its own tab on a second row
+   right below it. deliberately as compact as possible - tiny buttons that hug their glyph with
+   no padding and no gaps between them, since these are just quick scroll-to jumps */
 .tumipcats {
-  display: flex; flex-wrap: wrap;
-  flex-shrink: 0;
-  padding-top: 6px; padding-bottom: 8px;
+  display: flex; flex-wrap: wrap; gap: 0;
+  flex-shrink: 0
+}
+.tumipcats:not(.tumipcatsemoji) {padding-top: 2px}
+.tumipcatsemoji {
+  padding-top: 1px; padding-bottom: 5px;
   border-bottom: 1px solid var(--tumborder,#2f3336)
 }
-.tumipcatsemoji {padding-top: 8px}
 .tumipcat {
-  width: 30px; height: 30px; flex-shrink: 0;
-  background: transparent; border: none; border-radius: 8px;
+  width: 21px; height: 21px; padding: 0; flex-shrink: 0;
+  background: transparent; border: none; border-radius: 4px;
   color: var(--tummuted,#71767b); cursor: pointer;
   display: flex; align-items: center; justify-content: center
 }
 .tumipcat:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
 .tumipcat.tumselected {background: rgba(29,155,240,0.15); color: #1d9bf0}
 .tumipcat svg {width: 15px; height: 15px}
-.tumipcat img {width: 17px; height: 17px}
+.tumipcat img {width: 18px; height: 18px}
 .tumipgrid {flex: 1; min-height: 0; overflow-y: auto}
 .tumipsection {margin-bottom: 6px}
 /* x.com's own emoji picker uses prominent 17px bold sentence-case section headers in the
