@@ -39,7 +39,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "fonts/*.woff2", "configs/icons.json"],
+      "resources": ["src/css/overlay.css", "fonts/*.woff2", "configs/icons.json", "icons/**/*.svg"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

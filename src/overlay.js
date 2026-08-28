@@ -212,6 +212,10 @@
       els.modalcolors.appendChild(sw);
     }
     tum.iconpicker.mount(root);
+    // a folder's icon might reference an id that hasn't been fetched yet this page load -
+    // svgfor() kicks off that fetch and falls back to a default icon in the meantime, this
+    // repaints once it actually resolves so it doesn't stay stuck on the fallback
+    tum.iconpicker.onload(() => {render(); if (state.modalopen) refreshiconbtn()});
 
     els.backdrop.addEventListener("click", () => closeoverlay());
     els.modalclose.addEventListener("click", closemodal);

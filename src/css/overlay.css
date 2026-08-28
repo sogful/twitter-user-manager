@@ -424,7 +424,7 @@ img {-webkit-user-drag: none; user-drag: none}
 /* a separate floating panel anchored to the icon button (like a twemoji/kaomoji picker) rather
    than something squeezed into the modal's own flow - its own component, its own file */
 .tumiconpicker {
-  position: fixed; width: 280px; max-height: 340px;
+  position: fixed; width: 300px; max-height: 420px;
   background: #000; border: 1px solid #2f3336; border-radius: 16px;
   padding: 10px; display: flex; flex-direction: column; gap: 8px;
   opacity: 0; visibility: hidden; pointer-events: none;
@@ -446,11 +446,30 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; min-width: 0; background: transparent;
   border: none; outline: none; color: #e7e9ea; font-size: 13px
 }
-.tumipgrid {
-  flex: 1; min-height: 0; overflow-y: auto;
-  display: flex; flex-wrap: wrap; align-content: flex-start;
-  gap: 2px
+/* every icon folder gets a tab here - a horizontal strip since there are too many categories
+   to fit on one row, styled after the kaomoji picker's own category bar */
+.tumipcats {
+  display: flex; gap: 2px; flex-shrink: 0;
+  overflow-x: auto; padding-bottom: 4px;
+  border-bottom: 1px solid #2f3336
 }
+.tumipcats::-webkit-scrollbar {display: none}
+.tumipcat {
+  width: 30px; height: 30px; flex-shrink: 0;
+  background: transparent; border: none; border-radius: 8px;
+  color: #71767b; cursor: pointer;
+  display: flex; align-items: center; justify-content: center
+}
+.tumipcat svg {width: 15px; height: 15px}
+.tumipcat:hover {background: rgba(255,255,255,0.08)}
+.tumipcat.tumselected {background: rgba(29,155,240,0.15); color: #1d9bf0}
+.tumipgrid {flex: 1; min-height: 0; overflow-y: auto}
+.tumipsection {margin-bottom: 6px}
+.tumipsectiontitle {
+  color: #71767b; font-size: 11px; font-weight: 700;
+  text-transform: capitalize; padding: 6px 2px 2px
+}
+.tumiprow {display: flex; flex-wrap: wrap; gap: 2px}
 .tumipitem {
   width: 34px; height: 34px; background: transparent;
   border: none; border-radius: 8px; cursor: pointer;
