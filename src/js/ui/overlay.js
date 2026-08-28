@@ -42,6 +42,11 @@
     return escapehtml(text).replace(URLRE, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
+  // verified/automated/etc badges lifted off the page - stored as html strings so they persist,
+  // rendered inline right after the name the same way the drag chip shows them
+  function badgeshtml(badges) {
+    return Array.isArray(badges) && badges.length ? `<span class="tumbadges">${badges.join("")}</span>` : "";
+  }
   // a folder's header text/icon sit directly on its color with nothing behind them - most of
   // the palette is dark enough for white to read fine, but a bright one (yellow) needs black
   // instead, same call twitter itself makes for text against its own bright accent colors
@@ -306,6 +311,20 @@
     updatequickstate();
   }
 
+  // begindrag() ends by calling render(), which wipes and rebuilds the whole freeform - so the
+  // element the drag started on is already destroyed by the time the drag is live. this lets the
+  // rebuild hide the freshly-made copy of whoever's being carried, instead of leaving it sitting
+  // at its old spot as a ghost beside the drag chip (a stale visibility:hidden on the old node
+  // did nothing). enddrag/canceldrag clear state.drag then render again, restoring it
+  function isdragged(source, handle) {
+    const d = state.drag;
+    if (!d || !d.source || !d.user) return false;
+    if ((d.user.handle || "").toLowerCase() !== (handle || "").toLowerCase()) return false;
+    if (d.source.type !== source.type) return false;
+    if (source.type === "folder") return d.source.id === source.id;
+    return source.type === "unsorted";
+  }
+
   // a stored position that made sense at one screen size can put a folder or a loose person
   // partway (or fully) off-screen at a smaller one - this is purely a visual nudge back onto
   // screen, not a data change, so they snap back to their real stored spot the moment either
@@ -397,11 +416,13 @@
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
+    if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
       <img class="tumfoldermemberavatar" src="${m.avatarurl || ""}">
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
           <span class="tumcopy tumfoldermembername">${escapehtml(m.displayname || m.handle)}</span>
+          ${badgeshtml(m.badges)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
         <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}</span>
@@ -424,6 +445,7 @@
   function buildloosechip(u) {
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
+    if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
     chip.style.left = u.x + "%";
     chip.style.top = u.y + "%";
     chip.style.background = tum.theme.css();
@@ -433,6 +455,7 @@
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
           <span class="tumcopy tumloosechipname">${escapehtml(u.displayname || u.handle)}</span>
+          ${badgeshtml(u.badges)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
         <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}</span>
@@ -524,13 +547,10 @@
         if (!dragging) {
           if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < THRESHOLD) return;
           dragging = true;
-          const user = {handle: m.handle, displayname: m.displayname, avatarurl: m.avatarurl, sourceurl: m.sourceurl, reason: m.reason, badges: []};
+          const user = {handle: m.handle, displayname: m.displayname, avatarurl: m.avatarurl, sourceurl: m.sourceurl, reason: m.reason, badges: m.badges || []};
+          // render() inside begindrag rebuilds the freeform and hides this person's fresh copy
+          // itself (via isdragged), so nothing to hide on the old node here
           begindrag(user, ev.clientX, ev.clientY, source);
-          // otherwise this exact row/chip stays sitting in its original spot for the whole
-          // drag, looking like two copies of the same person at once - visibility (not
-          // display) so the list doesn't reflow, and whatever eventually re-renders (a
-          // successful drop, or the source modal closing) naturally replaces it for real
-          row.style.visibility = "hidden";
         }
         updatedrag(ev.clientX, ev.clientY);
       };
@@ -588,8 +608,7 @@
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
     els.chipname.textContent = user.displayname || user.handle;
     els.chiphandle.textContent = "@" + user.handle;
-    els.chipbadges.innerHTML = "";
-    for (const b of (user.badges || [])) els.chipbadges.appendChild(b);
+    els.chipbadges.innerHTML = (user.badges || []).join("");
     // no fixed color for the chip - it should look like it was lifted straight off the page,
     // so it just borrows whatever background/text color x.com is actually rendering right now
     els.chip.style.background = tum.theme.css();
@@ -726,11 +745,12 @@
     for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
     refreshiconbtn();
   }
-  // an icon can be a path id into the icon picker's own manifest, OR a literal character
-  // (a real twitter emoji, picked through their own picker) - otherwise fall back to whatever
-  // action icon is currently selected, or a plain default. always reflects the live modal state
+  // a folder icon can be an svg-path id into the icon manifest, an "emoji:<codepoint>" ref
+  // (rendered as the twemoji svg from twitter's cdn, matching the picker), or - for legacy
+  // folders - a literal emoji char. otherwise fall back to the action icon or a plain default
   function iconhtml(icon) {
     if (!icon) return "";
+    if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
     if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon);
     return escapehtml(icon);
   }

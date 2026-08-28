@@ -98,7 +98,8 @@
         displayname: user.displayname,
         avatarurl: user.avatarurl,
         sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
-        reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || ""
+        reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
+        badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || []
       });
       persist();
       emit();

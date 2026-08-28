@@ -153,7 +153,9 @@
     img.addEventListener("error", () => {img.remove(); btn.textContent = e.char}, {once: true});
     btn.appendChild(img);
     btn.addEventListener("click", () => {
-      if (onpickcb) onpickcb(e.char);
+      // store the codepoint (prefixed so it's distinguishable from an svg path id) rather than
+      // the raw char, so the folder icon can render the same twemoji instead of the OS emoji
+      if (onpickcb) onpickcb("emoji:" + e.id);
       close();
     });
     return btn;
@@ -176,10 +178,6 @@
       section.appendChild(row);
       grid.appendChild(section);
     }
-    const divider = document.createElement("div");
-    divider.className = "tumipdivider";
-    divider.textContent = "emoji";
-    grid.appendChild(divider);
     for (const cat of emojicategories) {
       const section = document.createElement("div");
       section.className = "tumipsection";
@@ -386,6 +384,7 @@
     // synchronous - returns "" if not fetched yet, which callers fall back to a default icon
     // for. getsvg() below kicks the real fetch off so a later onload() notification catches up
     svgfor: id => {if (id && !svgcache.has(id)) getsvg(id); return svgcache.get(id) || ""},
+    emojiurl,
     onload: cb => loadlisteners.add(cb)
   };
 })();

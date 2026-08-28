@@ -80,13 +80,15 @@
     }
   }
 
-  // profile headers don't use the User-Name component at all (the name there is plain text,
-  // not a link - see dragdetect.js) so this needs its own separate scan
+  // the profile display name lives in [data-testid="UserName"], inside a flex row - the note
+  // badge goes inline right after the name div there. the earlier "main h2" target was the
+  // sticky-header title, whose parent is a column, so the badge wrapped onto its own line
   function scanprofileheader() {
     const m = PROFILEPATH.exec(location.pathname);
-    const heading = document.querySelector("main h2");
+    const namebox = document.querySelector('[data-testid="UserName"]');
+    const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
     const existing = document.querySelector(".tumpageprofilereasonbadge");
-    if (!m || !heading) {
+    if (!m || !nameel) {
       if (existing) existing.remove();
       return;
     }
@@ -103,7 +105,7 @@
     }
     const badge = makebadge(handle, entry);
     badge.classList.add("tumpageprofilereasonbadge");
-    heading.parentNode.insertBefore(badge, heading.nextSibling);
+    nameel.parentNode.insertBefore(badge, nameel.nextSibling);
   }
 
   function scan() {

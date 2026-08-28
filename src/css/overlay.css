@@ -72,7 +72,6 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; flex-direction: column;
   border-radius: 14px; overflow: hidden;
   pointer-events: auto;
-  border: 1px solid var(--tumborder,#2f3336);
   --tumcolor: #1d9bf0
 }
 .tumfolder.tumover {outline: 3px solid #fff}
@@ -99,6 +98,7 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-linejoin: round; display: block
 }
 .tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, #fff)}
+.tumfolderactionicon img {width: 16px; height: 16px; display: block}
 .tumfoldername {
   color: var(--tumheaderfg, #fff); font-size: 13px;
   font-weight: 700; white-space: nowrap;
@@ -207,6 +207,14 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcopy {cursor: pointer}
 .tumcopy:hover {text-decoration: underline}
 
+.tumbadges {
+  display: inline-flex; align-items: center;
+  gap: 2px; flex-shrink: 0
+}
+.tumbadges svg, .tumbadges img {
+  width: 15px; height: 15px;
+  display: inline-block; vertical-align: middle
+}
 .tumreasonbadge {
   flex-shrink: 0; display: inline-flex;
   cursor: pointer
@@ -408,6 +416,7 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
+.tummodaliconbtn img {width: 22px; height: 22px}
 .tummodalname {border-radius: 999px}
 .tumreasoninput {
   border-radius: 14px; width: 100%;
@@ -538,14 +547,6 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumipempty {
   width: 100%; text-align: center; color: var(--tummuted,#71767b);
   font-size: 12px; padding: 20px 0
-}
-/* a clear break between the monochrome icon set and the emoji set below it, rather than just
-   another section title that looks like every other one scrolling past */
-.tumipdivider {
-  color: var(--tummuted,#71767b); font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  text-align: center; margin: 10px 0 4px;
-  padding-top: 10px; border-top: 1px solid var(--tumborder,#2f3336)
 }
 /* the same slot x.com's own picker uses for its skin-tone swatch - meaningless for flat
    monochrome icons, so a tint color picker sits there instead */

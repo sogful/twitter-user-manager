@@ -81,7 +81,9 @@
     const avatarlink = document.querySelector(PROFILEAVATARSEL);
     const avatarimg = avatarlink && avatarlink.querySelector("img");
     const displayname = heading.textContent || handle;
-    const badges = [...heading.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
+    // outerHTML, not cloned nodes - the badges have to survive being stored to disk and
+    // re-rendered on the placed chip/member later, not just live for the length of one drag
+    const badges = [...heading.querySelectorAll("img, svg")].map(b => b.outerHTML);
     // no specific tweet to attach and nothing to dim to a percent besides the header itself -
     // "or none if directly from profile" is intentional, not a gap. covers the sticky-header
     // duplicate of the name too, not just the big one, so nothing readable is left behind
@@ -108,7 +110,7 @@
       handlelink = links[1];
       if (namelink) {
         displayname = namelink.textContent || null;
-        badges = [...namelink.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
+        badges = [...namelink.querySelectorAll("img, svg")].map(b => b.outerHTML);
       }
     }
     const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
