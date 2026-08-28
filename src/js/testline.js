@@ -126,8 +126,9 @@
     });
   }
 
-  fetch("configs/testline.json")
+  // relative to preview.html (src/html/), which is the only page that ever loads this script
+  fetch("../../assets/static/testline.json")
     .then(r => r.json())
     .then(data => build(data.users, data.texts))
-    .catch(e => console.error("[faketwitter] couldn't load configs/testline.json:", e));
+    .catch(e => console.error("[faketwitter] couldn't load assets/static/testline.json:", e));
 })();

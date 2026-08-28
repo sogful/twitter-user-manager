@@ -42,14 +42,26 @@
     return escapehtml(text).replace(URLRE, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
+  // a folder's header text/icon sit directly on its color with nothing behind them - most of
+  // the palette is dark enough for white to read fine, but a bright one (yellow) needs black
+  // instead, same call twitter itself makes for text against its own bright accent colors
+  function readablefg(hex) {
+    const n = parseInt(hex.replace("#", ""), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 150 ? "#000" : "#fff";
+  }
 
   /*//////////////////////////////////////////////////////////////////////*/
 
   function loadcss() {
     return new Promise(res => {
       // always a <link>, never fetch+inline: a relative url() (the font files) only resolves
-      // against the stylesheet's own href when the browser loads it as a real stylesheet resource
-      let href = "src/css/overlay.css";
+      // against the stylesheet's own href when the browser loads it as a real stylesheet resource.
+      // the fallback path is relative to whatever page loaded this script (preview.html, at
+      // src/html/) - the chrome.runtime.getURL path is root-relative within the extension and
+      // doesn't care where it was injected from
+      let href = "../css/overlay.css";
       try {href = chrome.runtime.getURL("src/css/overlay.css")} catch {}
       const link = document.createElement("link");
       link.rel = "stylesheet";
@@ -95,6 +107,9 @@
   function schedulepin() {if (!pinraf) pinraf = requestAnimationFrame(pinhost)}
   window.addEventListener("scroll", schedulepin, true);
   window.addEventListener("resize", schedulepin);
+  // a resize can push an already-placed folder or loose person off the newly smaller screen -
+  // no data changed, so just re-run the same visual nudge-back-on-screen pass, not a full render
+  window.addEventListener("resize", () => {if (els.freeform) for (const n of els.freeform.children) clampvisible(n)});
 
   function buildmarkup() {
     root = el("div", "tumroot");
@@ -114,6 +129,7 @@
           <div class="tumchipnamerow"><span class="tumchipname"></span><span class="tumchipbadges"></span></div>
           <span class="tumchiphandle"></span>
         </div>
+        <button class="tumchipremove">${ICONS.close}</button>
       </div>
       <div class="tummodal">
         <div class="tummodalcard">
@@ -132,8 +148,8 @@
         </div>
       </div>
       <div class="tumreasonmodal">
-        <div class="tummodalcard">
-          <div class="tummodalhead">
+        <div class="tumreasoncard">
+          <div class="tumreasonhead">
             <span class="tumreasontitle"></span>
             <button class="tumreasonclose">${ICONS.close}</button>
           </div>
@@ -148,7 +164,7 @@
               <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
               <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
             </div>
-            <textarea class="tumreasoninput" maxlength="500" placeholder="why? (just for you, nothing is sent)"></textarea>
+            <textarea class="tumreasoninput" maxlength="500" placeholder="Add notes here.."></textarea>
             <button class="tumreasonsave">save note</button>
           </div>
         </div>
@@ -157,8 +173,8 @@
         <div class="tumconfirmcard">
           <div class="tumconfirmtitle"></div>
           <div class="tumconfirmbody"></div>
-          <button class="tumconfirmok">delete</button>
-          <button class="tumconfirmcancel">cancel</button>
+          <button class="tumconfirmok">Delete</button>
+          <button class="tumconfirmcancel">Cancel</button>
         </div>
       </div>
       <div class="tumtoast"></div>
@@ -212,9 +228,6 @@
       els.modalcolors.appendChild(sw);
     }
     tum.iconpicker.mount(root);
-    // a folder's icon might reference an id that hasn't been fetched yet this page load -
-    // svgfor() kicks off that fetch and falls back to a default icon in the meantime, this
-    // repaints once it actually resolves so it doesn't stay stuck on the fallback
     tum.iconpicker.onload(() => {render(); if (state.modalopen) refreshiconbtn()});
 
     els.backdrop.addEventListener("click", () => closeoverlay());
@@ -224,6 +237,7 @@
     for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action === modalaction ? null : b.dataset.action));
     for (const b of els.reasonactionbtns) b.addEventListener("click", () => selectreasonaction(b.dataset.action === reasonaction ? null : b.dataset.action));
     els.reasonclose.addEventListener("click", closereasonmodal);
+    els.reasonmodal.addEventListener("click", e => {if (e.target === els.reasonmodal) closereasonmodal()});
     els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
     els.reasonsave.addEventListener("click", savereason);
     els.confirmcancel.addEventListener("click", closeconfirmsheet);
@@ -243,32 +257,34 @@
     tum.unsorted.subscribe(render);
     Promise.all([tum.folders.ready, tum.unsorted.ready]).then(render);
 
+    applytheme();
     pinhost();
+  }
+
+  // push x.com's current theme palette onto the host as css variables - overlay.css reads these
+  // via var(--tum..., <dark fallback>), so the whole overlay (folders, modals, picker, backdrop)
+  // recolors to match light/dim/dark instead of being hardcoded dark. re-applied on every open in
+  // case the user switched themes while the tab stayed put
+  function applytheme() {
+    if (!host) return;
+    const p = tum.theme.palette();
+    for (const k in p) host.style.setProperty("--tum" + k, p[k]);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let scrollprev = "", lockedx = 0, lockedy = 0;
+  // deliberately NOT locking scroll via overflow:hidden on html/body - x.com's timeline is a
+  // virtualized list, and toggling overflow on an ancestor makes it think its container just
+  // resized, which resets its own scroll position back to the top. the full-viewport backdrop
+  // (pointer-events: auto while active) already blocks wheel/touch from reaching the real page
+  // underneath on its own, so nothing needs to touch the page's own scroll state at all
   function showbackdrop() {
-    if (!root.classList.contains("tumactive")) {
-      // a live page like x.com reflows heavily (images, cards) - dropping the scrollbar via
-      // overflow:hidden can shrink the document just enough for the browser to clamp scrollTop,
-      // which reads as the whole page snapping to the top the instant a drag starts. pinning the
-      // scroll position back explicitly, same tick, cancels that out
-      lockedx = window.scrollX; lockedy = window.scrollY;
-      scrollprev = document.documentElement.style.overflow;
-      document.documentElement.style.overflow = "hidden";
-      document.body.style.overflow = "hidden";
-      window.scrollTo(lockedx, lockedy);
-    }
+    applytheme();
     root.classList.add("tumactive");
   }
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
-    document.documentElement.style.overflow = scrollprev || "";
-    document.body.style.overflow = "";
-    window.scrollTo(lockedx, lockedy);
     undimall();
   }
   function closeoverlay() {
@@ -286,7 +302,22 @@
     els.freeform.innerHTML = "";
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
     for (const u of tum.unsorted.list()) els.freeform.appendChild(buildloosechip(u));
+    for (const n of els.freeform.children) clampvisible(n);
     updatequickstate();
+  }
+
+  // a stored position that made sense at one screen size can put a folder or a loose person
+  // partway (or fully) off-screen at a smaller one - this is purely a visual nudge back onto
+  // screen, not a data change, so they snap back to their real stored spot the moment either
+  // the screen is big enough again or the user actually moves them
+  function clampvisible(node) {
+    const r = node.getBoundingClientRect();
+    const dx = r.left < 0 ? -r.left : (r.right > window.innerWidth ? window.innerWidth - r.right : 0);
+    const dy = r.top < 0 ? -r.top : (r.bottom > window.innerHeight ? window.innerHeight - r.bottom : 0);
+    if (!dx && !dy) return;
+    const cs = getComputedStyle(node);
+    node.style.left = (parseFloat(cs.left) + dx) + "px";
+    node.style.top = (parseFloat(cs.top) + dy) + "px";
   }
 
   function updatequickstate() {
@@ -310,13 +341,14 @@
     const node = el("div", "tumfolder");
     if (f.collapsed) node.classList.add("tumcollapsed");
     node.style.setProperty("--tumcolor", f.color);
+    node.style.setProperty("--tumheaderfg", readablefg(f.color));
     node.style.left = f.x + "%";
     node.style.top = f.y + "%";
     node.dataset.id = f.id;
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
-          <span class="tumfolderactionicon">${(f.icon && tum.iconpicker.svgfor(f.icon)) || ICONS[f.action] || ICONS.folder}</span>
+          <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
           <span class="tumfoldername">${escapehtml(f.name)}</span>
         </div>
         <div class="tumfolderheadbtns">
@@ -494,6 +526,11 @@
           dragging = true;
           const user = {handle: m.handle, displayname: m.displayname, avatarurl: m.avatarurl, sourceurl: m.sourceurl, reason: m.reason, badges: []};
           begindrag(user, ev.clientX, ev.clientY, source);
+          // otherwise this exact row/chip stays sitting in its original spot for the whole
+          // drag, looking like two copies of the same person at once - visibility (not
+          // display) so the list doesn't reflow, and whatever eventually re-renders (a
+          // successful drop, or the source modal closing) naturally replaces it for real
+          row.style.visibility = "hidden";
         }
         updatedrag(ev.clientX, ev.clientY);
       };
@@ -514,33 +551,39 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // while a live tweet's user is held (or once they've been let go somewhere in the canvas),
-  // dim the actual on-page avatar/name/handle as if that data had really been lifted out - it
-  // stays dimmed for as long as the overlay itself is open, not just for the drag, and only
-  // comes back once the whole canvas fades away
+  // a live tweet's avatar/name/handle go fully invisible the moment they're actually being
+  // carried around (no ghost of them left sitting at the original spot next to the drag chip),
+  // then settle into a soft dim once they're let go somewhere - as if that data had really been
+  // lifted out. the dim stays for as long as the overlay itself is open, not just for the drag,
+  // and only comes back once the whole canvas fades away
   let dimmedtargets = [];
+  function hidesource(targets) {
+    if (!targets) return;
+    for (const t of targets) if (t) t.style.visibility = "hidden";
+  }
   function dimsource(targets) {
     if (!targets) return;
-    for (const t of targets) if (t) {t.style.opacity = "0.25"; dimmedtargets.push(t)}
+    for (const t of targets) if (t) {t.style.visibility = ""; t.style.opacity = "0.25"; dimmedtargets.push(t)}
   }
   function undimtargets(targets) {
     if (!targets) return;
     for (const t of targets) {
       if (!t) continue;
+      t.style.visibility = "";
       t.style.opacity = "";
       const i = dimmedtargets.indexOf(t);
       if (i !== -1) dimmedtargets.splice(i, 1);
     }
   }
   function undimall() {
-    for (const t of dimmedtargets) if (t) t.style.opacity = "";
+    for (const t of dimmedtargets) if (t) {t.style.visibility = ""; t.style.opacity = ""}
     dimmedtargets = [];
   }
 
   function begindrag(user, x, y, source) {
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
-    dimsource(user.dimtargets);
+    hidesource(user.dimtargets);
     els.chipavatar.src = user.avatarurl || "";
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
     els.chipname.textContent = user.displayname || user.handle;
@@ -611,6 +654,9 @@
     const zone = quickzone(x, y);
     root.classList.remove("tumdragging");
     state.drag = null;
+    // whatever happens next, the drag itself is over - swap the real page element from fully
+    // hidden (while actively held) to the softer persistent dim, regardless of where they landed
+    dimsource(user.dimtargets);
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
     els.quickadd.classList.remove("tumover");
     els.quickdiscard.classList.remove("tumover");
@@ -629,8 +675,11 @@
         if (source.type === "page") tum.actions.run(folder.action, user);
       }
     } else if (zone === "add") {
+      // no render() here on purpose - the source data hasn't changed yet (still pending the
+      // modal's save), and a render right now would rebuild their old row/chip from scratch,
+      // undoing the hidden state set at drag-start and leaving a duplicate visible behind the
+      // modal. closemodal() renders once the modal actually resolves, either way
       state.pendingcreate = {user, source};
-      render();
       opencreatemodal();
       return;
     } else if (zone === "discard") {
@@ -677,11 +726,16 @@
     for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
     refreshiconbtn();
   }
-  // the icon button shows the custom icon if one was picked (stored as an id, resolved through
-  // the icon picker's own manifest), otherwise whatever action icon is currently selected,
-  // otherwise a plain default - always reflects the live modal state
+  // an icon can be a path id into the icon picker's own manifest, OR a literal character
+  // (a real twitter emoji, picked through their own picker) - otherwise fall back to whatever
+  // action icon is currently selected, or a plain default. always reflects the live modal state
+  function iconhtml(icon) {
+    if (!icon) return "";
+    if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon);
+    return escapehtml(icon);
+  }
   function refreshiconbtn() {
-    els.modaliconbtn.innerHTML = (modalicon && tum.iconpicker.svgfor(modalicon)) || ICONS[modalaction] || ICONS.folder;
+    els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
   }
   function selecticon(id) {
     modalicon = id;
@@ -723,10 +777,15 @@
   function closemodal() {
     els.modal.classList.remove("tumshow");
     tum.iconpicker.close();
+    // a pendingcreate drop that never got saved (dragged into "new folder" then dismissed
+    // without saving) needs its original row/chip visible again - it was hidden at drag-start
+    // and nothing else has re-rendered since, so do it here
+    const hadpending = !!state.pendingcreate;
     state.pendingcreate = null;
     state.editing = null;
     state.modalopen = false;
     hidebackdrop();
+    if (hadpending) render();
   }
 
   function savemodal() {
@@ -776,7 +835,9 @@
     els.reasontitle.textContent = "note for @" + user.handle;
     els.reasoninput.value = user.reason || "";
     selectreasonaction(null);
-    showbackdrop();
+    // this is filing someone off the canvas directly, not creating/editing a folder - the
+    // action picker here should never read as backed-off the way it does on an existing folder
+    els.reasonactionbtns.forEach(b => b.classList.remove("tumdimmed"));
     els.reasonmodal.classList.add("tumshow");
     setreasonmode("edit");
   }
@@ -789,17 +850,21 @@
     if (m.sourceurl) {els.reasonsource.href = m.sourceurl; els.reasonsource.style.display = ""}
     else els.reasonsource.style.display = "none";
     els.reasoninput.value = m.reason || "";
-    showbackdrop();
     els.reasonmodal.classList.add("tumshow");
     setreasonmode("view");
   }
 
   function closereasonmodal() {
     els.reasonmodal.classList.remove("tumshow");
+    // a pendingcreate drop that never got saved (drag into "custom reason" then dismissed
+    // without saving) still needs its original spot back - a full render() is the simplest way
+    // to make that person visible again, since nothing else re-renders on its own here
+    const hadpending = !!state.pendingcreate;
     state.pendingcreate = null;
     state.reasontarget = null;
     state.reasonopen = false;
-    hidebackdrop();
+    undimall();
+    if (hadpending) render();
   }
 
   function savereason() {
@@ -823,8 +888,6 @@
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // styled after x.com's own "Delete post?" confirmation dialog - only asked for the actually
-  // destructive case (a folder that isn't basically empty already)
 
   function confirmfolderdelete(folder) {
     const members = Array.isArray(folder.members) ? folder.members : [];
@@ -832,7 +895,7 @@
     state.confirmopen = true;
     state.confirmtarget = folder.id;
     els.confirmtitle.textContent = "Delete " + folder.name + "?";
-    els.confirmbody.textContent = `This removes the folder and its ${members.length} people - it can't be undone.`;
+    els.confirmbody.textContent = `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active.`;
     showbackdrop();
     els.confirmsheet.classList.add("tumshow");
   }

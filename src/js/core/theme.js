@@ -33,12 +33,42 @@
     } catch {return null}
   }
 
+  // x.com ships exactly three themes; classify by the page background so the whole overlay can
+  // recolor to match (not just the drag chip). values below are x.com's own per-theme palette
+  function classify() {
+    const rgb = backgroundrgb();
+    if (!rgb) return "dark";
+    if (luminance(rgb) > 0.5) return "light";
+    // dim's background is a blue-gray (#15202b), lights-out is near-pure black
+    return (rgb[0] + rgb[1] + rgb[2]) <= 24 ? "dark" : "dim";
+  }
+
+  const PALETTES = {
+    dark: {
+      elev: "#16181c", deep: "#000000", border: "#2f3336", input: "#000000",
+      inputborder: "#37434d", text: "#e7e9ea", muted: "#71767b",
+      hover: "rgba(255,255,255,0.06)", cancelborder: "#536471", backdrop: "rgba(0,0,0,0.72)"
+    },
+    dim: {
+      elev: "#1e2732", deep: "#15202b", border: "#38444d", input: "#15202b",
+      inputborder: "#38444d", text: "#f7f9f9", muted: "#8b98a5",
+      hover: "rgba(255,255,255,0.06)", cancelborder: "#38444d", backdrop: "rgba(0,0,0,0.72)"
+    },
+    light: {
+      elev: "#ffffff", deep: "#ffffff", border: "#eff3f4", input: "#ffffff",
+      inputborder: "#cfd9de", text: "#0f1419", muted: "#536471",
+      hover: "rgba(0,0,0,0.03)", cancelborder: "#cfd9de", backdrop: "rgba(0,0,0,0.6)"
+    }
+  };
+
   window.tum.theme = {
     css: () => {const rgb = backgroundrgb(); return rgb ? `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` : "#000"},
     isdark: () => {const rgb = backgroundrgb(); return rgb ? luminance(rgb) <= 0.5 : true},
     fg: () => {
       try {const c = getComputedStyle(document.body).color; if (c) return c} catch {}
       return window.tum.theme.isdark() ? "#e7e9ea" : "#0f1419";
-    }
+    },
+    classify,
+    palette: () => PALETTES[classify()] || PALETTES.dark
   };
 })();

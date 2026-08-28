@@ -97,9 +97,15 @@
       try {
         const ok = await runreal(action, user);
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
+        // the caret/follow button this needs only exists while the tweet or profile it came
+        // from is still actually mounted on the page - if it scrolled out and got virtualized
+        // away (or the menu item just wasn't where expected), this fails silently otherwise,
+        // which reads as the drop just not having worked at all
+        if (!ok) tum.overlay.toast("couldn't " + action + " @" + user.handle + " - scroll back to them and try again");
         return ok;
       } catch (e) {
         log("action error:", e && e.message);
+        tum.overlay.toast("couldn't " + action + " @" + user.handle);
         return false;
       }
     }

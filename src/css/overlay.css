@@ -1,6 +1,11 @@
-@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../fonts/chirp.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../fonts/chirpbold.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../fonts/chirpheavy.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../assets/fonts/chirp.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../assets/fonts/chirpbold.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
+
+/* colors below reference --tum* variables set on the host by overlay.js from theme.js's palette
+   (light / dim / dark), each with x.com's own dark value as the fallback - so before js runs, or
+   if detection fails, everything still looks like x.com dark. accent blue, danger red, the scrims
+   and the whites that sit on colored headers stay literal since those don't change per theme */
 
 :host {
   all: initial;
@@ -35,7 +40,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumbackdrop {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,0.72);
+  background: var(--tumbackdrop,rgba(0,0,0,0.72));
   opacity: 0; visibility: hidden;
   transition: opacity .18s ease, visibility .18s ease;
   pointer-events: none;
@@ -67,7 +72,7 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; flex-direction: column;
   border-radius: 14px; overflow: hidden;
   pointer-events: auto;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+  border: 1px solid var(--tumborder,#2f3336);
   --tumcolor: #1d9bf0
 }
 .tumfolder.tumover {outline: 3px solid #fff}
@@ -89,13 +94,13 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderactionicon svg {
   width: 15px; height: 15px;
-  fill: none; stroke: #fff;
+  fill: none; stroke: var(--tumheaderfg, #fff);
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round; display: block
 }
-.tumfolderactionicon {font-size: 14px; line-height: 1}
+.tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, #fff)}
 .tumfoldername {
-  color: #fff; font-size: 13px;
+  color: var(--tumheaderfg, #fff); font-size: 13px;
   font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis
 }
@@ -126,43 +131,43 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfoldertools {
   display: flex; gap: 6px;
-  padding: 6px; background: #16181c;
-  border-bottom: 1px solid #2f3336;
+  padding: 6px; background: var(--tumelev,#16181c);
+  border-bottom: 1px solid var(--tumborder,#2f3336);
   flex-shrink: 0
 }
 .tumfoldersearch {
-  flex: 1; min-width: 0; background: #000;
-  border: 1px solid #37434d; border-radius: 999px;
-  color: #e7e9ea; font-size: 11px;
+  flex: 1; min-width: 0; background: var(--tuminput,#000);
+  border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px;
+  color: var(--tumtext,#e7e9ea); font-size: 11px;
   padding: 4px 10px
 }
 .tumfoldersearch:focus {outline: none; border-color: #1d9bf0}
 .tumfoldersort {
   width: 24px; height: 24px;
-  background: transparent; border: 1px solid #37434d;
+  background: transparent; border: 1px solid var(--tuminputborder,#37434d);
   border-radius: 50%; cursor: pointer;
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0
 }
 .tumfoldersort svg {
   width: 12px; height: 12px;
-  stroke: #71767b; fill: none;
+  stroke: var(--tummuted,#71767b); fill: none;
   stroke-width: 2.2; stroke-linecap: round
 }
 
 .tumfolderlist {
-  background: #16181c;
+  background: var(--tumelev,#16181c);
   flex: 1; min-height: 0; overflow-y: auto;
   padding: 6px; display: flex;
   flex-direction: column; gap: 1px;
   overscroll-behavior: contain
 }
 .tumfolderempty {
-  color: #71767b; font-size: 12px;
+  color: var(--tummuted,#71767b); font-size: 12px;
   text-align: center; padding: 16px 8px
 }
 .tumfoldermore {
-  color: #71767b; font-size: 11px;
+  color: var(--tummuted,#71767b); font-size: 11px;
   text-align: center; padding: 6px
 }
 
@@ -175,7 +180,7 @@ img {-webkit-user-drag: none; user-drag: none}
   gap: 8px; cursor: grab
 }
 .tumfoldermember {padding: 5px 6px; border-radius: 8px}
-.tumfoldermember:hover {background: rgba(255,255,255,0.06)}
+.tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumfoldermemberavatar {
   width: 24px; height: 24px;
   border-radius: 50%; object-fit: cover;
@@ -190,12 +195,12 @@ img {-webkit-user-drag: none; user-drag: none}
   min-width: 0
 }
 .tumfoldermembername {
-  color: #e7e9ea; font-weight: 700;
+  color: var(--tumtext,#e7e9ea); font-weight: 700;
   font-size: 12px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis
 }
 .tumfoldermemberhandle {
-  color: #71767b; font-size: 11px;
+  color: var(--tummuted,#71767b); font-size: 11px;
   white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis
 }
@@ -212,19 +217,19 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2.4
 }
 
-.tumfoldermemberremove, .tumloosechipremove {
+.tumfoldermemberremove, .tumloosechipremove, .tumchipremove {
   width: 16px; height: 16px;
   background: none; border: none;
   cursor: pointer; opacity: .7;
   flex-shrink: 0; padding: 0
 }
 .tumfoldermemberremove:hover, .tumloosechipremove:hover {opacity: 1}
-.tumfoldermemberremove svg, .tumloosechipremove svg {
+.tumfoldermemberremove svg, .tumloosechipremove svg, .tumchipremove svg {
   width: 10px; height: 10px;
-  stroke: #9aa5ab; fill: none;
+  stroke: var(--tummuted,#71767b); fill: none;
   stroke-width: 2.2
 }
-.tumfoldermemberremove:hover svg, .tumloosechipremove:hover svg {stroke: #e7e9ea}
+.tumfoldermemberremove:hover svg, .tumloosechipremove:hover svg {stroke: var(--tumtext,#e7e9ea)}
 
 /* deliberately identical to .tumchip (same avatar size, padding, font sizes) - a user
    shouldn't visually change between being held and being released */
@@ -232,6 +237,7 @@ img {-webkit-user-drag: none; user-drag: none}
   position: absolute;
   transform: translate(-50%,-50%);
   padding: 8px 18px 8px 8px;
+  gap: 10px;
   border-radius: 999px;
   border: 1px solid rgba(128,136,142,0.35);
   pointer-events: auto;
@@ -260,7 +266,8 @@ img {-webkit-user-drag: none; user-drag: none}
   gap: 34px; pointer-events: none
 }
 /* a pill (icon + label side by side) rather than a circle - a wider hit target is less likely
-   to catch an accidental drop meant for the pill right next to it */
+   to catch an accidental drop meant for the pill right next to it. always sits on the darkened
+   scrim (not the page), so its whites stay literal across themes */
 .tumquick {
   display: flex; flex-direction: row;
   align-items: center; gap: 8px;
@@ -288,7 +295,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumquick span {
   color: #fff; font-size: 13px;
-  font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  font-weight: 700;
   white-space: nowrap
 }
 
@@ -333,46 +340,71 @@ img {-webkit-user-drag: none; user-drag: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-.tummodal, .tumreasonmodal {
+.tummodal {
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%,-50%);
   opacity: 0; visibility: hidden;
   pointer-events: none; z-index: 3
 }
-.tummodal.tumshow, .tumreasonmodal.tumshow {
-  opacity: 1; visibility: visible;
-  pointer-events: auto
+.tummodal.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
+/* its own self-contained popup with its own dim - like .tumconfirmsheet, not the full black
+   canvas backdrop - so clicking a note badge on the real page doesn't drag the whole folder
+   canvas into view behind it, it's just meant to be a quick standalone lookup */
+.tumreasonmodal {
+  position: absolute; inset: 0;
+  background: rgba(91,112,131,0.4);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+  pointer-events: none; z-index: 5
+}
+.tumreasonmodal.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
+/* matches .tumconfirmcard exactly (the page-bg surface, red filled confirm pill) - same card,
+   same dim, same everything as the "delete folder?" warning, just different content */
+.tumreasoncard {
+  width: 300px; background: var(--tumdeep,#000);
+  border: 1px solid var(--tumborder,#2f3336);
+  border-radius: 16px; padding: 20px
+}
+.tumreasonhead {
+  display: flex; gap: 8px;
+  align-items: center; margin-bottom: 10px
+}
+.tumreasontitle {
+  flex: 1; color: var(--tumtext,#e7e9ea);
+  font-weight: 800; font-size: 19px;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis
 }
 .tummodalcard {
-  width: 300px; background: #16181c;
-  border-radius: 16px; padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.55)
+  width: 300px; background: var(--tumelev,#16181c);
+  border: 1px solid var(--tumborder,#2f3336);
+  border-radius: 16px; padding: 16px
 }
 .tummodalhead {
   display: flex; gap: 8px;
   align-items: center; margin-bottom: 14px
 }
 .tummodalhead span {
-  flex: 1; color: #e7e9ea;
+  flex: 1; color: var(--tumtext,#e7e9ea);
   font-weight: 700; font-size: 14px;
   white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis
 }
 .tummodalname, .tumreasoninput {
-  flex: 1; background: #000; color: #e5eaec;
-  border: 1px solid #37434d;
+  flex: 1; background: var(--tuminput,#000); color: var(--tumtext,#e7e9ea);
+  border: 1px solid var(--tuminputborder,#37434d);
   padding: 8px 14px; font-size: 14px
 }
 .tummodaliconbtn {
   width: 40px; height: 40px; flex-shrink: 0;
-  background: #000; color: #e7e9ea;
-  border: 1px solid #37434d; border-radius: 999px;
+  background: var(--tuminput,#000); color: var(--tumtext,#e7e9ea);
+  border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px;
   font-size: 18px; cursor: pointer;
   display: flex; align-items: center; justify-content: center
 }
 .tummodaliconbtn svg {
   width: 18px; height: 18px;
-  fill: none; stroke: #e7e9ea;
+  fill: none; stroke: var(--tumtext,#e7e9ea);
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
@@ -392,11 +424,11 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tummodalclose svg, .tumreasonclose svg {
   width: 16px; height: 16px;
-  stroke: #9aa5ab; fill: none;
+  stroke: var(--tummuted,#71767b); fill: none;
   stroke-width: 2
 }
-.tummodalclose:hover, .tumreasonclose:hover {background: rgba(255,255,255,0.1)}
-.tummodalclose:hover svg, .tumreasonclose:hover svg {stroke: #e7e9ea}
+.tummodalclose:hover, .tumreasonclose:hover {background: var(--tumhover,rgba(255,255,255,0.1))}
+.tummodalclose:hover svg, .tumreasonclose:hover svg {stroke: var(--tumtext,#e7e9ea)}
 
 .tummodalactions, .tumreasonactions {
   display: flex; gap: 8px;
@@ -406,8 +438,8 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; display: flex; flex-direction: column;
   align-items: center; gap: 4px;
   padding: 10px 0; border-radius: 12px;
-  border: 1px solid #37434d;
-  background: transparent; color: #6b7f8e;
+  border: 1px solid var(--tuminputborder,#37434d);
+  background: transparent; color: var(--tummuted,#71767b);
   cursor: pointer; font-size: 11px
 }
 .tummodalaction svg {
@@ -419,68 +451,116 @@ img {-webkit-user-drag: none; user-drag: none}
   border-color: #1d9bf0; color: #1d9bf0;
   background: rgba(29,155,240,0.1)
 }
-.tummodalaction.tumdimmed {opacity: .5}
+.tummodalaction.tumdimmed {opacity: .5; pointer-events: none}
 
-/* a separate floating panel anchored to the icon button (like a twemoji/kaomoji picker) rather
-   than something squeezed into the modal's own flow - its own component, its own file */
 .tumiconpicker {
-  position: fixed; width: 300px; max-height: 420px;
-  background: #000; border: 1px solid #2f3336; border-radius: 16px;
-  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  position: fixed;
+  width: 320px; max-height: 480px;
+  background: var(--tumdeep,#000);
+  border: 1px solid var(--tumborder,#2f3336); border-radius: 16px;
+  padding: 10px;  gap: 8px;
+  display: flex; flex-direction: column;
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity .12s ease, visibility .12s ease;
-  z-index: 7; box-shadow: 0 10px 30px rgba(0,0,0,0.55)
+  z-index: 7
 }
-.tumiconpicker.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
+.tumiconpicker.tumshow {
+  opacity: 1; visibility: visible;
+  pointer-events: auto
+}
+
 .tumipsearch {
   display: flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 12px; flex-shrink: 0;
-  border: 1px solid #37434d; border-radius: 999px
+  height: 44px; padding: 0 14px; flex-shrink: 0;
+  border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px
 }
 .tumipsearch:focus-within {border-color: #1d9bf0}
 .tumipsearch svg {
-  width: 15px; height: 15px; flex-shrink: 0;
-  fill: none; stroke: #71767b; stroke-width: 2
+  width: 16px; height: 16px; flex-shrink: 0;
+  fill: none; stroke: var(--tummuted,#71767b); stroke-width: 2
 }
 .tumipsearchinput {
   flex: 1; min-width: 0; background: transparent;
-  border: none; outline: none; color: #e7e9ea; font-size: 13px
+  border: none; outline: none; color: var(--tumtext,#e7e9ea); font-size: 15px
 }
-/* every icon folder gets a tab here - a horizontal strip since there are too many categories
-   to fit on one row, styled after the kaomoji picker's own category bar */
+/* every icon folder gets a tab here, and every emoji category gets its own tab on a second,
+   visually separate row right below it - condensed onto multiple lines instead of one
+   scrolling strip, since a single row was too cramped to browse comfortably */
 .tumipcats {
-  display: flex; gap: 2px; flex-shrink: 0;
-  overflow-x: auto; padding-bottom: 4px;
-  border-bottom: 1px solid #2f3336
+  display: flex; flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-top: 6px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--tumborder,#2f3336)
 }
-.tumipcats::-webkit-scrollbar {display: none}
+.tumipcatsemoji {padding-top: 8px}
 .tumipcat {
   width: 30px; height: 30px; flex-shrink: 0;
   background: transparent; border: none; border-radius: 8px;
-  color: #71767b; cursor: pointer;
+  color: var(--tummuted,#71767b); cursor: pointer;
   display: flex; align-items: center; justify-content: center
 }
-.tumipcat svg {width: 15px; height: 15px}
-.tumipcat:hover {background: rgba(255,255,255,0.08)}
+.tumipcat:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
 .tumipcat.tumselected {background: rgba(29,155,240,0.15); color: #1d9bf0}
+.tumipcat svg {width: 15px; height: 15px}
+.tumipcat img {width: 17px; height: 17px}
 .tumipgrid {flex: 1; min-height: 0; overflow-y: auto}
 .tumipsection {margin-bottom: 6px}
+/* x.com's own emoji picker uses prominent 17px bold sentence-case section headers in the
+   primary text color - matched here rather than the faint gray labels this had before */
 .tumipsectiontitle {
-  color: #71767b; font-size: 11px; font-weight: 700;
-  text-transform: capitalize; padding: 6px 2px 2px
+  color: var(--tumtext,#e7e9ea); font-size: 17px; font-weight: 700;
+  padding: 8px 2px 4px
 }
-.tumiprow {display: flex; flex-wrap: wrap; gap: 2px}
+/* both rows fill the panel's exact width edge to edge (grid columns, 0 gap) instead of a
+   flex-wrap that leaves blank space trailing the last row - the icon buttons are narrower than
+   the emoji ones (more columns) but the svg glyph inside each stays the same actual size,
+   only the button's own footprint shrinks */
+.tumiprow {display: grid; grid-template-columns: repeat(10, 1fr); gap: 0}
+.tumipemojirow {display: grid; grid-template-columns: repeat(9, 1fr); gap: 0}
+.tumipemoji {
+  padding: 0; margin: 0; border: none;
+  background: transparent; cursor: pointer;
+  font-size: 20px; line-height: 34px;
+  height: 34px; width: 100%; border-radius: 4px
+}
+.tumipemoji:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
+.tumipemoji img {width: 24px; height: 24px; pointer-events: none; vertical-align: middle}
 .tumipitem {
-  width: 34px; height: 34px; background: transparent;
-  border: none; border-radius: 8px; cursor: pointer;
-  color: #9aa5ab; display: flex; align-items: center; justify-content: center
+  padding: 0; margin: 0; width: 100%; height: 30px;
+  background: transparent; border: none; cursor: pointer; border-radius: 4px;
+  color: var(--tumipcolor, var(--tummuted,#71767b)); display: flex;
+  align-items: center; justify-content: center
 }
-.tumipitem svg {width: 17px; height: 17px}
-.tumipitem:hover {background: rgba(255,255,255,0.08); color: #e7e9ea}
+.tumipitem svg {width: 19px; height: 19px; flex-shrink: 0}
+.tumipitem:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
 .tumipempty {
-  width: 100%; text-align: center; color: #71767b;
+  width: 100%; text-align: center; color: var(--tummuted,#71767b);
   font-size: 12px; padding: 20px 0
 }
+/* a clear break between the monochrome icon set and the emoji set below it, rather than just
+   another section title that looks like every other one scrolling past */
+.tumipdivider {
+  color: var(--tummuted,#71767b); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  text-align: center; margin: 10px 0 4px;
+  padding-top: 10px; border-top: 1px solid var(--tumborder,#2f3336)
+}
+/* the same slot x.com's own picker uses for its skin-tone swatch - meaningless for flat
+   monochrome icons, so a tint color picker sits there instead */
+.tumipfooter {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0; padding-top: 8px;
+  border-top: 1px solid var(--tumborder,#2f3336);
+  color: var(--tummuted,#71767b); font-size: 12px
+}
+.tumipcolor {
+  width: 24px; height: 24px; padding: 0;
+  border: none; border-radius: 50%;
+  background: none; cursor: pointer;
+  margin-left: auto
+}
+.tumipcolor::-webkit-color-swatch-wrapper {padding: 0}
+.tumipcolor::-webkit-color-swatch {border: 1px solid var(--tuminputborder,#37434d); border-radius: 50%}
 
 .tummodalcolors {
   display: flex; gap: 8px;
@@ -491,7 +571,7 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 50%; border: 2px solid transparent;
   cursor: pointer; padding: 0
 }
-.tummodalcolor.tumselected {border-color: #fff}
+.tummodalcolor.tumselected {border-color: var(--tumtext,#fff)}
 
 .tummodalsave, .tumreasonsave, .tumreasonedit {
   width: 100%; background: #1d9bf0;
@@ -504,7 +584,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumreasonview, .tumreasonform {display: none}
 .tumreasonview.tumshow, .tumreasonform.tumshow {display: block}
 .tumreasontext {
-  color: #e7e9ea; font-size: 14px;
+  color: var(--tumtext,#e7e9ea); font-size: 14px;
   line-height: 1.4; white-space: pre-wrap;
   word-break: break-word; margin-bottom: 10px;
   max-height: 200px; overflow-y: auto
@@ -516,9 +596,9 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* the card itself matches x.com's own confirmation dialog (solid black, red filled confirm
-   pill, black+bordered cancel pill) but with its own lighter blue-gray dim behind it instead
-   of stacking onto the main black backdrop, left-aligned text, and a bumped-up title size */
+/* the card itself matches x.com's own confirmation dialog (page-bg surface, red filled confirm
+   pill, bordered cancel pill) but with its own lighter blue-gray dim behind it instead of
+   stacking onto the main backdrop, left-aligned text, and a bumped-up title size */
 
 .tumconfirmsheet {
   position: absolute; inset: 0;
@@ -532,16 +612,16 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto
 }
 .tumconfirmcard {
-  width: 300px; background: #000;
-  border: 1px solid #2f3336; border-radius: 16px;
+  width: 300px; background: var(--tumdeep,#000);
+  border: 1px solid var(--tumborder,#2f3336); border-radius: 16px;
   padding: 20px; text-align: left
 }
 .tumconfirmtitle {
-  color: #e7e9ea; font-weight: 800;
+  color: var(--tumtext,#e7e9ea); font-weight: 800;
   font-size: 19px; margin-bottom: 6px
 }
 .tumconfirmbody {
-  color: #71767b; font-size: 14px;
+  color: var(--tummuted,#71767b); font-size: 14px;
   line-height: 1.4; margin-bottom: 16px
 }
 .tumconfirmok {
@@ -553,8 +633,8 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumconfirmcancel {
   width: 100%; margin-top: 10px;
-  background: #000; color: #e7e9ea;
-  border: 1px solid #536471; border-radius: 999px;
+  background: transparent; color: var(--tumtext,#e7e9ea);
+  border: 1px solid var(--tumcancelborder,#536471); border-radius: 999px;
   padding: 12px; font-weight: 700;
   font-size: 15px; cursor: pointer
 }
@@ -564,12 +644,12 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumtoast {
   position: absolute; top: 24px; left: 50%;
   transform: translateX(-50%);
-  background: #16181c; color: #e5eaec;
+  background: var(--tumelev,#16181c); color: var(--tumtext,#e7e9ea);
+  border: 1px solid var(--tumborder,#2f3336);
   padding: 10px 18px; border-radius: 999px;
   font-size: 13px; font-weight: 600;
   opacity: 0; visibility: hidden;
   transition: opacity .12s ease, visibility .12s ease;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {

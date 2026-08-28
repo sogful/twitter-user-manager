@@ -1,6 +1,6 @@
-@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../fonts/chirp.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../fonts/chirpbold.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../fonts/chirpheavy.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../assets/fonts/chirp.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../assets/fonts/chirpbold.woff2") format("woff2")}
+@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
 
 html {scrollbar-gutter: stable}
 html, body {margin: 0; height: 100%}
@@ -114,8 +114,6 @@ article.fakereply {
 }
 [role="menuitem"]:hover {background: rgba(255,255,255,0.08)}
 
-/* matches the real x.com confirmation dialog (e.g. "Delete post?") - solid black card,
-   centered, red filled confirm pill, black+bordered cancel pill underneath */
 .fakesheetbackdrop {
   position: fixed; inset: 0;
   background: rgba(91,112,131,0.4);

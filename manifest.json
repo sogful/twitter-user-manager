@@ -2,19 +2,19 @@
   "manifest_version": 3,
   "name": "twitter user manager",
   "version": "0.1",
-  "description": "TODO: write a real description",
-  "author": "TODO",
-  "homepage_url": "https://github.com/sogful/twitter-user-manager",
+  "description": "sort and get additional info for accounts!",
+  "author": "cv",
+  "homepage_url": "https://coolsite.cv",
   "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "16": "assets/images/icon16.png",
+    "48": "assets/images/icon48.png",
+    "128": "assets/images/icon128.png"
   },
   "action": {
     "default_title": "twitter user manager",
     "default_icon": {
-      "16": "images/icon16.png",
-      "48": "images/icon48.png"
+      "16": "assets/images/icon16.png",
+      "48": "assets/images/icon48.png"
     }
   },
   "permissions": ["storage"],
@@ -23,23 +23,23 @@
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": [
-        "src/storage.js",
-        "src/theme.js",
-        "src/iconpicker.js",
-        "src/folders.js",
-        "src/unsorted.js",
-        "src/actions.js",
-        "src/dragdetect.js",
-        "src/overlay.js",
-        "src/badges.js",
-        "src/main.js"
+        "src/js/core/storage.js",
+        "src/js/core/theme.js",
+        "src/js/ui/iconpicker.js",
+        "src/js/core/folders.js",
+        "src/js/core/unsorted.js",
+        "src/js/page/actions.js",
+        "src/js/page/dragdetect.js",
+        "src/js/ui/overlay.js",
+        "src/js/page/badges.js",
+        "src/js/main.js"
       ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "fonts/*.woff2", "configs/icons.json", "icons/**/*.svg"],
+      "resources": ["src/css/overlay.css", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]
