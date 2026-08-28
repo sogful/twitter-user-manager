@@ -3,117 +3,71 @@
 
   window.tum = window.tum || {};
 
-  // twitter's own blocked / muted-accounts settings pages are concrete, ready-made lists - offer
-  // to pull them straight into a folder instead of re-sorting everyone by hand. a small side panel
-  // shows up only on those two pages, scrapes the (virtualized) list by scrolling it, and files
-  // everyone into a matching folder. the folder's action is set so it keeps working as a real
-  // block/mute folder for anyone dragged in later, but importing the already-blocked/muted ones
-  // never re-runs the action (addmember doesn't)
+  // twitter's own blocked / muted-accounts settings pages are concrete, ready-made lists. a slim
+  // banner sits inline at the top of the list (under the All / Imported tabs) on both pages,
+  // pointing out that any row here can be dragged onto a folder in the overlay to sort it. the
+  // rows themselves are made draggable in dragdetect.js (as skipaction, since they're already
+  // blocked/muted); this file only shows the hint
   const KINDS = {
-    blocked: {re: /^\/settings\/blocked/, name: "Blocked accounts", action: "block", color: "#f4212e", label: "blocked"},
-    muted: {re: /^\/settings\/muted\/all/, name: "Muted accounts", action: "mute", color: "#ffd400", label: "muted"}
+    blocked: {re: /^\/settings\/blocked/, label: "blocked"},
+    muted: {re: /^\/settings\/muted\/all/, label: "muted"}
   };
+  // x.com's own font so the banner doesn't fall back to a system face
+  const FONT = '"TwitterChirp","Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let panel = null, dismissed = new Set();
+  let banner = null, dismissed = new Set();
 
   function currentkind() {
     for (const k in KINDS) if (KINDS[k].re.test(location.pathname)) return k;
     return null;
   }
 
-  function extractrows() {
-    const out = [];
-    for (const cell of document.querySelectorAll('[data-testid="UserCell"]')) {
-      let handle = null, avatarurl = null, displayname = null;
-      const av = cell.querySelector('[data-testid^="UserAvatar-Container-"]');
-      if (av) {
-        const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
-        if (m) handle = m[1];
-        const img = av.querySelector("img");
-        if (img) avatarurl = img.src;
-      }
-      for (const a of cell.querySelectorAll('a[role="link"][href^="/"]')) {
-        const t = (a.textContent || "").trim();
-        if (t && !t.startsWith("@")) {displayname = t; break}
-      }
-      if (handle) out.push({handle, displayname: displayname || handle, avatarurl});
-    }
-    return out;
+  function removebanner() {
+    if (banner) {banner.remove(); banner = null}
   }
 
-  // scroll the list a bounded number of times, collecting rows as they virtualize in
-  async function scrapeall() {
-    const map = new Map();
-    const collect = () => {for (const u of extractrows()) if (!map.has(u.handle.toLowerCase())) map.set(u.handle.toLowerCase(), u)};
-    let stagnant = 0;
-    for (let i = 0; i < 60 && stagnant < 3; i++) {
-      collect();
-      const before = map.size;
-      window.scrollTo(0, document.documentElement.scrollHeight);
-      await sleep(450);
-      collect();
-      stagnant = map.size === before ? stagnant + 1 : 0;
-    }
-    window.scrollTo(0, 0);
-    return [...map.values()];
-  }
-
-  function folderfor(kind) {
-    const cfg = KINDS[kind];
-    const existing = tum.folders.list().find(f => f.name === cfg.name);
-    if (existing) return existing;
-    return tum.folders.create({name: cfg.name, action: cfg.action, color: cfg.color});
-  }
-
-  async function sortnow(kind, btn) {
-    const cfg = KINDS[kind];
-    btn.textContent = "sorting..";
-    btn.disabled = true;
-    const users = await scrapeall();
-    const folder = folderfor(kind);
-    for (const u of users) tum.folders.addmember(folder.id, u);
-    dismissed.add(kind); // don't re-offer this page for the rest of the visit
-    removepanel();
-    tum.overlay.openandflash(folder.id);
-    tum.overlay.toast("filed " + users.length + " " + cfg.label + " accounts into a folder");
-  }
-
-  function removepanel() {
-    if (panel) {panel.remove(); panel = null}
-  }
-
-  function buildpanel(kind) {
-    const cfg = KINDS[kind];
+  function buildbanner(kind) {
     const pal = tum.theme.palette();
-    const p = document.createElement("div");
-    p.className = "tumsuggestpanel";
-    p.style.cssText = "position:fixed;top:96px;right:18px;z-index:2147483000;width:250px;padding:16px;border-radius:16px;font-family:inherit;border:1px solid " + pal.border + ";background:" + pal.elev + ";color:" + pal.text;
-    p.innerHTML =
-      '<div style="font-size:15px;font-weight:800;margin-bottom:4px">sort your ' + cfg.label + ' list</div>' +
-      '<div style="font-size:13px;line-height:1.35;color:' + pal.muted + ';margin-bottom:12px">this is a ready-made list - file everyone here into a folder in one go.</div>' +
-      '<button class="tumsuggestgo" style="width:100%;background:#1d9bf0;color:#fff;border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer">sort into a folder</button>' +
-      '<button class="tumsuggestx" style="position:absolute;top:10px;right:10px;background:none;border:none;color:' + pal.muted + ';cursor:pointer;font-size:16px;line-height:1;padding:2px">x</button>';
-    p.querySelector(".tumsuggestgo").addEventListener("click", () => sortnow(kind, p.querySelector(".tumsuggestgo")));
-    p.querySelector(".tumsuggestx").addEventListener("click", () => {dismissed.add(kind); removepanel()});
-    document.body.appendChild(p);
-    return p;
+    const b = document.createElement("div");
+    b.className = "tumsuggestbanner";
+    b.dataset.kind = kind;
+    b.style.cssText = "display:flex;align-items:center;gap:10px;padding:12px 16px;font-family:" + FONT + ";border-bottom:1px solid " + pal.border + ";background:" + pal.hover + ";color:" + pal.text;
+    b.innerHTML =
+      '<span style="flex:1;font-size:13px;line-height:1.35">drag any account here onto a folder in the overlay to sort your ' + KINDS[kind].label + ' list - one at a time, however you like.</span>' +
+      '<button class="tumsuggestx" style="background:none;border:none;color:' + pal.muted + ';cursor:pointer;font-size:13px;font-weight:700;padding:4px 8px;font-family:inherit">dismiss</button>';
+    b.querySelector(".tumsuggestx").addEventListener("click", () => {dismissed.add(kind); removebanner()});
+    return b;
+  }
+
+  // the tightest ancestor that holds every UserCell - the list container to sit on top of. climb
+  // from the first cell until a parent contains all of them (settings pages don't have a stable
+  // All/Imported tablist to anchor to, and virtualization isn't in play here so this is safe)
+  function listcontainer() {
+    const cells = document.querySelectorAll('[data-testid="UserCell"]');
+    if (!cells.length) return null;
+    const total = cells.length;
+    let node = cells[0];
+    while (node.parentElement && node.parentElement !== document.body) {
+      if (node.parentElement.querySelectorAll('[data-testid="UserCell"]').length === total) return node.parentElement;
+      node = node.parentElement;
+    }
+    return cells[0].parentElement;
   }
 
   function refresh() {
     const kind = currentkind();
-    if (!kind || dismissed.has(kind) || !document.querySelector('[data-testid="UserCell"]')) {
-      removepanel();
+    const container = listcontainer();
+    if (!kind || dismissed.has(kind) || !container) {
+      removebanner();
       return;
     }
-    if (panel && panel.dataset.kind === kind) return;
-    removepanel();
-    panel = buildpanel(kind);
-    panel.dataset.kind = kind;
+    // already sitting at the top of the list for this page? leave it
+    if (banner && banner.dataset.kind === kind && banner.parentElement === container && container.firstChild === banner) return;
+    removebanner();
+    banner = buildbanner(kind);
+    container.insertBefore(banner, container.firstChild);
   }
 
-  // setTimeout, not requestAnimationFrame - rAF is paused on a backgrounded tab, and the list
-  // often finishes loading while the tab isn't focused
   let scheduled = 0;
   function schedule() {
     if (scheduled) return;
@@ -124,7 +78,6 @@
     refresh,
     init() {
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
-      // leaving a blocked/muted page should clear the dismissal so it can offer again next visit
       let lastpath = location.pathname;
       setInterval(() => {
         if (location.pathname !== lastpath) {lastpath = location.pathname; if (!currentkind()) dismissed.clear()}

@@ -130,6 +130,7 @@
     if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
     // scroll the grid pattern along with the content so the "screen chunks" stay pinned to it
     if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+    schedulemarquees();
   }
   // a faint dashed grid where each cell is exactly one viewport - a subtle hint that the canvas
   // extends past the screen edges. purely decorative, tied to the real window size so it lines up
@@ -201,6 +202,7 @@
           <span class="tumkeepopentext">keep open on folder drop</span>
         </label>
         <div class="tumtools">
+          <button class="tumtool tumtoolclose" title="close the overlay">${ICONS.close}</button>
           <button class="tumtool tumtoolexport" title="export folders and notes as a json backup">${ICONS.download}</button>
           <button class="tumtool tumtoolimport" title="import folders from a json backup">${ICONS.upload}</button>
         </div>
@@ -299,6 +301,7 @@
       reasonedit: root.querySelector(".tumreasonedit"),
       reasondelete: root.querySelector(".tumreasondelete"),
       keepopencb: root.querySelector(".tumkeepopencb"),
+      toolclose: root.querySelector(".tumtoolclose"),
       toolexport: root.querySelector(".tumtoolexport"),
       toolimport: root.querySelector(".tumtoolimport"),
       reasonform: root.querySelector(".tumreasonform"),
@@ -351,6 +354,7 @@
     });
 
     els.quickadd.addEventListener("click", () => {if (!state.drag) opencreatemodal()});
+    els.toolclose.addEventListener("click", () => {if (!state.drag) closeoverlay()});
     els.toolexport.addEventListener("click", exportdata);
     els.toolimport.addEventListener("click", importdata);
 
@@ -385,6 +389,9 @@
   function showbackdrop() {
     applytheme();
     root.classList.add("tumactive");
+    // re-evaluate marquees now that the canvas is actually visible - an IntersectionObserver set
+    // up while it was hidden reports nothing intersecting, so this fresh pass is what lights them
+    refreshmarquees();
   }
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
@@ -407,7 +414,41 @@
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
     for (const u of tum.unsorted.list()) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
+    refreshmarquees();
   }
+
+  // truncated folder names / nicknames scroll like ad text - but only the ones actually on screen
+  // (visible in the viewport, and for members not scrolled out of their folder list). measured
+  // synchronously on render / list-scroll / pan, never per-frame, so a 200-long folder never
+  // animates every row - the css animation itself only runs on the handful that are showing
+  function enablemarquee(outer) {
+    const inner = outer.querySelector(".tummqinner");
+    if (!inner) return;
+    const dist = inner.scrollWidth - outer.clientWidth;
+    if (dist > 2) {
+      outer.style.setProperty("--mqshift", -dist + "px");
+      outer.style.setProperty("--mqdur", Math.max(4, dist / 25).toFixed(1) + "s");
+      outer.classList.add("tummarqueeon");
+    } else {
+      outer.classList.remove("tummarqueeon");
+    }
+  }
+  function refreshmarquees() {
+    if (!els.freeform) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfoldermembername, .tumloosechipname")) {
+      const r = outer.getBoundingClientRect();
+      let visible = r.width > 0 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
+      if (visible) {
+        const list = outer.closest(".tumfolderlist");
+        if (list) {const lr = list.getBoundingClientRect(); visible = r.bottom > lr.top + 1 && r.top < lr.bottom - 1}
+      }
+      if (visible) enablemarquee(outer);
+      else outer.classList.remove("tummarqueeon");
+    }
+  }
+  let mqraf = 0;
+  function schedulemarquees() {if (!mqraf) mqraf = setTimeout(() => {mqraf = 0; refreshmarquees()}, 80)}
 
   // begindrag() ends by calling render(), which wipes and rebuilds the whole freeform - so the
   // element the drag started on is already destroyed by the time the drag is live. this lets the
@@ -457,7 +498,7 @@
         <div class="tumfoldertitle">
           <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
           <div class="tumfoldertitlelines">
-            <span class="tumfoldername">${escapehtml(f.name)}</span>
+            <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
             ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>auto${f.action}</span>` : ""}
           </div>
         </div>
@@ -474,6 +515,8 @@
       <div class="tumfolderlist"></div>
     `;
     const list = node.querySelector(".tumfolderlist");
+    // re-pick which member names are on screen (and should marquee) as the list scrolls
+    list.addEventListener("scroll", schedulemarquees);
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", "drop users here"));
     } else {
@@ -513,7 +556,7 @@
       <img class="tumfoldermemberavatar" src="${m.avatarurl || ""}">
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
-          <span class="tumcopy tumfoldermembername">${escapehtml(m.displayname || m.handle)}</span>
+          <span class="tumcopy tumfoldermembername"><span class="tummqinner">${escapehtml(m.displayname || m.handle)}</span></span>
           ${badgeshtml(m.badges)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
@@ -546,7 +589,7 @@
       <img class="tumloosechipavatar" src="${u.avatarurl || ""}">
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
-          <span class="tumcopy tumloosechipname">${escapehtml(u.displayname || u.handle)}</span>
+          <span class="tumcopy tumloosechipname"><span class="tummqinner">${escapehtml(u.displayname || u.handle)}</span></span>
           ${badgeshtml(u.badges)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
@@ -787,7 +830,7 @@
       const folder = tum.folders.get(target.id);
       if (folder) {
         tum.folders.addmember(folder.id, user);
-        if (source.type === "page") tum.actions.run(folder.action, user);
+        if (source.type === "page" && !user.skipaction) tum.actions.run(folder.action, user);
       }
       // unless "keep open" is ticked, filing someone away fades the whole overlay out
       if (!keepopen) {render(); closeoverlay(); return}
@@ -1020,7 +1063,7 @@
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
         tum.folders.addmember(folder.id, user);
-        if (source.type === "page") tum.actions.run(folder.action, user);
+        if (source.type === "page" && !user.skipaction) tum.actions.run(folder.action, user);
       }
     }
     closemodal();
@@ -1095,7 +1138,7 @@
       const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
       const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
       tum.unsorted.add(withreason, px, py);
-      if (source.type === "page") tum.actions.run(reasonaction, user);
+      if (source.type === "page" && !user.skipaction) tum.actions.run(reasonaction, user);
     } else if (state.reasontarget) {
       const {source, handle} = state.reasontarget;
       if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);

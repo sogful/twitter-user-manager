@@ -122,6 +122,8 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
+.tumtoolclose:hover {border-color: #f4212e}
+.tumtoolclose:hover svg {stroke: #f4212e}
 
 .tumgridlayer {
   position: absolute; inset: 0;
@@ -305,6 +307,16 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumcopy {cursor: pointer}
 .tumcopy:hover {text-decoration: underline}
+
+/* marquee: the name span is the clip, the inner span holds the text and slides. only elements
+   given .tummarqueeon (on-screen + actually truncated) animate; the rest sit still */
+.tummqinner {display: inline-block; white-space: nowrap}
+.tummarqueeon .tummqinner {animation: tummarquee var(--mqdur,6s) ease-in-out infinite}
+@keyframes tummarquee {
+  0%, 12% {transform: translateX(0)}
+  50%, 62% {transform: translateX(var(--mqshift,0))}
+  100% {transform: translateX(0)}
+}
 
 .tumbadges {
   display: inline-flex; align-items: center;

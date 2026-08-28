@@ -91,6 +91,28 @@
     return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
   }
 
+  // the blocked / muted settings lists are plain UserCells, not tweets - draggable so you can
+  // sort them into folders by hand. skipaction: they're already blocked/muted and these rows have
+  // no caret menu to re-run anything through, so dropping them just files them, never re-acts
+  function extractusercell(cell) {
+    let handle = null, avatarurl = null, displayname = null, namelink = null;
+    const av = cell.querySelector('[data-testid^="UserAvatar-Container-"]');
+    if (av) {
+      const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+      if (m) handle = m[1];
+      const img = av.querySelector("img");
+      if (img) avatarurl = img.src;
+    }
+    for (const a of cell.querySelectorAll('a[role="link"][href^="/"]')) {
+      const t = (a.textContent || "").trim();
+      if (t && !t.startsWith("@")) {displayname = t; namelink = a; break}
+    }
+    if (!handle) return null;
+    const badges = namelink ? [...namelink.querySelectorAll("img, svg")].map(b => b.outerHTML) : [];
+    const dimtargets = [av, namelink].filter(Boolean);
+    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction: true, source: "live"};
+  }
+
   function extractuser(article) {
     const namebox = article.querySelector(NAMEBOXSEL) || (article.matches(NAMEBOXSEL) ? article : null);
     let handle = null, displayname = null, badges = [], namelink = null, handlelink = null;
@@ -143,8 +165,12 @@
       user = extractprofileheaderuser();
     } else {
       const article = e.target.closest(ARTICLESEL);
-      if (!article) return;
-      user = extractuser(article);
+      if (article) user = extractuser(article);
+      else {
+        const cell = e.target.closest('[data-testid="UserCell"]');
+        if (!cell) return;
+        user = extractusercell(cell);
+      }
     }
     if (!user) return;
     tracking = {startx: e.clientX, starty: e.clientY, user, dragging: false};
