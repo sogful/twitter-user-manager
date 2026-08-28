@@ -49,6 +49,9 @@
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : "follow",
         color: partial.color || nextcolor(),
+        icon: (partial.icon || "").slice(0, 4),
+        sort: "added",
+        collapsed: false,
         x: typeof partial.x === "number" ? partial.x : 30 + (createcount % 6) * 8,
         y: typeof partial.y === "number" ? partial.y : 30 + (createcount % 4) * 8,
         members: []

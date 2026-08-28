@@ -10,8 +10,12 @@
     plus: '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     close: '<svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>',
     trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>',
-    pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>'
+    pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+    sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>'
   };
+  const SORTMODES = ["added", "az", "za"];
+  const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
 
   const MEMBERCAP = 200; // render cap per folder list - a "+n more" note instead of true virtualization
   const URLRE = /(https?:\/\/[^\s<]+)/g;
@@ -113,6 +117,7 @@
       <div class="tummodal">
         <div class="tummodalcard">
           <div class="tummodalhead">
+            <input class="tummodalicon" maxlength="4" placeholder="icon">
             <input class="tummodalname" maxlength="40" placeholder="folder name">
             <button class="tummodalclose">${ICONS.close}</button>
           </div>
@@ -167,6 +172,7 @@
       chipbadges: root.querySelector(".tumchipbadges"),
       chiphandle: root.querySelector(".tumchiphandle"),
       modal: root.querySelector(".tummodal"),
+      modalicon: root.querySelector(".tummodalicon"),
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
@@ -267,9 +273,18 @@
     els.quickreason.classList.toggle("tumdisabled", !active);
   }
 
+  function sortedmembers(f) {
+    const members = Array.isArray(f.members) ? f.members.slice() : [];
+    if (f.sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
+    else if (f.sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
+    // "added" (default): already newest-first, addmember unshifts
+    return members;
+  }
+
   function buildfoldernode(f) {
-    const members = Array.isArray(f.members) ? f.members : [];
+    const members = sortedmembers(f);
     const node = el("div", "tumfolder");
+    if (f.collapsed) node.classList.add("tumcollapsed");
     node.style.setProperty("--tumcolor", f.color);
     node.style.left = f.x + "%";
     node.style.top = f.y + "%";
@@ -277,10 +292,17 @@
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
-          <span class="tumfolderactionicon">${ICONS[f.action] || ICONS.follow}</span>
+          <span class="tumfolderactionicon">${f.icon ? escapehtml(f.icon) : (ICONS[f.action] || ICONS.follow)}</span>
           <span class="tumfoldername">${escapehtml(f.name)}</span>
         </div>
-        <div class="tumfolderremove">${ICONS.close}</div>
+        <div class="tumfolderheadbtns">
+          <div class="tumfoldercollapse">${ICONS.chevron}</div>
+          <div class="tumfolderremove">${ICONS.close}</div>
+        </div>
+      </div>
+      <div class="tumfoldertools">
+        <input class="tumfoldersearch" placeholder="search">
+        <button class="tumfoldersort" title="${SORTLABEL[f.sort] || SORTLABEL.added}">${ICONS.sort}</button>
       </div>
       <div class="tumfolderlist"></div>
     `;
@@ -295,6 +317,23 @@
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
       e.stopPropagation();
       confirmfolderdelete(f);
+    });
+    node.querySelector(".tumfoldercollapse").addEventListener("click", e => {
+      e.stopPropagation();
+      tum.folders.update(f.id, {collapsed: !f.collapsed});
+    });
+    node.querySelector(".tumfoldersort").addEventListener("click", e => {
+      e.stopPropagation();
+      const next = SORTMODES[(SORTMODES.indexOf(f.sort) + 1) % SORTMODES.length];
+      tum.folders.update(f.id, {sort: next});
+    });
+    node.querySelector(".tumfoldersearch").addEventListener("pointerdown", e => e.stopPropagation());
+    node.querySelector(".tumfoldersearch").addEventListener("input", e => {
+      const q = e.target.value.trim().toLowerCase();
+      for (const row of list.querySelectorAll(".tumfoldermember")) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = !q || text.includes(q) ? "" : "none";
+      }
     });
     return node;
   }
@@ -597,6 +636,7 @@
   function opencreatemodal() {
     state.editing = null;
     state.modalopen = true;
+    els.modalicon.value = "";
     els.modalname.value = "";
     els.modalsave.textContent = "create";
     selectaction("follow");
@@ -609,6 +649,7 @@
   function openeditmodal(f) {
     state.editing = f.id;
     state.modalopen = true;
+    els.modalicon.value = f.icon || "";
     els.modalname.value = f.name;
     els.modalsave.textContent = "save";
     selectaction(f.action);
@@ -627,10 +668,13 @@
 
   function savemodal() {
     const name = (els.modalname.value || "").trim() || "unnamed";
+    // purely cosmetic - swaps out the action icon shown on the folder header, the action
+    // itself (follow/mute/block) still runs exactly the same either way
+    const icon = (els.modalicon.value || "").trim();
     if (state.editing) {
-      tum.folders.update(state.editing, {name, action: modalaction, color: modalcolor});
+      tum.folders.update(state.editing, {name, icon, action: modalaction, color: modalcolor});
     } else {
-      const folder = tum.folders.create({name, action: modalaction, color: modalcolor});
+      const folder = tum.folders.create({name, icon, action: modalaction, color: modalcolor});
       if (state.pendingcreate) {
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
