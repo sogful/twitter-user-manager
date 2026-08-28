@@ -134,6 +134,9 @@
 
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
+    // our own injected page badges (note pencil, folder dot) sit inside avatars/name blocks -
+    // clicking them shouldn't start a drag of that user
+    if (e.target.closest && e.target.closest(".tumpagefolderdot, .tumpagereasonbadge")) return;
     if (!isdraghandle(e.target)) return;
     let user;
     if (inprofileheader(e.target)) {

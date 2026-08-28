@@ -48,8 +48,10 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumroot.tumactive .tumbackdrop {
   opacity: 1; visibility: visible;
-  pointer-events: auto
+  pointer-events: auto;
+  cursor: move
 }
+.tumroot.tumpanning .tumbackdrop {cursor: grabbing}
 
 .tumcanvas {
   position: absolute; inset: 0;
@@ -61,10 +63,16 @@ img {-webkit-user-drag: none; user-drag: none}
   opacity: 1; visibility: visible
 }
 
-/* twitter-styled checkbox, top-right of the overlay - ticked keeps the overlay open after a drop */
+/* twitter-styled checkbox in a panel pinned flush to the top-right corner (only the inner
+   bottom-left corner is rounded); ticked keeps the overlay open after a drop */
 .tumkeepopen {
-  position: absolute; top: 14px; right: 16px;
-  display: flex; align-items: center; gap: 8px;
+  position: absolute; top: 0; right: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--tumelev,#16181c);
+  border: 1px solid var(--tumborder,#2f3336);
+  border-top: none; border-right: none;
+  border-radius: 0 0 0 14px;
   pointer-events: auto; cursor: pointer;
   user-select: none; z-index: 3
 }
@@ -86,7 +94,9 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumkeepopencb:checked + .tumkeepopenbox svg {opacity: 1}
 .tumkeepopentext {
   color: var(--tumtext,#e7e9ea);
-  font-size: 13px; font-weight: 700
+  font-size: 13px; font-weight: 700;
+  line-height: 1.2; max-width: 104px;
+  white-space: normal
 }
 
 /* export/import cluster, top-left of the overlay */
@@ -103,7 +113,9 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   justify-content: center
 }
-.tumtool:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+/* keep the fill solid on hover (a translucent --tumhover would let the page show through) -
+   layering it as an image over the elev background colour composites to an opaque tint */
+.tumtool:hover {background-image: linear-gradient(var(--tumhover,rgba(255,255,255,0.06)),var(--tumhover,rgba(255,255,255,0.06)))}
 .tumtool svg {
   width: 18px; height: 18px;
   stroke: var(--tumtext,#e7e9ea); fill: none;
@@ -127,6 +139,11 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolder.tumover {outline: 3px solid #fff}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
+.tumfolder.tumflash {outline: 3px solid transparent; animation: tumflash .5s ease-in-out 2}
+@keyframes tumflash {
+  0%, 100% {outline-color: transparent}
+  50% {outline-color: #1d9bf0}
+}
 .tumfolder.tumcollapsed {height: auto}
 .tumfolder.tumcollapsed .tumfoldertools, .tumfolder.tumcollapsed .tumfolderlist {display: none}
 
@@ -162,21 +179,21 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldercount {
   min-width: 20px; height: 18px;
   padding: 0 6px; border-radius: 999px;
-  background: rgba(0,0,0,0.2); color: var(--tumheaderfg,#fff);
+  background: var(--tumheaderbtnbg,rgba(0,0,0,0.25)); color: var(--tumheaderfg,#fff);
   font-size: 11px; font-weight: 700;
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0
 }
 .tumfoldercollapse, .tumfolderremove {
   width: 20px; height: 20px;
-  border-radius: 50%; background: rgba(0,0,0,0.25);
+  border-radius: 50%; background: var(--tumheaderbtnbg,rgba(0,0,0,0.25));
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
   cursor: pointer
 }
 .tumfoldercollapse svg {
   width: 12px; height: 12px;
-  stroke: #fff; fill: none;
+  stroke: var(--tumheaderfg,#fff); fill: none;
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform .1s linear
@@ -184,7 +201,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcollapsed .tumfoldercollapse svg {transform: rotate(-90deg)}
 .tumfolderremove svg {
   width: 10px; height: 10px;
-  stroke: #fff; fill: none;
+  stroke: var(--tumheaderfg,#fff); fill: none;
   stroke-width: 2.5
 }
 
@@ -249,6 +266,8 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; min-width: 0;
   display: flex; flex-direction: column
 }
+/* match the drag chip's 1px name/handle gap exactly so text doesn't nudge down on release */
+.tumloosechipinfo {gap: 1px}
 .tumfoldermembernamerow, .tumloosechipnamerow {
   display: flex; align-items: center; gap: 4px;
   min-width: 0

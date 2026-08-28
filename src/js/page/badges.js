@@ -25,7 +25,7 @@
       for (const m of (f.members || [])) {
         if (m.reason) reasonmap.set(m.handle.toLowerCase(), {handle: m.handle, reason: m.reason, sourceurl: m.sourceurl, source: {type: "folder", id: f.id}});
         // first folder wins if somehow in two - the dot just signals "already filed somewhere"
-        if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {name: f.name, color: f.color});
+        if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {id: f.id, name: f.name, color: f.color, icon: f.icon, action: f.action});
       }
     }
   }
@@ -115,9 +115,23 @@
     nameel.parentNode.insertBefore(badge, nameel.nextSibling);
   }
 
-  // a small colored dot on the avatar of anyone already filed in a folder, so you can spot at a
-  // glance who's been sorted without opening the overlay. the dot's color is the folder's, and
-  // its ring matches the page background so it reads like twitter's own presence markers
+  // a colored badge on the avatar of anyone already filed in a folder, carrying that folder's
+  // own icon so you can tell which at a glance. the ring matches the page background so it reads
+  // like twitter's own presence markers; clicking it opens the overlay focused on that folder
+  function dotcontrast(hex) {
+    const n = parseInt((hex || "#1d9bf0").replace("#", ""), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#000" : "#fff";
+  }
+  function filldot(dot, entry, pagebg) {
+    dot.title = "filed in: " + entry.name + " (click to open)";
+    dot.style.background = entry.color;
+    dot.style.borderColor = pagebg;
+    const fg = dotcontrast(entry.color);
+    dot.innerHTML = tum.overlay.foldericonhtml ? tum.overlay.foldericonhtml(entry) : "";
+    for (const svg of dot.querySelectorAll("svg")) {svg.style.cssText = "width:11px;height:11px;stroke:" + fg + ";fill:none;stroke-width:2.4;display:block"}
+    for (const img of dot.querySelectorAll("img")) {img.style.cssText = "width:12px;height:12px;display:block"}
+  }
   function scanavatars() {
     const pagebg = getComputedStyle(document.body).backgroundColor || "#000";
     for (const av of document.querySelectorAll('[data-testid^="UserAvatar-Container-"]')) {
@@ -130,16 +144,21 @@
         continue;
       }
       if (existing) {
-        existing.style.background = entry.color;
-        existing.style.borderColor = pagebg;
-        existing.title = "filed in: " + entry.name;
+        existing.dataset.folder = entry.id;
+        filldot(existing, entry, pagebg);
         continue;
       }
       if (getComputedStyle(av).position === "static") av.style.position = "relative";
       const dot = document.createElement("span");
       dot.className = "tumpagefolderdot";
-      dot.title = "filed in: " + entry.name;
-      dot.style.cssText = "position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;z-index:2;pointer-events:none;box-sizing:border-box;border:2px solid " + pagebg + ";background:" + entry.color;
+      dot.dataset.folder = entry.id;
+      dot.style.cssText = "position:absolute;bottom:-1px;right:-1px;width:17px;height:17px;border-radius:50%;z-index:2;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid " + pagebg;
+      filldot(dot, entry, pagebg);
+      dot.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        tum.overlay.openandflash(dot.dataset.folder);
+      });
       av.appendChild(dot);
     }
   }

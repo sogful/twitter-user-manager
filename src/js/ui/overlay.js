@@ -122,9 +122,59 @@
   function schedulepin() {if (!pinraf) pinraf = requestAnimationFrame(pinhost)}
   window.addEventListener("scroll", schedulepin, true);
   window.addEventListener("resize", schedulepin);
-  // a resize can push an already-placed folder or loose person off the newly smaller screen -
-  // no data changed, so just re-run the same visual nudge-back-on-screen pass, not a full render
-  window.addEventListener("resize", () => {if (els.freeform) for (const n of els.freeform.children) clampvisible(n)});
+
+  // the freeform is an infinite canvas - folders/loose people live in an unbounded space that
+  // this offset pans around, so nothing is clamped to the screen edge anymore. session-only
+  let pan = {x: 0, y: 0};
+  function applypan() {if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`}
+
+  // drag empty canvas (left or middle button) to pan the whole board around; a plain left click
+  // that never moved still closes the overlay, same as tapping the old backdrop did
+  function attachpan() {
+    const bd = els.backdrop;
+    bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()}); // no middle-click autoscroll
+    bd.addEventListener("pointerdown", e => {
+      if (e.button !== 0 && e.button !== 1) return;
+      const startx = e.clientX, starty = e.clientY;
+      const panstart = {x: pan.x, y: pan.y};
+      let panning = false;
+      const move = ev => {
+        const dx = ev.clientX - startx, dy = ev.clientY - starty;
+        if (!panning) {
+          if (Math.hypot(dx, dy) < THRESHOLD) return;
+          panning = true;
+          root.classList.add("tumpanning");
+        }
+        pan.x = panstart.x + dx;
+        pan.y = panstart.y + dy;
+        applypan();
+      };
+      const up = ev => {
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        root.classList.remove("tumpanning");
+        if (!panning && e.button === 0 && ev.target === bd) closeoverlay();
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
+
+  // while the overlay is up, the page behind it must not scroll. the backdrop already blocks
+  // clicks/hover; this stops wheel/touch too, but still lets the overlay's own scrollable bits
+  // (a folder's member list, the icon grid, a long note) scroll normally
+  function setupscrolllock() {
+    const allow = ev => {
+      for (const n of (ev.composedPath ? ev.composedPath() : [])) {
+        if (n instanceof Element && (n.classList.contains("tumfolderlist") || n.classList.contains("tumipgrid") || n.classList.contains("tumreasontext"))) return true;
+      }
+      return false;
+    };
+    const block = ev => {if (root && root.classList.contains("tumactive") && !allow(ev)) ev.preventDefault()};
+    window.addEventListener("wheel", block, {capture: true, passive: false});
+    window.addEventListener("touchmove", block, {capture: true, passive: false});
+  }
+  const SCROLLKEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
   function buildmarkup() {
     root = el("div", "tumroot");
@@ -259,7 +309,8 @@
     tum.iconpicker.mount(root);
     tum.iconpicker.onload(() => {render(); if (state.modalopen) refreshiconbtn()});
 
-    els.backdrop.addEventListener("click", () => closeoverlay());
+    attachpan();
+    setupscrolllock();
     els.modalclose.addEventListener("click", closemodal);
     els.modalsave.addEventListener("click", savemodal);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => selecticon(id))});
@@ -339,7 +390,6 @@
     els.freeform.innerHTML = "";
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
     for (const u of tum.unsorted.list()) els.freeform.appendChild(buildloosechip(u));
-    for (const n of els.freeform.children) clampvisible(n);
     updatequickstate();
   }
 
@@ -355,20 +405,6 @@
     if (d.source.type !== source.type) return false;
     if (source.type === "folder") return d.source.id === source.id;
     return source.type === "unsorted";
-  }
-
-  // a stored position that made sense at one screen size can put a folder or a loose person
-  // partway (or fully) off-screen at a smaller one - this is purely a visual nudge back onto
-  // screen, not a data change, so they snap back to their real stored spot the moment either
-  // the screen is big enough again or the user actually moves them
-  function clampvisible(node) {
-    const r = node.getBoundingClientRect();
-    const dx = r.left < 0 ? -r.left : (r.right > window.innerWidth ? window.innerWidth - r.right : 0);
-    const dy = r.top < 0 ? -r.top : (r.bottom > window.innerHeight ? window.innerHeight - r.bottom : 0);
-    if (!dx && !dy) return;
-    const cs = getComputedStyle(node);
-    node.style.left = (parseFloat(cs.left) + dx) + "px";
-    node.style.top = (parseFloat(cs.top) + dy) + "px";
   }
 
   function updatequickstate() {
@@ -392,7 +428,11 @@
     const node = el("div", "tumfolder");
     if (f.collapsed) node.classList.add("tumcollapsed");
     node.style.setProperty("--tumcolor", f.color);
-    node.style.setProperty("--tumheaderfg", readablefg(f.color));
+    const fg = readablefg(f.color);
+    node.style.setProperty("--tumheaderfg", fg);
+    // the little circle behind the chevron/close/count sits on the folder color too - flip it
+    // light on a bright folder so the now-black icons on it stay readable
+    node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
     node.style.left = f.x + "%";
     node.style.top = f.y + "%";
     node.dataset.id = f.id;
@@ -544,8 +584,10 @@
           tracking.dragging = true;
           root.classList.add("tumfolderdragging");
         }
-        const px = clamp(ev.clientX - tracking.offsetx, 0, window.innerWidth - node.offsetWidth);
-        const py = clamp(ev.clientY - tracking.offsety, 0, window.innerHeight - node.offsetHeight);
+        // subtract the pan so the folder tracks the cursor even when the canvas is panned; no
+        // clamp to the viewport - the canvas is infinite, drag it off-screen and pan back to it
+        const px = ev.clientX - tracking.offsetx - pan.x;
+        const py = ev.clientY - tracking.offsety - pan.y;
         node.style.left = (px / window.innerWidth * 100) + "%";
         node.style.top = (py / window.innerHeight * 100) + "%";
       };
@@ -554,8 +596,8 @@
         document.removeEventListener("pointerup", up);
         root.classList.remove("tumfolderdragging");
         if (tracking && tracking.dragging) {
-          const px = clamp(ev.clientX - tracking.offsetx, 0, window.innerWidth - node.offsetWidth);
-          const py = clamp(ev.clientY - tracking.offsety, 0, window.innerHeight - node.offsetHeight);
+          const px = ev.clientX - tracking.offsetx - pan.x;
+          const py = ev.clientY - tracking.offsety - pan.y;
           tum.folders.move(f.id, px / window.innerWidth * 100, py / window.innerHeight * 100);
         } else if (tracking) {
           openeditmodal(f);
@@ -759,7 +801,8 @@
       // not dropped on anything - pin them right where they were let go instead of losing
       // them, whether they started on the page, in a folder, or already loose
       removefromsource(source, user.handle);
-      const px = clamp(x / window.innerWidth * 100, 3, 97), py = clamp(y / window.innerHeight * 100, 4, 96);
+      // pan-aware, unclamped: they stay exactly where dropped in canvas space
+      const px = (x - pan.x) / window.innerWidth * 100, py = (y - pan.y) / window.innerHeight * 100;
       tum.unsorted.add(user, px, py);
       state.open = true;
       render();
@@ -786,7 +829,10 @@
 
   function onkeydown(e) {
     if (!state.drag) {
-      if (e.key === "Escape") closeoverlay();
+      if (e.key === "Escape") {closeoverlay(); return}
+      // don't let the keyboard scroll the page behind the open overlay (but keep typing in fields)
+      const typing = shadow.activeElement && /^(INPUT|TEXTAREA)$/.test(shadow.activeElement.tagName);
+      if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;
     }
     if (e.key === "Escape") {canceldrag(); e.preventDefault(); return}
@@ -1027,8 +1073,8 @@
       const {user, source, x, y} = state.pendingcreate;
       const withreason = Object.assign({}, user, {reason: text});
       removefromsource(source, user.handle);
-      const px = clamp((x != null ? x : window.innerWidth / 2) / window.innerWidth * 100, 3, 97);
-      const py = clamp((y != null ? y : window.innerHeight / 2) / window.innerHeight * 100, 4, 96);
+      const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
+      const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
       tum.unsorted.add(withreason, px, py);
       if (source.type === "page") tum.actions.run(reasonaction, user);
     } else if (state.reasontarget) {
@@ -1072,6 +1118,23 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  // opening the overlay focused on one folder (from clicking a user's in-page folder dot):
+  // fade the canvas in, then briefly pulse that folder so it's easy to spot
+  function openandflash(folderid) {
+    state.open = true;
+    showbackdrop();
+    render();
+    // render() has already put the node in the dom, so flash it right away - no rAF, which a
+    // backgrounded tab would throttle
+    const n = els.freeform.querySelector('.tumfolder[data-id="' + folderid + '"]');
+    if (!n) return;
+    void n.offsetWidth; // restart the animation if it's already mid-flash
+    n.classList.add("tumflash");
+    setTimeout(() => n.classList.remove("tumflash"), 1200);
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   let toasttimer = 0;
   function toast(msg) {
     els.toast.textContent = msg;
@@ -1084,6 +1147,8 @@
     mount() {build()},
     begindrag: (user, x, y) => begindrag(user, x, y, {type: "page"}),
     updatedrag, enddrag, canceldrag, toast,
-    openreasonview
+    openreasonview, openandflash,
+    // the same markup the folder header uses for its icon - so an in-page dot can show it too
+    foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder
   };
 })();
