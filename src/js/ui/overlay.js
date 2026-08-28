@@ -12,6 +12,7 @@
     trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>',
     pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+    check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>'
   };
@@ -23,6 +24,13 @@
 
   let shadow = null, root = null, host = null;
   let els = {};
+  // when off (default), filing someone into a folder fades the whole overlay away; when the
+  // top-right checkbox is ticked it stays open so you can keep sorting. persisted across sessions
+  const settings = tum.storage.create("tum.settings");
+  let keepopen = false;
+  function applysetting(v) {keepopen = !!(v && v.keepopen); if (els.keepopencb) els.keepopencb.checked = keepopen}
+  settings.get().then(applysetting);
+  settings.subscribe(applysetting);
   // state.drag describes whatever is currently being carried around: {kind:"user"|"folder",
   // user, source: {type:"page"} | {type:"folder", id} | {type:"unsorted"}, folderid}
   let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
@@ -121,6 +129,11 @@
     root.innerHTML = `
       <div class="tumbackdrop"></div>
       <div class="tumcanvas">
+        <label class="tumkeepopen" title="keep the overlay open after filing someone into a folder">
+          <input type="checkbox" class="tumkeepopencb">
+          <span class="tumkeepopenbox">${ICONS.check}</span>
+          <span class="tumkeepopentext">keep open on folder drop</span>
+        </label>
         <div class="tumfreeform"></div>
         <div class="tumquickrow">
           <div class="tumquick tumquickadd"><div class="tumquickicon">${ICONS.plus}</div><span>new folder</span></div>
@@ -162,6 +175,7 @@
             <div class="tumreasontext"></div>
             <a class="tumreasonsource" target="_blank" rel="noopener">view attached post</a>
             <button class="tumreasonedit">edit</button>
+            <button class="tumreasondelete">delete</button>
           </div>
           <div class="tumreasonform">
             <div class="tumreasonactions">
@@ -212,6 +226,8 @@
       reasontext: root.querySelector(".tumreasontext"),
       reasonsource: root.querySelector(".tumreasonsource"),
       reasonedit: root.querySelector(".tumreasonedit"),
+      reasondelete: root.querySelector(".tumreasondelete"),
+      keepopencb: root.querySelector(".tumkeepopencb"),
       reasonform: root.querySelector(".tumreasonform"),
       reasonactions: root.querySelector(".tumreasonactions"),
       reasonactionbtns: root.querySelectorAll(".tumreasonactions .tummodalaction"),
@@ -244,7 +260,15 @@
     els.reasonclose.addEventListener("click", closereasonmodal);
     els.reasonmodal.addEventListener("click", e => {if (e.target === els.reasonmodal) closereasonmodal()});
     els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
+    els.reasondelete.addEventListener("click", deletenoteduser);
     els.reasonsave.addEventListener("click", savereason);
+
+    // remember the keep-open preference across drops and sessions
+    els.keepopencb.checked = keepopen;
+    els.keepopencb.addEventListener("change", () => {
+      keepopen = els.keepopencb.checked;
+      settings.set({keepopen});
+    });
     els.confirmcancel.addEventListener("click", closeconfirmsheet);
     els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
@@ -371,6 +395,7 @@
           <span class="tumfoldername">${escapehtml(f.name)}</span>
         </div>
         <div class="tumfolderheadbtns">
+          <span class="tumfoldercount">${members.length}</span>
           <div class="tumfoldercollapse">${ICONS.chevron}</div>
           <div class="tumfolderremove">${ICONS.close}</div>
         </div>
@@ -693,6 +718,8 @@
         tum.folders.addmember(folder.id, user);
         if (source.type === "page") tum.actions.run(folder.action, user);
       }
+      // unless "keep open" is ticked, filing someone away fades the whole overlay out
+      if (!keepopen) {render(); closeoverlay(); return}
     } else if (zone === "add") {
       // no render() here on purpose - the source data hasn't changed yet (still pending the
       // modal's save), and a render right now would rebuild their old row/chip from scratch,
@@ -702,6 +729,14 @@
       opencreatemodal();
       return;
     } else if (zone === "discard") {
+      // a noted user can't be discarded away - that would silently drop their note. they stay
+      // put wherever they came from, and can only be removed from their own note popup
+      if (user.reason) {
+        toast("this user has a note - delete them from the note instead");
+        state.open = true;
+        render();
+        return;
+      }
       removefromsource(source, user.handle);
       render();
       closeoverlay();
@@ -902,6 +937,15 @@
       if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);
       else tum.unsorted.setreason(handle, text);
     }
+    closereasonmodal();
+    state.open = true;
+    render();
+  }
+
+  // the sanctioned way to remove a noted user - dropping them on discard is deliberately blocked
+  // (see enddrag) so a note can't be lost by accident, only through this button
+  function deletenoteduser() {
+    if (state.reasontarget) removefromsource(state.reasontarget.source, state.reasontarget.handle);
     closereasonmodal();
     state.open = true;
     render();

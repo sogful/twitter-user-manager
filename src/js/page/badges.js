@@ -105,6 +105,9 @@
     }
     const badge = makebadge(handle, entry);
     badge.classList.add("tumpageprofilereasonbadge");
+    // the profile nickname is bigger than a tweet name, so its note badge is bumped up to match
+    badge.style.width = "16px";
+    badge.style.height = "16px";
     nameel.parentNode.insertBefore(badge, nameel.nextSibling);
   }
 

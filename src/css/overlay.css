@@ -54,10 +54,39 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcanvas {
   position: absolute; inset: 0;
   opacity: 0; visibility: hidden;
-  pointer-events: none
+  pointer-events: none;
+  transition: opacity .18s ease, visibility .18s ease
 }
 .tumroot.tumactive .tumcanvas {
   opacity: 1; visibility: visible
+}
+
+/* twitter-styled checkbox, top-right of the overlay - ticked keeps the overlay open after a drop */
+.tumkeepopen {
+  position: absolute; top: 14px; right: 16px;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: auto; cursor: pointer;
+  user-select: none; z-index: 3
+}
+.tumkeepopencb {position: absolute; opacity: 0; width: 0; height: 0}
+.tumkeepopenbox {
+  width: 20px; height: 20px;
+  border-radius: 6px; background: transparent;
+  border: 2px solid var(--tummuted,#71767b);
+  display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0
+}
+.tumkeepopenbox svg {
+  width: 14px; height: 14px;
+  stroke: #fff; fill: none; opacity: 0;
+  stroke-width: 3; stroke-linecap: round;
+  stroke-linejoin: round
+}
+.tumkeepopencb:checked + .tumkeepopenbox {background: #1d9bf0; border-color: #1d9bf0}
+.tumkeepopencb:checked + .tumkeepopenbox svg {opacity: 1}
+.tumkeepopentext {
+  color: var(--tumtext,#e7e9ea);
+  font-size: 13px; font-weight: 700
 }
 
 .tumfreeform {
@@ -107,6 +136,14 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfolderheadbtns {
   display: flex; align-items: center;
   gap: 6px; flex-shrink: 0
+}
+.tumfoldercount {
+  min-width: 20px; height: 18px;
+  padding: 0 6px; border-radius: 999px;
+  background: rgba(0,0,0,0.2); color: var(--tumheaderfg,#fff);
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0
 }
 .tumfoldercollapse, .tumfolderremove {
   width: 20px; height: 20px;
@@ -583,6 +620,16 @@ img {-webkit-user-drag: none; user-drag: none}
   font-weight: 700; cursor: pointer;
   font-size: 14px
 }
+
+.tumreasondelete {
+  width: 100%; background: transparent;
+  color: #f4212e; margin-top: 8px;
+  border: 1px solid var(--tumcancelborder,#536471);
+  border-radius: 999px; padding: 10px 20px;
+  font-weight: 700; cursor: pointer;
+  font-size: 14px
+}
+.tumreasondelete:hover {background: rgba(244,33,46,0.1); border-color: #f4212e}
 
 .tumreasonview, .tumreasonform {display: none}
 .tumreasonview.tumshow, .tumreasonform.tumshow {display: block}
