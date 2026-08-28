@@ -47,7 +47,7 @@
       const folder = {
         id: uid(),
         name: (partial.name || "new folder").slice(0, 40),
-        action: ACTIONS.includes(partial.action) ? partial.action : "follow",
+        action: ACTIONS.includes(partial.action) ? partial.action : null,
         color: partial.color || nextcolor(),
         icon: (partial.icon || "").slice(0, 4),
         sort: "added",

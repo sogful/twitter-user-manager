@@ -5,21 +5,71 @@
 
   const THRESHOLD = 6;
   const AVATARSEL = '[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]';
-  const ARTICLESEL = 'article[data-testid="tweet"], article[role="article"]';
+  // TODO: verify against a live x.com session - HoverCard reuses the tweet's own User-Name
+  // component as far as I know, but this specific testid is unconfirmed
+  const ARTICLESEL = 'article[data-testid="tweet"], article[role="article"], div[data-testid="HoverCard"]';
+  const NAMEBOXSEL = '[data-testid="User-Name"]';
+  // confirmed live: the profile header's big name is plain text, not a link (nowhere to
+  // navigate to from your own page), so it can't reuse the tweet/hovercard extraction at all -
+  // this scopes to the header's own avatar-photo link and its one <h2>
+  const PROFILEAVATARSEL = 'a[href$="/photo"]';
+
+  function inprofileheader(target) {
+    return !!(target.closest(PROFILEAVATARSEL) || target.closest("main h2"));
+  }
 
   // only the nickname (display name) and the avatar should start a drag - not the @handle text,
   // which sits in its own link right next to it inside the same User-Name block
   function isdraghandle(target) {
     if (target.closest(AVATARSEL)) return true;
-    const namebox = target.closest('[data-testid="User-Name"]');
+    if (inprofileheader(target)) return true;
+    const namebox = target.closest(NAMEBOXSEL);
     if (!namebox) return false;
     const link = target.closest('a[role="link"]');
     if (!link) return false;
     return !(link.textContent || "").trim().startsWith("@");
   }
 
+  const SKIPPATH = /^\/(i|home|explore|search|notifications|messages|settings|compose)(\/|$)/i;
+
+  // a profile page has no per-tweet caret - it has its own single "More" overflow button up
+  // in the header (next to Follow) with the same Mute/Block items. picking the wrong caret
+  // (e.g. the first tweet's) would run the action on a random stranger, so this has to find
+  // that specific button rather than reuse the article-scoped lookup actions.js does for tweets
+  function findprofilecaret() {
+    for (const b of document.querySelectorAll('button[aria-label="More"]')) {
+      if (!b.closest("article")) return b;
+    }
+    return null;
+  }
+
+  // follow has its own dedicated button on a profile page - it isn't in the More menu the way
+  // it is on a tweet, so the "follow" action needs a different click target than mute/block do
+  function findprofilefollowbutton() {
+    for (const b of document.querySelectorAll('button[aria-label^="Follow @"]')) {
+      if (!b.closest("article")) return b;
+    }
+    return null;
+  }
+
+  function extractprofileheaderuser() {
+    const m = /^\/([A-Za-z0-9_]+)\/?$/.exec(location.pathname);
+    if (!m || SKIPPATH.test(location.pathname)) return null;
+    const handle = m[1];
+    const heading = document.querySelector("main h2");
+    if (!heading) return null;
+    const avatarlink = document.querySelector(PROFILEAVATARSEL);
+    const avatarimg = avatarlink && avatarlink.querySelector("img");
+    const displayname = heading.textContent || handle;
+    const badges = [...heading.querySelectorAll("img, svg")].map(b => b.cloneNode(true));
+    // no specific tweet to attach and nothing to dim to a percent besides the header itself -
+    // "or none if directly from profile" is intentional, not a gap
+    const dimtargets = [avatarlink, heading].filter(Boolean);
+    return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
+  }
+
   function extractuser(article) {
-    const namebox = article.querySelector('[data-testid="User-Name"]');
+    const namebox = article.querySelector(NAMEBOXSEL) || (article.matches(NAMEBOXSEL) ? article : null);
     let handle = null, displayname = null, badges = [], namelink = null, handlelink = null;
     if (namebox) {
       const links = namebox.querySelectorAll('a[role="link"][href^="/"]');
@@ -62,9 +112,14 @@
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
     if (!isdraghandle(e.target)) return;
-    const article = e.target.closest(ARTICLESEL);
-    if (!article) return;
-    const user = extractuser(article);
+    let user;
+    if (inprofileheader(e.target)) {
+      user = extractprofileheaderuser();
+    } else {
+      const article = e.target.closest(ARTICLESEL);
+      if (!article) return;
+      user = extractuser(article);
+    }
     if (!user) return;
     tracking = {startx: e.clientX, starty: e.clientY, user, dragging: false};
   }

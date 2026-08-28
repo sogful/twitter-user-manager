@@ -11,6 +11,9 @@
 
 * {box-sizing: border-box; font-family: "Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 img {-webkit-user-drag: none; user-drag: none}
+/* kill default browser focus rings app-wide (the drag chip especially picks these up) - the
+   .tumover/.tumoverremove drop-target highlights are more specific so they still win */
+*, *:focus {outline: none; -webkit-tap-highlight-color: transparent}
 
 .tumroot {
   position: absolute; inset: 0;
@@ -177,7 +180,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldermemberavatar {
   width: 24px; height: 24px;
   border-radius: 50%; object-fit: cover;
-  flex-shrink: 0; background: #2f3336
+  flex-shrink: 0
 }
 .tumfoldermembertext, .tumloosechipinfo {
   flex: 1; min-width: 0;
@@ -237,7 +240,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumloosechipavatar {
   width: 40px; height: 40px;
   border-radius: 50%; object-fit: cover;
-  flex-shrink: 0; background: #2f3336
+  flex-shrink: 0
 }
 .tumloosechipname {
   color: var(--tumfg); font-size: 14px;
@@ -357,14 +360,19 @@ img {-webkit-user-drag: none; user-drag: none}
   border: 1px solid #37434d;
   padding: 8px 14px; font-size: 14px
 }
-.tummodalicon {
-  width: 40px; flex-shrink: 0;
-  background: #000; color: #e5eaec;
+.tummodaliconbtn {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: #000; color: #e7e9ea;
   border: 1px solid #37434d; border-radius: 999px;
-  padding: 8px; font-size: 16px;
-  text-align: center
+  font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center
 }
-.tummodalicon:focus {outline: none; border-color: #1d9bf0}
+.tummodaliconbtn svg {
+  width: 18px; height: 18px;
+  fill: none; stroke: #e7e9ea;
+  stroke-width: 2; stroke-linecap: round;
+  stroke-linejoin: round
+}
 .tummodalname {border-radius: 999px}
 .tumreasoninput {
   border-radius: 14px; width: 100%;
@@ -406,6 +414,28 @@ img {-webkit-user-drag: none; user-drag: none}
   border-color: #1d9bf0; color: #1d9bf0;
   background: rgba(29,155,240,0.1)
 }
+.tummodalaction.tumdimmed {opacity: .5}
+
+.tumemojipicker {
+  max-height: 0; overflow: hidden;
+  margin-bottom: 0
+}
+.tumemojipicker.tumshow {
+  max-height: 140px; overflow-y: auto;
+  margin-bottom: 14px
+}
+.tumemojigrid {
+  display: flex; flex-wrap: wrap;
+  gap: 2px; padding: 4px
+}
+.tumemojiitem {
+  width: 32px; height: 32px;
+  background: transparent; border: none;
+  border-radius: 8px; cursor: pointer;
+  font-size: 18px; line-height: 1;
+  display: flex; align-items: center; justify-content: center
+}
+.tumemojiitem:hover {background: rgba(255,255,255,0.08)}
 
 .tummodalcolors {
   display: flex; gap: 8px;
@@ -441,12 +471,14 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* matches x.com's own confirmation dialog (e.g. "Delete post?") pixel for pixel: solid
-   black card, centered, red filled confirm pill, black+bordered cancel pill underneath */
+/* the card itself matches x.com's own confirmation dialog (solid black, red filled confirm
+   pill, black+bordered cancel pill) but with its own lighter blue-gray dim behind it instead
+   of stacking onto the main black backdrop, left-aligned text, and a bumped-up title size */
 
 .tumconfirmsheet {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
+  position: absolute; inset: 0;
+  background: rgba(91,112,131,0.4);
+  display: flex; align-items: center; justify-content: center;
   opacity: 0; visibility: hidden;
   pointer-events: none; z-index: 5
 }
@@ -457,11 +489,11 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumconfirmcard {
   width: 300px; background: #000;
   border: 1px solid #2f3336; border-radius: 16px;
-  padding: 20px; text-align: center
+  padding: 20px; text-align: left
 }
 .tumconfirmtitle {
   color: #e7e9ea; font-weight: 800;
-  font-size: 17px; margin-bottom: 6px
+  font-size: 19px; margin-bottom: 6px
 }
 .tumconfirmbody {
   color: #71767b; font-size: 14px;

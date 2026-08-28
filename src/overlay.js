@@ -12,8 +12,18 @@
     trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>',
     pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
-    sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>'
+    sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
+    folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>'
   };
+  // curated, not exhaustive - just enough spread to be useful for a folder icon
+  const EMOJIPICK = [
+    "😀","😂","😍","😎","🥳","😭","😡","🤔","😴","🤯","🥺","😏","👻","💀","🤖","👽",
+    "❤️","💔","🔥","⭐","✨","💯","⚡","🎯","🎉","🏆","💎","🎵","📌","🔖","🚩","🏳️",
+    "👀","👍","👎","🙌","🤝","💪","🙏","✌️","👑","🕶️",
+    "🐱","🐶","🦊","🐸","🦄","🐍","🦋","🐢","🦉","🐙",
+    "☕","🍕","🍎","🍿","🎮","📸","🎨","🎧","📚","💰",
+    "🌙","☀️","⛈️","❄️","🌈","🌵","🌴","🍀"
+  ];
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
 
@@ -117,7 +127,7 @@
       <div class="tummodal">
         <div class="tummodalcard">
           <div class="tummodalhead">
-            <input class="tummodalicon" maxlength="4" placeholder="icon">
+            <button class="tummodaliconbtn" title="click to pick an icon">${ICONS.folder}</button>
             <input class="tummodalname" maxlength="40" placeholder="folder name">
             <button class="tummodalclose">${ICONS.close}</button>
           </div>
@@ -125,6 +135,9 @@
             <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
             <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
             <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
+          </div>
+          <div class="tumemojipicker">
+            <div class="tumemojigrid"></div>
           </div>
           <div class="tummodalcolors"></div>
           <button class="tummodalsave">create</button>
@@ -172,7 +185,9 @@
       chipbadges: root.querySelector(".tumchipbadges"),
       chiphandle: root.querySelector(".tumchiphandle"),
       modal: root.querySelector(".tummodal"),
-      modalicon: root.querySelector(".tummodalicon"),
+      modaliconbtn: root.querySelector(".tummodaliconbtn"),
+      emojipicker: root.querySelector(".tumemojipicker"),
+      emojigrid: root.querySelector(".tumemojigrid"),
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
@@ -203,15 +218,22 @@
       sw.addEventListener("click", () => selectcolor(c));
       els.modalcolors.appendChild(sw);
     }
+    for (const e of EMOJIPICK) {
+      const btn = el("button", "tumemojiitem", e);
+      btn.addEventListener("click", () => selecticon(e));
+      els.emojigrid.appendChild(btn);
+    }
 
     els.backdrop.addEventListener("click", () => closeoverlay());
     els.modalclose.addEventListener("click", closemodal);
     els.modalsave.addEventListener("click", savemodal);
-    for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action));
+    els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); els.emojipicker.classList.toggle("tumshow")});
+    for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action === modalaction ? null : b.dataset.action));
     els.reasonclose.addEventListener("click", closereasonmodal);
     els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
     els.reasonsave.addEventListener("click", savereason);
     els.confirmcancel.addEventListener("click", closeconfirmsheet);
+    els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
       if (state.confirmtarget) tum.folders.remove(state.confirmtarget);
       closeconfirmsheet();
@@ -292,7 +314,7 @@
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
-          <span class="tumfolderactionicon">${f.icon ? escapehtml(f.icon) : (ICONS[f.action] || ICONS.follow)}</span>
+          <span class="tumfolderactionicon">${f.icon ? escapehtml(f.icon) : (ICONS[f.action] || ICONS.folder)}</span>
           <span class="tumfoldername">${escapehtml(f.name)}</span>
         </div>
         <div class="tumfolderheadbtns">
@@ -622,7 +644,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let modalcolor = "#1d9bf0", modalaction = "follow";
+  let modalcolor = "#1d9bf0", modalaction = null, modalicon = "";
 
   function selectcolor(c) {
     modalcolor = c;
@@ -631,16 +653,30 @@
   function selectaction(a) {
     modalaction = a;
     for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
+    refreshiconbtn();
+  }
+  // the icon button shows the custom emoji if one was picked, otherwise whatever action icon
+  // is currently selected, otherwise a plain default - always reflects the live modal state
+  function refreshiconbtn() {
+    els.modaliconbtn.innerHTML = modalicon || ICONS[modalaction] || ICONS.folder;
+  }
+  function selecticon(e) {
+    modalicon = e;
+    refreshiconbtn();
+    els.emojipicker.classList.remove("tumshow");
   }
 
   function opencreatemodal() {
     state.editing = null;
     state.modalopen = true;
-    els.modalicon.value = "";
+    modalicon = "";
     els.modalname.value = "";
     els.modalsave.textContent = "create";
-    selectaction("follow");
+    // no action pre-selected - dropping into a folder with none set just files the person,
+    // no follow/mute/block runs
+    selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
+    els.modalactions.forEach(b => b.classList.remove("tumdimmed"));
     showbackdrop();
     els.modal.classList.add("tumshow");
     els.modalname.focus();
@@ -649,17 +685,22 @@
   function openeditmodal(f) {
     state.editing = f.id;
     state.modalopen = true;
-    els.modalicon.value = f.icon || "";
+    modalicon = f.icon || "";
     els.modalname.value = f.name;
     els.modalsave.textContent = "save";
     selectaction(f.action);
     selectcolor(f.color);
+    // this folder already exists (maybe with members filed under its current action already)
+    // - the action picker still works, just visually backed off so it's not the obvious thing
+    // to fiddle with while renaming
+    els.modalactions.forEach(b => b.classList.add("tumdimmed"));
     showbackdrop();
     els.modal.classList.add("tumshow");
   }
 
   function closemodal() {
     els.modal.classList.remove("tumshow");
+    els.emojipicker.classList.remove("tumshow");
     state.pendingcreate = null;
     state.editing = null;
     state.modalopen = false;
@@ -670,7 +711,7 @@
     const name = (els.modalname.value || "").trim() || "unnamed";
     // purely cosmetic - swaps out the action icon shown on the folder header, the action
     // itself (follow/mute/block) still runs exactly the same either way
-    const icon = (els.modalicon.value || "").trim();
+    const icon = modalicon;
     if (state.editing) {
       tum.folders.update(state.editing, {name, icon, action: modalaction, color: modalcolor});
     } else {
