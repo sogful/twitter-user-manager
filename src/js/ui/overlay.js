@@ -13,6 +13,8 @@
     pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg>',
+    download: '<svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>',
+    upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>'
   };
@@ -134,6 +136,10 @@
           <span class="tumkeepopenbox">${ICONS.check}</span>
           <span class="tumkeepopentext">keep open on folder drop</span>
         </label>
+        <div class="tumtools">
+          <button class="tumtool tumtoolexport" title="export folders and notes as a json backup">${ICONS.download}</button>
+          <button class="tumtool tumtoolimport" title="import folders from a json backup">${ICONS.upload}</button>
+        </div>
         <div class="tumfreeform"></div>
         <div class="tumquickrow">
           <div class="tumquick tumquickadd"><div class="tumquickicon">${ICONS.plus}</div><span>new folder</span></div>
@@ -228,6 +234,8 @@
       reasonedit: root.querySelector(".tumreasonedit"),
       reasondelete: root.querySelector(".tumreasondelete"),
       keepopencb: root.querySelector(".tumkeepopencb"),
+      toolexport: root.querySelector(".tumtoolexport"),
+      toolimport: root.querySelector(".tumtoolimport"),
       reasonform: root.querySelector(".tumreasonform"),
       reasonactions: root.querySelector(".tumreasonactions"),
       reasonactionbtns: root.querySelectorAll(".tumreasonactions .tummodalaction"),
@@ -277,10 +285,10 @@
     });
 
     els.quickadd.addEventListener("click", () => {if (!state.drag) opencreatemodal()});
+    els.toolexport.addEventListener("click", exportdata);
+    els.toolimport.addEventListener("click", importdata);
 
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && !state.drag) closeoverlay();
-    }, true);
+    document.addEventListener("keydown", onkeydown, true);
 
     tum.folders.subscribe(render);
     tum.unsorted.subscribe(render);
@@ -647,6 +655,8 @@
   function movechip(x, y) {
     els.chip.style.left = x + "px";
     els.chip.style.top = y + "px";
+    // remembered so keyboard nudges/number-drops know where the held chip currently is
+    if (state.drag) {state.drag.lastx = x; state.drag.lasty = y}
   }
 
   function rectcontains(rect, x, y) {
@@ -765,6 +775,95 @@
     root.classList.remove("tumdragging");
     state.drag = null;
     hidebackdrop();
+    // rebuild so the person whose canvas row/chip was hidden mid-drag comes back visible
+    render();
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+  // keyboard: while carrying someone, number keys 1-9 file them straight into the Nth folder,
+  // arrow keys nudge the held chip (shift for a finer step), and escape drops the drag. with
+  // nothing in hand, escape just closes the overlay
+
+  function onkeydown(e) {
+    if (!state.drag) {
+      if (e.key === "Escape") closeoverlay();
+      return;
+    }
+    if (e.key === "Escape") {canceldrag(); e.preventDefault(); return}
+    const folders = [...els.freeform.querySelectorAll(".tumfolder")];
+    if (/^[1-9]$/.test(e.key)) {
+      const f = folders[parseInt(e.key, 10) - 1];
+      if (f) {const r = f.getBoundingClientRect(); enddrag(r.left + r.width / 2, r.top + r.height / 2)}
+      e.preventDefault();
+      return;
+    }
+    if (e.key.startsWith("Arrow")) {
+      const step = e.shiftKey ? 1 : 12;
+      let x = state.drag.lastx, y = state.drag.lasty;
+      if (e.key === "ArrowLeft") x -= step;
+      else if (e.key === "ArrowRight") x += step;
+      else if (e.key === "ArrowUp") y -= step;
+      else if (e.key === "ArrowDown") y += step;
+      else return;
+      updatedrag(clamp(x, 0, window.innerWidth), clamp(y, 0, window.innerHeight));
+      e.preventDefault();
+    }
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+  // back up / restore everything as a single json file. import merges (never wipes) - imported
+  // folders are added alongside whatever's already there, so a bad import can't cost you data
+
+  function exportdata() {
+    const data = {version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()};
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = el("a");
+    a.href = url;
+    a.download = "twitter-user-manager-" + new Date().toISOString().slice(0, 10) + ".json";
+    root.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("exported " + tum.folders.list().length + " folders");
+  }
+
+  function importdata() {
+    const input = el("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {applyimport(JSON.parse(reader.result))}
+        catch {toast("import failed - not valid json")}
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  }
+
+  function applyimport(data) {
+    const folders = Array.isArray(data && data.folders) ? data.folders : [];
+    const unsorted = Array.isArray(data && data.unsorted) ? data.unsorted : [];
+    let nf = 0, nu = 0;
+    for (const f of folders) {
+      if (!f || typeof f !== "object") continue;
+      // create() gives it a fresh id so a re-import can't clobber an existing folder
+      const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon, x: f.x, y: f.y});
+      for (const m of (Array.isArray(f.members) ? f.members : [])) if (m && m.handle) tum.folders.addmember(created.id, m);
+      nf++;
+    }
+    for (const u of unsorted) {
+      if (!u || !u.handle) continue;
+      tum.unsorted.add(u, u.x, u.y);
+      nu++;
+    }
+    state.open = true;
+    render();
+    toast("imported " + nf + " folders, " + nu + " loose users");
   }
 
   /*//////////////////////////////////////////////////////////////////////*/

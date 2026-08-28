@@ -13,15 +13,19 @@
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)\/?$/;
 
   let reasonmap = new Map(); // handle (lowercased) -> {handle, reason, sourceurl, source}
+  let membermap = new Map(); // handle (lowercased) -> {name, color} of the folder they're filed in
 
   function rebuildreasonmap() {
     reasonmap = new Map();
+    membermap = new Map();
     for (const u of tum.unsorted.list()) {
       if (u.reason) reasonmap.set(u.handle.toLowerCase(), {handle: u.handle, reason: u.reason, sourceurl: u.sourceurl, source: {type: "unsorted"}});
     }
     for (const f of tum.folders.list()) {
       for (const m of (f.members || [])) {
         if (m.reason) reasonmap.set(m.handle.toLowerCase(), {handle: m.handle, reason: m.reason, sourceurl: m.sourceurl, source: {type: "folder", id: f.id}});
+        // first folder wins if somehow in two - the dot just signals "already filed somewhere"
+        if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {name: f.name, color: f.color});
       }
     }
   }
@@ -111,9 +115,39 @@
     nameel.parentNode.insertBefore(badge, nameel.nextSibling);
   }
 
+  // a small colored dot on the avatar of anyone already filed in a folder, so you can spot at a
+  // glance who's been sorted without opening the overlay. the dot's color is the folder's, and
+  // its ring matches the page background so it reads like twitter's own presence markers
+  function scanavatars() {
+    const pagebg = getComputedStyle(document.body).backgroundColor || "#000";
+    for (const av of document.querySelectorAll('[data-testid^="UserAvatar-Container-"]')) {
+      const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+      const handle = m && m[1];
+      const entry = handle ? membermap.get(handle.toLowerCase()) : null;
+      const existing = av.querySelector(".tumpagefolderdot");
+      if (!entry) {
+        if (existing) existing.remove();
+        continue;
+      }
+      if (existing) {
+        existing.style.background = entry.color;
+        existing.style.borderColor = pagebg;
+        existing.title = "filed in: " + entry.name;
+        continue;
+      }
+      if (getComputedStyle(av).position === "static") av.style.position = "relative";
+      const dot = document.createElement("span");
+      dot.className = "tumpagefolderdot";
+      dot.title = "filed in: " + entry.name;
+      dot.style.cssText = "position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;z-index:2;pointer-events:none;box-sizing:border-box;border:2px solid " + pagebg + ";background:" + entry.color;
+      av.appendChild(dot);
+    }
+  }
+
   function scan() {
     scantweets();
     scanprofileheader();
+    scanavatars();
   }
 
   let scheduled = false;

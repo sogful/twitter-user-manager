@@ -89,6 +89,28 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 13px; font-weight: 700
 }
 
+/* export/import cluster, top-left of the overlay */
+.tumtools {
+  position: absolute; top: 14px; left: 16px;
+  display: flex; gap: 8px;
+  pointer-events: auto; z-index: 3
+}
+.tumtool {
+  width: 34px; height: 34px;
+  border-radius: 999px; cursor: pointer;
+  background: var(--tumelev,#16181c);
+  border: 1px solid var(--tumborder,#2f3336);
+  display: flex; align-items: center;
+  justify-content: center
+}
+.tumtool:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tumtool svg {
+  width: 18px; height: 18px;
+  stroke: var(--tumtext,#e7e9ea); fill: none;
+  stroke-width: 2; stroke-linecap: round;
+  stroke-linejoin: round
+}
+
 .tumfreeform {
   position: absolute; inset: 0
 }
