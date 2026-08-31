@@ -10,8 +10,41 @@
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)\/?$/;
   const SKIP = /^\/(i|home|explore|search|notifications|messages|settings|compose)\/?$/i;
   const ITEMSSEL = '[data-testid="UserProfileHeader_Items"]';
-  // filled envelope path (google material symbols "mail") dropped into a cloned item's own svg
-  const MAILPATH = "M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z";
+  // outlined envelope (material icons "mail_outline") - fill:currentColor draws it as an outline,
+  // so it still matches twitter's own fill-based item icons rather than looking like a solid block
+  const MAILPATH = "M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm0-12l-8 5-8-5h16z";
+  const FONT = '"TwitterChirp","Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+
+  // a copy of x.com's own bottom toast (captured 1:1 from its "Copied to clipboard" notification):
+  // blue pill, white text, 4px radius, 12px padding, bottom-centred, 170ms opacity fade, no shadow
+  let toastel = null, toasttimer = 0;
+  function pagetoast(msg) {
+    if (!toastel) {
+      toastel = document.createElement("div");
+      toastel.className = "tumpagetoast";
+      toastel.style.cssText = "position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:2147483000;background:#1d9bf0;color:#fff;border-radius:4px;padding:12px;font-family:" + FONT + ";font-size:15px;line-height:20px;max-width:90vw;text-align:center;pointer-events:none;opacity:0;transition:opacity 170ms cubic-bezier(0,0,1,1)";
+      document.body.appendChild(toastel);
+    }
+    toastel.textContent = msg;
+    requestAnimationFrame(() => {if (toastel) toastel.style.opacity = "1"});
+    clearTimeout(toasttimer);
+    toasttimer = setTimeout(() => {if (toastel) toastel.style.opacity = "0"}, 2500);
+  }
+
+  // execCommand is synchronous inside the click gesture (the async clipboard api can hang while
+  // the tab isn't focused); fall back to it for the odd browser that still needs it
+  function copytext(text) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    } catch {}
+    try {if (navigator.clipboard) navigator.clipboard.writeText(text)} catch {}
+  }
 
   const cache = new Map(); // handle (lowercased) -> email | null (looked up, none) | undefined (unknown)
 
@@ -28,6 +61,10 @@
   function makeitem(template, email) {
     const node = template.cloneNode(true);
     node.removeAttribute("data-testid");
+    // the join-date item is an <a> to /<user>/about - strip anything that would navigate so a
+    // click just copies instead of jumping to that page
+    node.removeAttribute("href");
+    node.removeAttribute("role");
     node.classList.add("tumemailitem");
     node.style.overflow = "visible"; // never clip the address
     const svgs = node.querySelectorAll("svg");
@@ -49,12 +86,10 @@
     node.addEventListener("click", e => {
       e.preventDefault();
       e.stopPropagation();
-      const span = node.querySelector("span") || node;
-      const prev = span.textContent;
-      navigator.clipboard.writeText(email).then(() => {
-        span.textContent = "copied!";
-        setTimeout(() => {span.textContent = prev}, 1200);
-      }).catch(() => {});
+      // don't swap the text in place - a longer email would reflow onto the previous line. show
+      // the confirmation in the twitter-style bottom toast instead
+      copytext(email);
+      pagetoast("Copied " + email);
     });
     return node;
   }
