@@ -14,6 +14,8 @@
   // this scopes to the header's own avatar-photo link and its one <h2>
   const PROFILEAVATARSEL = 'a[href$="/photo"]';
 
+  const USERCELLSEL = '[data-testid="UserCell"]';
+
   // the big nickname is plain text on a profile page (nowhere to navigate to from your own
   // page), and dragging it would fight with just wanting to select/copy it normally - only the
   // photo starts a drag here, same as the avatar is the drag handle everywhere else
@@ -21,16 +23,54 @@
     return !!target.closest(PROFILEAVATARSEL);
   }
 
-  // only the nickname (display name) and the avatar should start a drag - not the @handle text,
-  // which sits in its own link right next to it inside the same User-Name block
+  // clone each verified/automated/etc badge to an html string, but inline its resolved color
+  // first - the checkmark svg is fill:currentColor tinted by a css class that won't follow it
+  // into our shadow root, so without this the blue/gold badge renders flat black once dropped
+  function capturebadges(root) {
+    if (!root) return [];
+    return [...root.querySelectorAll("img, svg")].map(b => {
+      const clone = b.cloneNode(true);
+      try {clone.style.color = getComputedStyle(b).color} catch {}
+      return clone.outerHTML;
+    });
+  }
+
+  // the profile a UserCell/User-Name points at (its avatar and name/handle all link to it) - used
+  // to tell a name/handle link apart from a mention link sitting in the bio next to it
+  function cellprofilehandle(scope) {
+    const av = scope.querySelector('[data-testid^="UserAvatar-Container-"]');
+    const m = av && /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+    return m ? m[1] : null;
+  }
+
+  // a UserCell (followers, following, mutes, blocks, who-to-follow, likers, search people, list
+  // members...) is a drag handle on its avatar and on its name/@handle links - but not its action
+  // button, and not a mention link that happens to sit in the bio
+  function usercellhandle(target) {
+    const cell = target.closest(USERCELLSEL);
+    if (!cell) return null;
+    // the whole cell is itself a role="button", so only bail on a button that ISN'T the cell -
+    // i.e. the follow/mute/block action control nested inside it
+    const btn = target.closest('button, [role="button"]');
+    if (btn && btn !== cell) return null;
+    if (target.closest('[data-testid^="UserAvatar-Container-"]')) return cell;
+    const link = target.closest('a[role="link"][href^="/"]');
+    if (!link) return null;
+    const handle = cellprofilehandle(cell);
+    const href = (link.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+    return handle && href.toLowerCase() === handle.toLowerCase() ? cell : null;
+  }
+
+  // both the nickname and the @handle start a drag now (tweets, hovercards, cells and anywhere
+  // else a User-Name shows up), plus avatars and the profile header - but not action buttons
   function isdraghandle(target) {
     if (target.closest(AVATARSEL)) return true;
     if (inprofileheader(target)) return true;
+    if (usercellhandle(target)) return true;
+    // a User-Name's name/@handle link, as long as it isn't wrapped in some action button
     const namebox = target.closest(NAMEBOXSEL);
-    if (!namebox) return false;
-    const link = target.closest('a[role="link"]');
-    if (!link) return false;
-    return !(link.textContent || "").trim().startsWith("@");
+    if (namebox && target.closest('a[role="link"]') && !target.closest('button, [role="button"]')) return true;
+    return false;
   }
 
   const SKIPPATH = /^\/(i|home|explore|search|notifications|messages|settings|compose)(\/|$)/i;
@@ -81,9 +121,7 @@
     const avatarlink = document.querySelector(PROFILEAVATARSEL);
     const avatarimg = avatarlink && avatarlink.querySelector("img");
     const displayname = heading.textContent || handle;
-    // outerHTML, not cloned nodes - the badges have to survive being stored to disk and
-    // re-rendered on the placed chip/member later, not just live for the length of one drag
-    const badges = [...heading.querySelectorAll("img, svg")].map(b => b.outerHTML);
+    const badges = capturebadges(heading);
     // no specific tweet to attach and nothing to dim to a percent besides the header itself -
     // "or none if directly from profile" is intentional, not a gap. covers the sticky-header
     // duplicate of the name too, not just the big one, so nothing readable is left behind
@@ -95,7 +133,7 @@
   // sort them into folders by hand. skipaction: they're already blocked/muted and these rows have
   // no caret menu to re-run anything through, so dropping them just files them, never re-acts
   function extractusercell(cell) {
-    let handle = null, avatarurl = null, displayname = null, namelink = null;
+    let handle = null, avatarurl = null, displayname = null, namelink = null, handlelink = null;
     const av = cell.querySelector('[data-testid^="UserAvatar-Container-"]');
     if (av) {
       const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
@@ -103,14 +141,42 @@
       const img = av.querySelector("img");
       if (img) avatarurl = img.src;
     }
+    // among the links pointing at this profile, the one with non-@ text is the nickname, the one
+    // starting @ is the handle - a bio mention points at a different profile and is ignored
     for (const a of cell.querySelectorAll('a[role="link"][href^="/"]')) {
+      const href = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+      if (!handle || href.toLowerCase() !== handle.toLowerCase()) continue;
       const t = (a.textContent || "").trim();
-      if (t && !t.startsWith("@")) {displayname = t; namelink = a; break}
+      if (t.startsWith("@")) handlelink = handlelink || a;
+      else if (t && !namelink) {displayname = t; namelink = a}
     }
     if (!handle) return null;
-    const badges = namelink ? [...namelink.querySelectorAll("img, svg")].map(b => b.outerHTML) : [];
-    const dimtargets = [av, namelink].filter(Boolean);
+    const badges = capturebadges(namelink);
+    const dimtargets = [av, namelink, handlelink].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction: true, source: "live"};
+  }
+
+  // a User-Name that isn't inside a tweet article (some side rails, dialogs, etc) - same idea as
+  // extractuser but it hunts for a nearby avatar rather than assuming an article wraps everything
+  function extractfromnamebox(namebox) {
+    let handle = null, displayname = null, namelink = null, handlelink = null;
+    const links = namebox.querySelectorAll('a[role="link"][href^="/"]');
+    for (const a of links) {
+      const href = a.getAttribute("href") || "";
+      if (/^\/[^/]+\/?$/.test(href) && !/^\/(i|home|search|notifications|messages)\/?$/.test(href)) {
+        handle = href.replace(/^\//, "").replace(/\/$/, "");
+        break;
+      }
+    }
+    if (!handle) return null;
+    namelink = links[0];
+    handlelink = links[1];
+    if (namelink) displayname = namelink.textContent || null;
+    let scope = namebox, avatar = null;
+    for (let i = 0; i < 5 && scope && !avatar; i++) {avatar = scope.querySelector('[data-testid^="UserAvatar-Container-"]'); scope = scope.parentElement}
+    const avatarimg = avatar && avatar.querySelector("img");
+    const dimtargets = [avatar, namelink, handlelink].filter(Boolean);
+    return {handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
   }
 
   function extractuser(article) {
@@ -132,7 +198,7 @@
       handlelink = links[1];
       if (namelink) {
         displayname = namelink.textContent || null;
-        badges = [...namelink.querySelectorAll("img, svg")].map(b => b.outerHTML);
+        badges = capturebadges(namelink);
       }
     }
     const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
@@ -164,12 +230,14 @@
     if (inprofileheader(e.target)) {
       user = extractprofileheaderuser();
     } else {
+      const cell = e.target.closest(USERCELLSEL);
       const article = e.target.closest(ARTICLESEL);
-      if (article) user = extractuser(article);
+      if (cell) user = extractusercell(cell);
+      else if (article) user = extractuser(article);
       else {
-        const cell = e.target.closest('[data-testid="UserCell"]');
-        if (!cell) return;
-        user = extractusercell(cell);
+        const namebox = e.target.closest(NAMEBOXSEL);
+        if (!namebox) return;
+        user = extractfromnamebox(namebox);
       }
     }
     if (!user) return;

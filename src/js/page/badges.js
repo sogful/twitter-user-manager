@@ -152,7 +152,9 @@
       const dot = document.createElement("span");
       dot.className = "tumpagefolderdot";
       dot.dataset.folder = entry.id;
-      dot.style.cssText = "position:absolute;bottom:-1px;right:-1px;width:17px;height:17px;border-radius:50%;z-index:2;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid " + pagebg;
+      // high z-index + explicit pointer-events so the whole dot is clickable - the avatar's own
+      // profile-link overlay otherwise sits on top and leaves only a sliver of the dot hittable
+      dot.style.cssText = "position:absolute;bottom:-2px;right:-2px;width:18px;height:18px;border-radius:50%;z-index:9999;pointer-events:auto;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid " + pagebg;
       filldot(dot, entry, pagebg);
       // the dot sits inside a profile-link avatar; stop the press from reaching twitter's own
       // navigation (capture-phase, but only stopPropagation - preventDefault on pointerdown would

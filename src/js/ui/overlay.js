@@ -708,11 +708,10 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // a live tweet's avatar/name/handle go fully invisible the moment they're actually being
-  // carried around (no ghost of them left sitting at the original spot next to the drag chip),
-  // then settle into a soft dim once they're let go somewhere - as if that data had really been
-  // lifted out. the dim stays for as long as the overlay itself is open, not just for the drag,
-  // and only comes back once the whole canvas fades away
+  // a live tweet's avatar/name/handle go fully invisible the moment they're being carried (no
+  // ghost left at the original spot), and stay invisible once let go somewhere - as if that data
+  // was really lifted out of the page. only a cancelled drag brings them back; a filed/dropped
+  // person does not pop back onto the page when the overlay fades
   let dimmedtargets = [];
   function hidesource(targets) {
     if (!targets) return;
@@ -720,7 +719,9 @@
   }
   function dimsource(targets) {
     if (!targets) return;
-    for (const t of targets) if (t) {t.style.visibility = ""; t.style.opacity = "0.25"; dimmedtargets.push(t)}
+    // keep them hidden (they already are, from hidesource) - just track them so undimtargets can
+    // still restore on a cancel
+    for (const t of targets) if (t) dimmedtargets.push(t);
   }
   function undimtargets(targets) {
     if (!targets) return;
@@ -733,7 +734,7 @@
     }
   }
   function undimall() {
-    for (const t of dimmedtargets) if (t) {t.style.visibility = ""; t.style.opacity = ""}
+    // drop the tracking but leave them hidden - filed users shouldn't reappear on the page
     dimmedtargets = [];
   }
 

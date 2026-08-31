@@ -63,8 +63,6 @@ img {-webkit-user-drag: none; user-drag: none}
   opacity: 1; visibility: visible
 }
 
-/* twitter-styled checkbox in a panel pinned flush to the top-right corner (only the inner
-   bottom-left corner is rounded); ticked keeps the overlay open after a drop */
 .tumkeepopen {
   position: absolute; top: 0; right: 0;
   display: flex; align-items: center; gap: 10px;
@@ -122,8 +120,8 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
-.tumtoolclose:hover {border-color: #f4212e}
-.tumtoolclose:hover svg {stroke: #f4212e}
+.tumtoolclose:hover {background: #f4212e; background-image: none; border-color: #f4212e}
+.tumtoolclose:hover svg {stroke: #fff}
 
 .tumgridlayer {
   position: absolute; inset: 0;
