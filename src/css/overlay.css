@@ -122,6 +122,9 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumtoolclose:hover {background: #f4212e; background-image: none; border-color: #f4212e}
 .tumtoolclose:hover svg {stroke: #fff}
+/* releasing a held user onto any top tool discards them - flag it red like the discard pill */
+.tumtool.tumdiscardover {background: #f4212e; background-image: none; border-color: #f4212e}
+.tumtool.tumdiscardover svg {stroke: #fff}
 
 .tumgridlayer {
   position: absolute; inset: 0;

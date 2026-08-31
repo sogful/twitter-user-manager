@@ -396,7 +396,6 @@
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
-    undimall();
   }
   function closeoverlay() {
     state.open = false;
@@ -708,40 +707,36 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // a live tweet's avatar/name/handle go fully invisible the moment they're being carried (no
-  // ghost left at the original spot), and stay invisible once let go somewhere - as if that data
-  // was really lifted out of the page. only a cancelled drag brings them back; a filed/dropped
-  // person does not pop back onto the page when the overlay fades
-  let dimmedtargets = [];
+  // a live tweet's avatar/name/handle go fully invisible the moment they're carried (no ghost at
+  // the origin) and stay invisible once filed somewhere - as if the data was lifted out. tracked
+  // by handle in hiddenmap so that if the person is later picked back up off a chip/member and
+  // discarded, we can still find and un-hide their original page bits (the re-drag itself carries
+  // no page refs). only a discard, or cancelling a fresh page drag, brings them back
+  const hiddenmap = new Map(); // handle (lowercased) -> [page elements]
   function hidesource(targets) {
     if (!targets) return;
     for (const t of targets) if (t) t.style.visibility = "hidden";
   }
-  function dimsource(targets) {
-    if (!targets) return;
-    // keep them hidden (they already are, from hidesource) - just track them so undimtargets can
-    // still restore on a cancel
-    for (const t of targets) if (t) dimmedtargets.push(t);
+  function recordhidden(handle, targets) {
+    if (!handle || !targets) return;
+    const key = handle.toLowerCase();
+    const arr = hiddenmap.get(key) || [];
+    for (const t of targets) if (t && arr.indexOf(t) === -1) arr.push(t);
+    hiddenmap.set(key, arr);
   }
-  function undimtargets(targets) {
-    if (!targets) return;
-    for (const t of targets) {
-      if (!t) continue;
-      t.style.visibility = "";
-      t.style.opacity = "";
-      const i = dimmedtargets.indexOf(t);
-      if (i !== -1) dimmedtargets.splice(i, 1);
-    }
-  }
-  function undimall() {
-    // drop the tracking but leave them hidden - filed users shouldn't reappear on the page
-    dimmedtargets = [];
+  function restorehidden(handle) {
+    const key = (handle || "").toLowerCase();
+    const arr = hiddenmap.get(key);
+    if (!arr) return;
+    for (const t of arr) if (t) {t.style.visibility = ""; t.style.opacity = ""}
+    hiddenmap.delete(key);
   }
 
   function begindrag(user, x, y, source) {
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
     hidesource(user.dimtargets);
+    recordhidden(user.handle, user.dimtargets);
     els.chipavatar.src = user.avatarurl || "";
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
     els.chipname.textContent = user.displayname || user.handle;
@@ -777,10 +772,18 @@
     return null;
   }
 
+  function topdiscardtools() {return [els.toolclose, els.toolexport, els.toolimport]}
+  function overtoptool(x, y) {
+    if (!state.drag || state.drag.kind !== "user") return null;
+    return topdiscardtools().find(b => b && rectcontains(b.getBoundingClientRect(), x, y)) || null;
+  }
   function quickzone(x, y) {
     if (state.drag && state.drag.kind === "user") {
       if (rectcontains(els.quickdiscard.getBoundingClientRect(), x, y)) return "discard";
       if (rectcontains(els.quickreason.getBoundingClientRect(), x, y)) return "reason";
+      // releasing onto any of the top-left tools (close / export / import) also discards; the
+      // close X in particular doubles as a discard button
+      if (overtoptool(x, y)) return "discard";
     }
     if (rectcontains(els.quickadd.getBoundingClientRect(), x, y)) return "add";
     return null;
@@ -798,6 +801,8 @@
     els.quickadd.classList.toggle("tumover", zone === "add");
     els.quickdiscard.classList.toggle("tumover", zone === "discard");
     els.quickreason.classList.toggle("tumover", zone === "reason");
+    const tool = overtoptool(x, y);
+    for (const b of topdiscardtools()) b.classList.toggle("tumdiscardover", b === tool);
   }
 
   function removefromsource(source, handle) {
@@ -813,10 +818,10 @@
     const zone = quickzone(x, y);
     root.classList.remove("tumdragging");
     state.drag = null;
-    // whatever happens next, the drag itself is over - swap the real page element from fully
-    // hidden (while actively held) to the softer persistent dim, regardless of where they landed
-    dimsource(user.dimtargets);
+    // the page bits were hidden and recorded at drag-start; they stay hidden unless this ends in a
+    // discard (handled per-branch below), so nothing to do here
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
+    for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
     els.quickadd.classList.remove("tumover");
     els.quickdiscard.classList.remove("tumover");
     els.quickreason.classList.remove("tumover");
@@ -848,14 +853,14 @@
       // put wherever they came from, and can only be removed from their own note popup
       if (user.reason) {
         toast("this user has a note - delete them from the note instead");
-        undimtargets(user.dimtargets); // they weren't taken - bring the page element back
+        restorehidden(user.handle); // they weren't taken - bring the page bits back
         state.open = true;
         render();
         return;
       }
-      // discard means "not sorting this one" - unlike filing, the page element returns to view
+      // discard means "not sorting this one" - unlike filing, the page bits return to view
       removefromsource(source, user.handle);
-      undimtargets(user.dimtargets);
+      restorehidden(user.handle);
       render();
       closeoverlay();
       return;
@@ -880,11 +885,14 @@
   }
 
   function canceldrag() {
-    if (state.drag) undimtargets(state.drag.user.dimtargets);
+    const d = state.drag;
+    // cancelling a fresh page drag brings the page bits back; cancelling a re-drag off a filed
+    // chip/member leaves them hidden (the person is still filed) and just re-renders the canvas
+    if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
+    for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
     root.classList.remove("tumdragging");
     state.drag = null;
     hidebackdrop();
-    // rebuild so the person whose canvas row/chip was hidden mid-drag comes back visible
     render();
   }
 
@@ -1043,15 +1051,14 @@
   function closemodal() {
     els.modal.classList.remove("tumshow");
     tum.iconpicker.close();
-    // a pendingcreate drop that never got saved (dragged into "new folder" then dismissed
-    // without saving) needs its original row/chip visible again - it was hidden at drag-start
-    // and nothing else has re-rendered since, so do it here
-    const hadpending = !!state.pendingcreate;
+    // a pendingcreate drop that never got saved (dragged into "new folder" then dismissed without
+    // saving) was never filed - put their hidden page bits back and re-render
+    const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
     state.pendingcreate = null;
     state.editing = null;
     state.modalopen = false;
     hidebackdrop();
-    if (hadpending) render();
+    if (pendinghandle) {restorehidden(pendinghandle); render()}
   }
 
   function savemodal() {
@@ -1125,12 +1132,13 @@
     // a pendingcreate drop that never got saved (drag into "custom reason" then dismissed
     // without saving) still needs its original spot back - a full render() is the simplest way
     // to make that person visible again, since nothing else re-renders on its own here
-    const hadpending = !!state.pendingcreate;
+    // dragged into "custom reason" then dismissed without saving - they were never filed, so put
+    // their hidden page bits back and re-render so nothing's left missing
+    const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
     state.pendingcreate = null;
     state.reasontarget = null;
     state.reasonopen = false;
-    undimall();
-    if (hadpending) render();
+    if (pendinghandle) {restorehidden(pendinghandle); render()}
   }
 
   function savereason() {

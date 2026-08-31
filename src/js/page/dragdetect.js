@@ -35,6 +35,13 @@
     });
   }
 
+  // every badge glyph in a name block - verified/automated live inside the name link, but the
+  // affiliated badge (the little company square) is a sibling, so these have to be hidden
+  // explicitly on drag or they'd be left floating where the name used to be
+  function badgeels(scope) {
+    return scope ? [...scope.querySelectorAll("img, svg")] : [];
+  }
+
   // the profile a UserCell/User-Name points at (its avatar and name/handle all link to it) - used
   // to tell a name/handle link apart from a mention link sitting in the bio next to it
   function cellprofilehandle(scope) {
@@ -125,7 +132,11 @@
     // no specific tweet to attach and nothing to dim to a percent besides the header itself -
     // "or none if directly from profile" is intentional, not a gap. covers the sticky-header
     // duplicate of the name too, not just the big one, so nothing readable is left behind
-    const dimtargets = [avatarlink, ...findprofilenametargets(heading, handle)].filter(Boolean);
+    // the UserName block holds the display name, @handle and every badge together - hiding it
+    // whole takes the verified/affiliated badges with it, and the text-match pass still covers
+    // the sticky-header duplicate of the name up top
+    const usernameblock = document.querySelector('[data-testid="UserName"]');
+    const dimtargets = [avatarlink, usernameblock, ...findprofilenametargets(heading, handle)].filter(Boolean);
     return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
   }
 
@@ -152,7 +163,7 @@
     }
     if (!handle) return null;
     const badges = capturebadges(namelink);
-    const dimtargets = [av, namelink, handlelink].filter(Boolean);
+    const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction: true, source: "live"};
   }
 
@@ -175,7 +186,7 @@
     let scope = namebox, avatar = null;
     for (let i = 0; i < 5 && scope && !avatar; i++) {avatar = scope.querySelector('[data-testid^="UserAvatar-Container-"]'); scope = scope.parentElement}
     const avatarimg = avatar && avatar.querySelector("img");
-    const dimtargets = [avatar, namelink, handlelink].filter(Boolean);
+    const dimtargets = [avatar, namelink, handlelink, ...badgeels(namebox)].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
   }
 
@@ -214,7 +225,7 @@
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
     // as if the info had actually been lifted off the page - dimmed while held, restored on release
-    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink].filter(Boolean);
+    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(namebox)].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets, article, source: "live"};
   }
 
