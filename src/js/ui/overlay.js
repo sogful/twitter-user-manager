@@ -848,11 +848,14 @@
       // put wherever they came from, and can only be removed from their own note popup
       if (user.reason) {
         toast("this user has a note - delete them from the note instead");
+        undimtargets(user.dimtargets); // they weren't taken - bring the page element back
         state.open = true;
         render();
         return;
       }
+      // discard means "not sorting this one" - unlike filing, the page element returns to view
       removefromsource(source, user.handle);
+      undimtargets(user.dimtargets);
       render();
       closeoverlay();
       return;
