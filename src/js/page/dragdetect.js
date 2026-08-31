@@ -192,40 +192,44 @@
 
   function extractuser(article) {
     const namebox = article.querySelector(NAMEBOXSEL) || (article.matches(NAMEBOXSEL) ? article : null);
-    let handle = null, displayname = null, badges = [], namelink = null, handlelink = null;
-    if (namebox) {
-      const links = namebox.querySelectorAll('a[role="link"][href^="/"]');
-      for (const a of links) {
+    const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
+    const avatarimg = avatarcontainer && avatarcontainer.querySelector("img");
+    const avatarurl = avatarimg ? avatarimg.src : null;
+    // the handle: from the avatar container's testid, else the first plain profile link. hover
+    // cards have no User-Name box (their name/@handle are loose links), so we resolve the handle
+    // first, then match the name/@handle links to it - the same shape works for both
+    let handle = null;
+    if (avatarcontainer) {
+      const m = /UserAvatar-Container-(.+)$/.exec(avatarcontainer.getAttribute("data-testid") || "");
+      if (m) handle = m[1];
+    }
+    const scope = namebox || article;
+    if (!handle) {
+      for (const a of scope.querySelectorAll('a[role="link"][href^="/"]')) {
         const href = a.getAttribute("href") || "";
         if (/^\/[^/]+\/?$/.test(href) && !/^\/(i|home|search|notifications|messages)\/?$/.test(href)) {
           handle = href.replace(/^\//, "").replace(/\/$/, "");
           break;
         }
       }
-      // the display-name link (always first) carries the nickname text plus any verified/
-      // automated/etc badges as inline img/svg siblings of that text - clone them as-is so the
-      // drag chip can show the exact same badges without guessing which ones apply
-      namelink = links[0];
-      handlelink = links[1];
-      if (namelink) {
-        displayname = namelink.textContent || null;
-        badges = capturebadges(namelink);
-      }
-    }
-    const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
-    const avatarimg = avatarcontainer && avatarcontainer.querySelector("img");
-    const avatarurl = avatarimg ? avatarimg.src : null;
-    if (!handle && avatarcontainer) {
-      const m = /UserAvatar-Container-(.+)$/.exec(avatarcontainer.getAttribute("data-testid") || "");
-      if (m) handle = m[1];
     }
     if (!handle) return null;
-    // the tweet permalink, if this drag actually came from a tweet card - a profile header or
-    // bio isn't wrapped in one, so there's nothing to attach in that case, which is intentional
+    // among the links pointing at this profile, non-@ text is the nickname, @-text is the handle
+    let displayname = null, namelink = null, handlelink = null;
+    for (const a of scope.querySelectorAll('a[role="link"][href^="/"]')) {
+      const href = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+      if (href.toLowerCase() !== handle.toLowerCase()) continue;
+      const t = (a.textContent || "").trim();
+      if (t.startsWith("@")) handlelink = handlelink || a;
+      else if (t && !namelink) {displayname = t; namelink = a}
+    }
+    const badges = capturebadges(namelink);
+    // the tweet permalink, if this drag came from a tweet card - a hover card/profile isn't
+    // wrapped in one, so there's nothing to attach in that case, which is intentional
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
-    // as if the info had actually been lifted off the page - dimmed while held, restored on release
-    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(namebox)].filter(Boolean);
+    const badgescope = namebox || (namelink && namelink.parentElement);
+    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(badgescope)].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets, article, source: "live"};
   }
 
