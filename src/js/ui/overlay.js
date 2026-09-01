@@ -396,6 +396,7 @@
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
+    schedulerestoreall(); // overlay's closing - bring back everything it hid once it's faded
   }
   function closeoverlay() {
     state.open = false;
@@ -714,11 +715,12 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // a live tweet's avatar/name/handle go fully invisible the moment they're carried (no ghost at
-  // the origin) and stay invisible once filed somewhere - as if the data was lifted out. tracked
-  // by handle in hiddenmap so that if the person is later picked back up off a chip/member and
-  // discarded, we can still find and un-hide their original page bits (the re-drag itself carries
-  // no page refs). only a discard, or cancelling a fresh page drag, brings them back
+  // a live tweet's avatar/name/handle go invisible the moment they're carried (no ghost at the
+  // origin) and stay invisible for as long as the overlay is up - the "lifted out" look. they are
+  // NOT hidden forever: everything comes back once the overlay fully fades (scroll is locked while
+  // it's open, so the page behind can't virtualize the hidden nodes out from under us mid-session).
+  // discarding or cancelling a fresh page drag restores that one immediately. tracked by handle so
+  // a person picked back up off a chip/member (a re-drag carries no page refs) can still be found
   const hiddenmap = new Map(); // handle (lowercased) -> [page elements]
   function hidesource(targets) {
     if (!targets) return;
@@ -731,12 +733,27 @@
     for (const t of targets) if (t && arr.indexOf(t) === -1) arr.push(t);
     hiddenmap.set(key, arr);
   }
+  function restoreels(arr) {
+    for (const t of arr) if (t) {t.style.visibility = ""; t.style.opacity = ""}
+  }
   function restorehidden(handle) {
     const key = (handle || "").toLowerCase();
     const arr = hiddenmap.get(key);
     if (!arr) return;
-    for (const t of arr) if (t) {t.style.visibility = ""; t.style.opacity = ""}
+    restoreels(arr);
     hiddenmap.delete(key);
+  }
+  // everything hidden this session comes back - run once the overlay has actually faded (so the
+  // "lifted" look holds through the fade, per the release behaviour), and only if it's still shut
+  let restoretimer = 0;
+  function schedulerestoreall() {
+    clearTimeout(restoretimer);
+    restoretimer = setTimeout(() => {
+      if (root && !root.classList.contains("tumactive")) {
+        for (const arr of hiddenmap.values()) restoreels(arr);
+        hiddenmap.clear();
+      }
+    }, 240);
   }
 
   function begindrag(user, x, y, source) {
