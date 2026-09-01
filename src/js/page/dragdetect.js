@@ -77,6 +77,12 @@
     // a User-Name's name/@handle link, as long as it isn't wrapped in some action button
     const namebox = target.closest(NAMEBOXSEL);
     if (namebox && target.closest('a[role="link"]') && !target.closest('button, [role="button"]')) return true;
+    // a bare profile link OUTSIDE any tweet (a list creator, side-rail name, bio mention...) -
+    // scoped to outside articles so a @mention inside a tweet still grabs the tweet's author
+    if (!target.closest(ARTICLESEL)) {
+      const link = target.closest('a[role="link"][href^="/"]');
+      if (link && /^\/[A-Za-z0-9_]+\/?$/.test(link.getAttribute("href") || "")) return true;
+    }
     return false;
   }
 
@@ -190,17 +196,69 @@
     return {handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
   }
 
+  // a bare avatar that isn't inside a tweet/cell/hovercard/profile-header (a list creator, a
+  // chat header, a menu row...) - grab the handle off its testid and hunt nearby for the matching
+  // name/@handle links so those get hidden too. the catch-all that makes most stray avatars work
+  function extractnearavatar(av) {
+    const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+    if (!m || m[1] === "unknown") return null; // "unknown" is a list/placeholder icon, not a user
+    const handle = m[1];
+    const img = av.querySelector("img");
+    let scope = av, namelink = null, handlelink = null, displayname = null;
+    for (let i = 0; i < 6 && scope; i++) {
+      for (const a of scope.querySelectorAll('a[role="link"][href^="/"]')) {
+        const href = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+        if (href.toLowerCase() !== handle.toLowerCase()) continue;
+        const t = (a.textContent || "").trim();
+        if (t.startsWith("@")) handlelink = handlelink || a;
+        else if (t && !namelink) {displayname = t; namelink = a}
+      }
+      if (namelink || handlelink) break;
+      scope = scope.parentElement;
+    }
+    const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
+    return {handle, displayname: displayname || handle, avatarurl: img ? img.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+  }
+
+  // a bare profile link outside any tweet - a list's creator attribution, a side-rail name, etc.
+  // the handle is the link's own href; the matching name/@handle links nearby get hidden, and if
+  // that profile's real avatar is around it's used for the chip (a list icon is not)
+  const HANDLERE = /^\/([A-Za-z0-9_]+)\/?$/;
+  function extractfromlink(link) {
+    const mm = HANDLERE.exec(link.getAttribute("href") || "");
+    if (!mm) return null;
+    const handle = mm[1];
+    let scope = link, namelink = null, handlelink = null, displayname = null, avatar = null;
+    for (let i = 0; i < 6 && scope; i++) {
+      for (const a of scope.querySelectorAll('a[role="link"][href^="/"]')) {
+        const href = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+        if (href.toLowerCase() !== handle.toLowerCase()) continue;
+        const t = (a.textContent || "").trim();
+        if (t.startsWith("@")) handlelink = handlelink || a;
+        else if (t && !namelink) {displayname = t; namelink = a}
+      }
+      if (!avatar) avatar = scope.querySelector('[data-testid="UserAvatar-Container-' + handle + '"]');
+      if (namelink || handlelink) break;
+      scope = scope.parentElement;
+    }
+    const img = avatar && avatar.querySelector("img");
+    const dimtargets = [avatar, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
+    return {handle, displayname: displayname || handle, avatarurl: img ? img.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+  }
+
   function extractuser(article) {
     const namebox = article.querySelector(NAMEBOXSEL) || (article.matches(NAMEBOXSEL) ? article : null);
     const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
     const avatarimg = avatarcontainer && avatarcontainer.querySelector("img");
     const avatarurl = avatarimg ? avatarimg.src : null;
-    // the handle: from the avatar container's testid, else the first plain profile link. hover
-    // cards have no User-Name box (their name/@handle are loose links), so we resolve the handle
-    // first, then match the name/@handle links to it - the same shape works for both
+    // the handle comes off the UserAvatar-Container testid specifically (a Tweet-User-Avatar
+    // wrapper carries no handle), else the first plain profile link. hover cards have no User-Name
+    // box and quoted tweets have no links inside theirs (the whole quote is one big link) - both
+    // are handled by falling back to the avatar/handle text below
+    const handleav = article.querySelector('[data-testid^="UserAvatar-Container-"]');
     let handle = null;
-    if (avatarcontainer) {
-      const m = /UserAvatar-Container-(.+)$/.exec(avatarcontainer.getAttribute("data-testid") || "");
+    if (handleav) {
+      const m = /UserAvatar-Container-(.+)$/.exec(handleav.getAttribute("data-testid") || "");
       if (m) handle = m[1];
     }
     const scope = namebox || article;
@@ -229,8 +287,14 @@
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
     const badgescope = namebox || (namelink && namelink.parentElement);
-    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(badgescope)].filter(Boolean);
-    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets, article, source: "live"};
+    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(badgescope)];
+    // quoted tweet: the name/@handle are text spans, not links, so there's no namelink to hide -
+    // hide the whole User-Name block instead (and grab the display name from it for the chip)
+    if (!namelink && !handlelink && namebox) {
+      dimtargets.push(namebox);
+      if (!displayname) displayname = (namebox.textContent || "").trim().split("\n")[0] || null;
+    }
+    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets: dimtargets.filter(Boolean), article, source: "live"};
   }
 
   let tracking = null; // {startx, starty, user, dragging}
@@ -247,12 +311,21 @@
     } else {
       const cell = e.target.closest(USERCELLSEL);
       const article = e.target.closest(ARTICLESEL);
+      // a quoted tweet is a role=link block nested in the article with its own avatar - dragging
+      // inside it should grab the quoted author, not the outer tweet's author
+      const quoted = e.target.closest('div[role="link"][tabindex]');
       if (cell) user = extractusercell(cell);
+      else if (quoted && article && article.contains(quoted) && quoted.querySelector('[data-testid^="UserAvatar-Container-"]')) user = extractuser(quoted);
       else if (article) user = extractuser(article);
       else {
         const namebox = e.target.closest(NAMEBOXSEL);
-        if (!namebox) return;
-        user = extractfromnamebox(namebox);
+        const av = e.target.closest('[data-testid^="UserAvatar-Container-"]');
+        const plink = e.target.closest('a[role="link"][href^="/"]');
+        // a bare avatar or a bare profile link somewhere else (list creator, chat header, menu...)
+        if (namebox) user = extractfromnamebox(namebox);
+        else if (av) user = extractnearavatar(av);
+        else if (plink && /^\/[A-Za-z0-9_]+\/?$/.test(plink.getAttribute("href") || "")) user = extractfromlink(plink);
+        else return;
       }
     }
     if (!user) return;
