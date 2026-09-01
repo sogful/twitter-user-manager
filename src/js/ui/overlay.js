@@ -564,6 +564,7 @@
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
     wirecopy(row);
+    hidebrokenavatar(row);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       openreasonview(source, m);
@@ -597,6 +598,7 @@
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
     wirecopy(chip);
+    hidebrokenavatar(chip);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       openreasonview({type: "unsorted"}, u);
@@ -609,6 +611,11 @@
     return chip;
   }
 
+  // an off-page pfp (some new-chat avatars) can 404 in the overlay - hide it rather than show a
+  // broken image box; done in js, not an inline onerror, since the page csp would block that
+  function hidebrokenavatar(container) {
+    for (const img of container.querySelectorAll("img")) img.addEventListener("error", () => {img.style.visibility = "hidden"}, {once: true});
+  }
   function wirecopy(container) {
     for (const t of container.querySelectorAll(".tumcopy")) {
       t.addEventListener("click", e => {
@@ -737,8 +744,12 @@
     state.open = false;
     hidesource(user.dimtargets);
     recordhidden(user.handle, user.dimtargets);
-    els.chipavatar.src = user.avatarurl || "";
+    // some sources (the new chat's off-page pfps) hand over an image url that won't actually load
+    // in the chip - show it only once it's confirmed good, and drop it on error rather than a broken box
+    els.chipavatar.onerror = () => {els.chipavatar.style.display = "none"};
+    els.chipavatar.onload = () => {els.chipavatar.style.display = ""};
     els.chipavatar.style.display = user.avatarurl ? "" : "none";
+    els.chipavatar.src = user.avatarurl || "";
     els.chipname.textContent = user.displayname || user.handle;
     els.chiphandle.textContent = "@" + user.handle;
     els.chipbadges.innerHTML = (user.badges || []).join("");

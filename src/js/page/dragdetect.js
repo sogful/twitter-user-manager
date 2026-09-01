@@ -77,12 +77,18 @@
     // a User-Name's name/@handle link, as long as it isn't wrapped in some action button
     const namebox = target.closest(NAMEBOXSEL);
     if (namebox && target.closest('a[role="link"]') && !target.closest('button, [role="button"]')) return true;
-    // a bare profile link OUTSIDE any tweet (a list creator, side-rail name, bio mention...) -
-    // scoped to outside articles so a @mention inside a tweet still grabs the tweet's author
+    // a bare profile link OUTSIDE any tweet (a list creator, chat header, side-rail name...) -
+    // scoped to outside articles so a @mention inside a tweet still grabs the tweet's author.
+    // handlefromhref also accepts the absolute https://x.com/name links the new chat uses
     if (!target.closest(ARTICLESEL)) {
-      const link = target.closest('a[role="link"][href^="/"]');
-      if (link && /^\/[A-Za-z0-9_]+\/?$/.test(link.getAttribute("href") || "")) return true;
+      const link = target.closest("a[href]");
+      if (link && handlefromhref(link.getAttribute("href"))) return true;
+      // new x chat: a bare "user avatar" image or a plain @handle text span (intro card, panels)
+      if (target.matches && target.matches('img[alt="user avatar"]')) return true;
+      if (!target.children.length && /^@[A-Za-z0-9_]+$/.test((target.textContent || "").trim())) return true;
     }
+    // a chat-list row (new x chat) - resolvable only if it shows an @handle, checked at extract time
+    if (target.closest('[data-testid^="dm-conversation-item-"]')) return true;
     return false;
   }
 
@@ -223,16 +229,25 @@
   // a bare profile link outside any tweet - a list's creator attribution, a side-rail name, etc.
   // the handle is the link's own href; the matching name/@handle links nearby get hidden, and if
   // that profile's real avatar is around it's used for the chip (a list icon is not)
-  const HANDLERE = /^\/([A-Za-z0-9_]+)\/?$/;
+  // a profile handle out of a link href - copes with both relative (/name) and the absolute
+  // (https://x.com/name) form the new chat uses, and rejects reserved single-segment paths
+  const RESERVED = /^(i|home|explore|search|notifications|messages|settings|compose)$/i;
+  function handlefromhref(href) {
+    if (!href) return null;
+    let path = href;
+    const m = /^https?:\/\/(?:x|twitter)\.com(\/.*)$/i.exec(href);
+    if (m) path = m[1];
+    const hm = /^\/([A-Za-z0-9_]+)\/?$/.exec(path);
+    return hm && !RESERVED.test(hm[1]) ? hm[1] : null;
+  }
   function extractfromlink(link) {
-    const mm = HANDLERE.exec(link.getAttribute("href") || "");
-    if (!mm) return null;
-    const handle = mm[1];
+    const handle = handlefromhref(link.getAttribute("href"));
+    if (!handle) return null;
     let scope = link, namelink = null, handlelink = null, displayname = null, avatar = null;
     for (let i = 0; i < 6 && scope; i++) {
-      for (const a of scope.querySelectorAll('a[role="link"][href^="/"]')) {
-        const href = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
-        if (href.toLowerCase() !== handle.toLowerCase()) continue;
+      for (const a of scope.querySelectorAll("a[href]")) {
+        const hh = handlefromhref(a.getAttribute("href"));
+        if (!hh || hh.toLowerCase() !== handle.toLowerCase()) continue;
         const t = (a.textContent || "").trim();
         if (t.startsWith("@")) handlelink = handlelink || a;
         else if (t && !namelink) {displayname = t; namelink = a}
@@ -244,6 +259,45 @@
     const img = avatar && avatar.querySelector("img");
     const dimtargets = [avatar, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
     return {handle, displayname: displayname || handle, avatarurl: img ? img.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+  }
+
+  // the new x chat (chat-list rows, the chatlog intro card, the triple-dot info panel) has no
+  // UserAvatar-Container and no relative profile links - just an avatar <img alt="user avatar">,
+  // plain @handle text spans, and sometimes a View-Profile/header link. resolve the handle from a
+  // profile link if there is one, else an @handle token, then hide the pfp AND the name cluster
+  function chatavatar(scope) {return scope.querySelector('img[alt="user avatar"]') || scope.querySelector("img")}
+  function chathandle(scope) {
+    for (const a of scope.querySelectorAll("a[href]")) {const h = handlefromhref(a.getAttribute("href")); if (h) return h}
+    for (const s of scope.querySelectorAll("span, div")) {
+      if (s.children.length) continue;
+      const m = /^@([A-Za-z0-9_]+)$/.exec((s.textContent || "").trim());
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function hashandlespan(el) {
+    return [...el.querySelectorAll("span, div")].some(s => !s.children.length && /^@[A-Za-z0-9_]+$/.test((s.textContent || "").trim()));
+  }
+  function extractchatuser(startel) {
+    let s = startel, handle = null;
+    for (let i = 0; i < 8 && s && !handle; i++) {handle = chathandle(s); if (!handle) s = s.parentElement}
+    if (!handle) return null;
+    // hide scope: the nearest ancestor that actually holds a @handle span, which is the small
+    // pfp+name+@handle cluster (well short of the "N Followers · Joined" line and View Profile)
+    let scope = startel;
+    for (let i = 0; i < 8 && scope && !hashandlespan(scope); i++) scope = scope.parentElement;
+    scope = scope || startel;
+    const img = (startel.matches && startel.matches("img")) ? startel : (chatavatar(scope) || chatavatar(scope.parentElement || scope));
+    const dimtargets = [];
+    if (img) dimtargets.push(img.parentElement || img); // the parent carries the placeholder circle bg
+    // hide each @handle span and, since the display name has no link to key off, the small block
+    // that wraps it (name + @handle sit together)
+    for (const sp of scope.querySelectorAll("span, div")) {
+      if (sp.children.length || !/^@[A-Za-z0-9_]+$/.test((sp.textContent || "").trim())) continue;
+      const p = sp.parentElement;
+      dimtargets.push(p && (p.textContent || "").trim().length < 40 ? p : sp);
+    }
+    return {handle, displayname: handle, avatarurl: img ? img.src : null, badges: [], sourceurl: null, dimtargets: dimtargets.filter(Boolean), source: "live"};
   }
 
   function extractuser(article) {
@@ -320,11 +374,15 @@
       else {
         const namebox = e.target.closest(NAMEBOXSEL);
         const av = e.target.closest('[data-testid^="UserAvatar-Container-"]');
-        const plink = e.target.closest('a[role="link"][href^="/"]');
+        const plink = e.target.closest("a[href]");
+        const chatitem = e.target.closest('[data-testid^="dm-conversation-item-"]');
+        const chatavatarimg = e.target.matches && e.target.matches('img[alt="user avatar"]');
+        const handlespan = !e.target.children.length && /^@[A-Za-z0-9_]+$/.test((e.target.textContent || "").trim());
         // a bare avatar or a bare profile link somewhere else (list creator, chat header, menu...)
         if (namebox) user = extractfromnamebox(namebox);
         else if (av) user = extractnearavatar(av);
-        else if (plink && /^\/[A-Za-z0-9_]+\/?$/.test(plink.getAttribute("href") || "")) user = extractfromlink(plink);
+        else if (chatitem || chatavatarimg || handlespan) user = extractchatuser(e.target);
+        else if (plink && handlefromhref(plink.getAttribute("href"))) user = extractfromlink(plink);
         else return;
       }
     }
