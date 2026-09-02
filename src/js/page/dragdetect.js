@@ -156,7 +156,11 @@
     // whole takes the verified/affiliated badges with it, and the text-match pass still covers
     // the sticky-header duplicate of the name up top
     const usernameblock = document.querySelector('[data-testid="UserName"]');
-    const dimtargets = [avatarlink, usernameblock, ...findprofilenametargets(heading, handle)].filter(Boolean);
+    // our injected HD pill is a sibling of the photo link inside the avatar container, so hiding
+    // the photo link alone leaves it floating - hide it with the pfp
+    const avatarcontainer = avatarlink && avatarlink.closest('[data-testid^="UserAvatar-Container-"]');
+    const hdpill = avatarcontainer && avatarcontainer.querySelector(".tumhd");
+    const dimtargets = [avatarlink, hdpill, usernameblock, ...findprofilenametargets(heading, handle)].filter(Boolean);
     return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
   }
 
@@ -313,6 +317,17 @@
     return {handle, displayname: handle, avatarurl: img ? img.src : null, badges: [], sourceurl: null, dimtargets: dimtargets.filter(Boolean), source: "live"};
   }
 
+  // the "·" between the @handle and the timestamp in a tweet header - a leaf span sitting in the
+  // row that holds both the name block and the status link. hiding the name/handle/time but not
+  // this leaves the bullet floating, so it gets hidden too (never a "·" inside the tweet body)
+  function headerbullets(namebox, statuslink, article) {
+    if (!namebox || !statuslink) return [];
+    let container = namebox;
+    while (container && !container.contains(statuslink)) container = container.parentElement;
+    container = container || article;
+    return [...container.querySelectorAll("span")].filter(s => !s.children.length && (s.textContent || "").trim() === "·" && !s.closest('[data-testid="tweetText"]'));
+  }
+
   function extractuser(article) {
     const namebox = article.querySelector(NAMEBOXSEL) || (article.matches(NAMEBOXSEL) ? article : null);
     const avatarcontainer = article.querySelector('[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]');
@@ -354,7 +369,7 @@
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
     const badgescope = namebox || (namelink && namelink.parentElement);
-    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...badgeels(badgescope)];
+    const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...headerbullets(namebox, statuslink, article), ...badgeels(badgescope)];
     // quoted tweet: the name/@handle are text spans, not links, so there's no namelink to hide -
     // hide the whole User-Name block instead (and grab the display name from it for the chip)
     if (!namelink && !handlelink && namebox) {

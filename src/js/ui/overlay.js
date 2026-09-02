@@ -224,7 +224,7 @@
       <div class="tummodal">
         <div class="tummodalcard">
           <div class="tummodalhead">
-            <button class="tummodaliconbtn" title="click to pick an icon">${ICONS.folder}</button>
+            <button class="tummodaliconbtn">${ICONS.folder}</button>
             <input class="tummodalname" maxlength="40" placeholder="folder name">
             <button class="tummodalclose">${ICONS.close}</button>
           </div>
