@@ -13,23 +13,9 @@
   // outlined envelope (material icons "mail_outline") - fill:currentColor draws it as an outline,
   // so it still matches twitter's own fill-based item icons rather than looking like a solid block
   const MAILPATH = "M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm0-12l-8 5-8-5h16z";
-  const FONT = '"TwitterChirp","Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
-  // a copy of x.com's own bottom toast (captured 1:1 from its "Copied to clipboard" notification):
-  // blue pill, white text, 4px radius, 12px padding, bottom-centred, 170ms opacity fade, no shadow
-  let toastel = null, toasttimer = 0;
-  function pagetoast(msg) {
-    if (!toastel) {
-      toastel = document.createElement("div");
-      toastel.className = "tumpagetoast";
-      toastel.style.cssText = "position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:2147483000;background:#1d9bf0;color:#fff;border-radius:4px;padding:12px;font-family:" + FONT + ";font-size:15px;line-height:20px;max-width:90vw;text-align:center;pointer-events:none;opacity:0;transition:opacity 170ms cubic-bezier(0,0,1,1)";
-      document.body.appendChild(toastel);
-    }
-    toastel.textContent = msg;
-    requestAnimationFrame(() => {if (toastel) toastel.style.opacity = "1"});
-    clearTimeout(toasttimer);
-    toasttimer = setTimeout(() => {if (toastel) toastel.style.opacity = "0"}, 2500);
-  }
+  // one shared toast for the whole extension - the overlay's twitter-recreation bottom toast
+  function pagetoast(msg) {try {tum.overlay.toast(msg)} catch {}}
 
   // execCommand is synchronous inside the click gesture (the async clipboard api can hang while
   // the tab isn't focused); fall back to it for the odd browser that still needs it
@@ -108,6 +94,104 @@
     items.appendChild(item);
   }
 
+  /*//////////////////////////////////////////////////////////////////////*/
+  // extra user detail: the rich fields off x.com's own UserByScreenName (captured in the main
+  // world by usercapture.js and posted here) plus a memory.lol lookup for the id + rename history,
+  // rendered as a compact block under the profile items. everything here is opt-in info the user
+  // picked; nothing that isn't available is shown
+
+  const userdata = new Map(); // handle (lc) -> normalized UserByScreenName fields
+  const memcache = new Map(); // handle (lc) -> {id, names} | null (requested/none)
+
+  function fmtnum(n) {return typeof n === "number" ? n.toLocaleString("en-US") : n}
+  function parsetwdate(s) {const d = new Date(s); return isNaN(d) ? null : d}
+  function agestr(d) {
+    let months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.4375);
+    const y = Math.floor(months / 12), m = Math.floor(months % 12);
+    return (y ? y + "y " : "") + m + "m";
+  }
+  function joinedline(u) {
+    const d = parsetwdate(u.createdAt);
+    if (!d) return null;
+    const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "short", year: "numeric"});
+    let s = "Joined " + date + " · " + agestr(d);
+    if (typeof u.tweets === "number") {
+      const days = Math.max(1, (Date.now() - d.getTime()) / 86400000);
+      s += " · " + (u.tweets / days).toFixed(1) + " posts/day";
+    }
+    return s;
+  }
+  function fullres(url) {return (url || "").replace(/_(normal|bigger|mini|(\d+)x(\d+))\.(jpg|jpeg|png|webp|gif)$/i, ".$4")}
+
+  function row(gray) {
+    const d = document.createElement("div");
+    d.style.cssText = "display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:" + gray + ";font-size:14px;line-height:1.4;margin-top:2px";
+    return d;
+  }
+  function copyspan(label, value, gray) {
+    const s = document.createElement("span");
+    s.textContent = label + value;
+    s.title = "click to copy";
+    s.style.cssText = "cursor:pointer";
+    s.addEventListener("click", e => {e.preventDefault(); e.stopPropagation(); copytext(value); pagetoast("Copied " + value)});
+    return s;
+  }
+  function linkspan(text, href, gray) {
+    const a = document.createElement("a");
+    a.textContent = text; a.href = href; a.target = "_blank"; a.rel = "noopener";
+    a.style.cssText = "color:#1d9bf0;text-decoration:none";
+    return a;
+  }
+
+  function buildextra(items, handle) {
+    const key = handle.toLowerCase();
+    const u = userdata.get(key), mem = memcache.get(key);
+    let box = document.querySelector(".tumextrainfo");
+    if (!u && !(mem && mem.names)) {if (box) box.remove(); return}
+    if (box && box.dataset.handle === handle) return; // already built for this profile
+    if (box) box.remove();
+    const cs = getComputedStyle(items);
+    const gray = cs.color, font = cs.fontSize;
+    box = document.createElement("div");
+    box.className = "tumextrainfo";
+    box.dataset.handle = handle;
+    box.style.cssText = "margin-top:8px;font-family:inherit;font-size:" + font + ";color:" + gray;
+
+    const id = (u && u.restId) || (mem && mem.id);
+    if (id) {const r = row(gray); r.appendChild(copyspan("ID: ", id, gray)); box.appendChild(r)}
+    if (u) {
+      const jl = joinedline(u);
+      if (jl) {const r = row(gray); r.textContent = jl; box.appendChild(r)}
+      if (typeof u.followers === "number") {
+        const r = row(gray);
+        r.textContent = fmtnum(u.followers) + " followers · " + fmtnum(u.following) + " following · " + fmtnum(u.tweets) + " posts";
+        box.appendChild(r);
+      }
+      const flags = [];
+      if (u.possiblySensitive) flags.push("possibly sensitive");
+      if (u.isProtected) flags.push("protected");
+      if (u.withheld && u.withheld.length) flags.push("withheld in " + u.withheld.join(", "));
+      if (flags.length) {const r = row("#f4212e"); r.textContent = flags.join(" · "); box.appendChild(r)}
+    }
+    // rename history (memory.lol) - only when there's more than the current handle
+    if (mem && mem.names && mem.names.length) {
+      const others = mem.names.filter(n => n.name.toLowerCase() !== key);
+      if (others.length) {
+        const r = row(gray);
+        r.textContent = "formerly " + others.map(n => "@" + n.name + (n.from ? " (" + n.from.slice(0, 4) + (n.to ? "-" + n.to.slice(0, 4) : "") + ")" : "")).join(", ");
+        box.appendChild(r);
+      }
+    }
+    if (u && (u.avatar || u.banner)) {
+      const r = row(gray);
+      if (u.avatar) r.appendChild(linkspan("full-res pfp", fullres(u.avatar), gray));
+      if (u.avatar && u.banner) {const sep = document.createElement("span"); sep.textContent = "·"; r.appendChild(sep)}
+      if (u.banner) r.appendChild(linkspan("banner", u.banner, gray));
+      box.appendChild(r);
+    }
+    if (box.children.length) items.parentNode.insertBefore(box, items.nextSibling);
+  }
+
   function scan() {
     const handle = currenthandle();
     const items = document.querySelector(ITEMSSEL);
@@ -123,8 +207,24 @@
         });
       } catch {}
     }
+    if (!memcache.has(key)) {
+      memcache.set(key, null);
+      try {
+        chrome.runtime.sendMessage({type: "tummemorylol", handle}, resp => {
+          void chrome.runtime.lastError;
+          memcache.set(key, resp && resp.id ? resp : null);
+          forcerebuild();
+          schedule();
+        });
+      } catch {}
+    }
     inject(items, handle);
+    buildextra(items, handle);
   }
+
+  // captured/looked-up data can arrive after the block was already built for this profile - drop
+  // the "already built" guard so the next scan re-renders with the new fields
+  function forcerebuild() {const b = document.querySelector(".tumextrainfo"); if (b) b.dataset.handle = ""}
 
   // setTimeout, not rAF (rAF pauses on a backgrounded tab); mirrors badges.js/suggest.js
   let scheduled = 0;
@@ -135,6 +235,14 @@
 
   window.tum.profileinfo = {
     init() {
+      // usercapture.js (main world) posts the UserByScreenName fields here as they load
+      window.addEventListener("message", e => {
+        if (e.source !== window || !e.data || !e.data.__tumuser || !e.data.data || !e.data.data.handle) return;
+        const d = e.data.data;
+        userdata.set(d.handle.toLowerCase(), d);
+        forcerebuild();
+        schedule();
+      });
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
       schedule();
     }
