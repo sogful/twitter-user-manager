@@ -18,9 +18,15 @@
     }
   },
   "permissions": ["storage"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", "https://api.memory.lol/*"],
   "background": {"service_worker": "src/js/background.js"},
   "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["src/js/page/usercapture.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": [
