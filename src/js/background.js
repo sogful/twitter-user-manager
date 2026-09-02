@@ -14,11 +14,24 @@ async function lookup(handle) {
   return null;
 }
 
+// memory.lol's google_token is an httpOnly cookie on .memory.lol set when the user logs in there.
+// the api accepts it as a plain bearer, so read it with the cookies api (privileged - httpOnly is
+// fine) and attach it. testing showed the anonymous api already returns full rename history, so
+// this is really just to lift the anonymous rate limit; absent (not logged in) it degrades to anon
+async function memtoken() {
+  try {
+    const c = await chrome.cookies.get({url: "https://memory.lol/", name: "google_token"});
+    return c && c.value ? c.value : null;
+  } catch {return null}
+}
+
 // memory.lol: numeric id + the account's @handle history (renames), one GET. from the worker so
 // the page's csp can't block it. returns {id, names:[{name, from, to}]} sorted oldest-first
 async function memorylol(handle) {
   try {
-    const r = await fetch("https://api.memory.lol/v1/tw/" + encodeURIComponent(handle));
+    const tok = await memtoken();
+    const opts = tok ? {headers: {Authorization: "Bearer " + tok}} : undefined;
+    const r = await fetch("https://api.memory.lol/v1/tw/" + encodeURIComponent(handle), opts);
     const d = await r.json();
     const acct = d && d.accounts && d.accounts[0];
     if (!acct) return null;
