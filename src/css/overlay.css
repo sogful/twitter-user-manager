@@ -766,17 +766,20 @@ img {-webkit-user-drag: none; user-drag: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
+/* a 1:1 recreation of x.com's own bottom toast (blue pill, white text, 4px radius, 12px pad) -
+   appears instantly (transition:none on show) but fades out (base transition), matching twitter */
 .tumtoast {
-  position: absolute; top: 24px; left: 50%;
+  position: absolute; bottom: 32px; left: 50%;
   transform: translateX(-50%);
-  background: var(--tumelev,#16181c); color: var(--tumtext,#e7e9ea);
-  border: 1px solid var(--tumborder,#2f3336);
-  padding: 10px 18px; border-radius: 999px;
-  font-size: 13px; font-weight: 600;
+  background: #1d9bf0; color: #fff;
+  padding: 12px; border-radius: 4px;
+  font-size: 15px; line-height: 20px;
+  max-width: 90%; text-align: center;
   opacity: 0; visibility: hidden;
-  transition: opacity .12s ease, visibility .12s ease;
+  transition: opacity .17s cubic-bezier(0,0,1,1), visibility .17s;
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {
-  opacity: 1; visibility: visible
+  opacity: 1; visibility: visible;
+  transition: none
 }

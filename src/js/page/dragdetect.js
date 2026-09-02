@@ -30,16 +30,24 @@
     if (!root) return [];
     return [...root.querySelectorAll("img, svg")].map(b => {
       const clone = b.cloneNode(true);
-      try {clone.style.color = getComputedStyle(b).color} catch {}
+      // the checkmark's blue comes from a twitter css class (fill:currentColor) that won't follow
+      // it into our shadow root, so inline BOTH color and the resolved fill - color alone leaves the
+      // path defaulting to black
+      try {
+        const cs = getComputedStyle(b);
+        clone.style.color = cs.color;
+        if (b.tagName.toLowerCase() === "svg" && cs.fill && cs.fill !== "none") clone.style.fill = cs.fill;
+      } catch {}
       return clone.outerHTML;
     });
   }
 
   // every badge glyph in a name block - verified/automated live inside the name link, but the
   // affiliated badge (the little company square) is a sibling, so these have to be hidden
-  // explicitly on drag or they'd be left floating where the name used to be
+  // explicitly on drag or they'd be left floating where the name used to be. our OWN injected
+  // note-pencil / folder-dot are excluded - they're our ui, not the user's identity
   function badgeels(scope) {
-    return scope ? [...scope.querySelectorAll("img, svg")] : [];
+    return scope ? [...scope.querySelectorAll("img, svg")].filter(e => !e.closest(".tumpagereasonbadge, .tumpagefolderdot")) : [];
   }
 
   // the profile a UserCell/User-Name points at (its avatar and name/handle all link to it) - used
@@ -287,7 +295,12 @@
     let scope = startel;
     for (let i = 0; i < 8 && scope && !hashandlespan(scope); i++) scope = scope.parentElement;
     scope = scope || startel;
-    const img = (startel.matches && startel.matches("img")) ? startel : (chatavatar(scope) || chatavatar(scope.parentElement || scope));
+    // the pfp and the name are separate siblings in chat, so if the name was grabbed the avatar
+    // won't be in the @handle scope - walk up until an ancestor actually holds a "user avatar" img,
+    // so the chip shows the pfp and it gets hidden on the page too
+    let imgscope = startel;
+    for (let i = 0; i < 8 && imgscope && !chatavatar(imgscope); i++) imgscope = imgscope.parentElement;
+    const img = (startel.matches && startel.matches("img")) ? startel : chatavatar(imgscope || scope);
     const dimtargets = [];
     if (img) dimtargets.push(img.parentElement || img); // the parent carries the placeholder circle bg
     // hide each @handle span and, since the display name has no link to key off, the small block
