@@ -14,7 +14,8 @@
   const CHANGESPATH = "M12 3.786c-4.556 0-8.25 3.694-8.25 8.25s3.694 8.25 8.25 8.25c1.595 0 3.081-.451 4.341-1.233l1.054 1.7c-1.568.972-3.418 1.534-5.395 1.534-5.661 0-10.25-4.589-10.25-10.25S6.339 1.786 12 1.786s10.25 4.589 10.25 10.25c0 .901-.21 1.77-.452 2.477-.592 1.731-2.343 2.477-3.917 2.334-1.242-.113-2.307-.74-3.013-1.647-.961 1.253-2.45 2.011-4.092 1.78-2.581-.363-4.127-2.971-3.76-5.578.366-2.606 2.571-4.688 5.152-4.325 1.019.143 1.877.637 2.519 1.342l1.803.258-.507 3.549c-.187 1.31.761 2.509 2.079 2.629.915.083 1.627-.356 1.843-.99.2-.585.345-1.224.345-1.83 0-4.556-3.694-8.25-8.25-8.25zm-.111 5.274c-1.247-.175-2.645.854-2.893 2.623-.249 1.769.811 3.143 2.058 3.319 1.247.175 2.645-.854 2.893-2.623.249-1.769-.811-3.144-2.058-3.319z";
   const SHIELDPATH = "M12 2c1.982.042 3.945.396 5.816 1.05 1.09.372 2.154.816 3.184 1.33v7.64c.03 1.404-.27 2.797-.876 4.065-.606 1.268-1.501 2.376-2.613 3.235-.87.66-1.786 1.254-2.743 1.78-.838.514-1.787.823-2.768.9-.98-.077-1.929-.386-2.768-.9-.956-.526-1.873-1.12-2.743-1.78-1.112-.859-2.007-1.967-2.613-3.235-.606-1.268-.906-2.66-.876-4.066V4.38c1.03-.513 2.095-.957 3.184-1.33C8.056 2.398 10.018 2.043 12 2zm0 2c-1.767.047-3.515.367-5.184.95-.767.25-1.398.51-1.816.69v6.38c-.03 1.091.197 2.175.663 3.164.466.988 1.157 1.853 2.018 2.526.793.601 1.63 1.146 2.5 1.63.55.35 1.172.575 1.819.66.648-.084 1.27-.31 1.822-.66.87-.484 1.706-1.029 2.5-1.63.86-.673 1.55-1.538 2.016-2.526.465-.989.692-2.073.662-3.164V5.64c-.416-.18-1.049-.44-1.816-.69C15.516 4.367 13.767 4.047 12 4zm0 10c.83 0 1.5.67 1.5 1.5S12.83 17 12 17s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm1-1.3c-.004-.001-.502-.2-1-.2-.5 0-1 .2-1 .2L10.75 7h2.5L13 12.7z";
   const PINPATH = "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z";
-  const DBPATH = "M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z";
+  // outline (hollow) database - so the breach indicator reads as a stroke icon, not a solid block
+  const DBPATH = "M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zm5 17c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V19zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V15zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1V8.77c1.34.63 3.13 1 5 1s3.66-.37 5-1V11zM12 8c-3.31 0-5-.65-5-1s1.69-1 5-1 5 .65 5 1-1.69 1-5 1z";
   const CHIRP = '"TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
   // one shared toast for the whole extension - the overlay's twitter-recreation bottom toast
@@ -75,7 +76,26 @@
   const memcache = new Map(); // handle (lc) -> {id, names} | null (requested/none)
   const aboutdata = new Map(); // handle (lc) -> AboutAccountQuery fields | null
   const breachcache = new Map(); // handle (lc) -> {results} | {skipped} | {discarded} | null
+  const memfallback = new Set(); // handles a by-handle memory.lol fallback has been scheduled for
 
+  function requestmemory(key, arg) {
+    memcache.set(key, null);
+    try {
+      chrome.runtime.sendMessage({type: "tummemorylol", ...arg}, resp => {
+        void chrome.runtime.lastError;
+        memcache.set(key, resp && resp.id ? resp : null);
+        schedule();
+      });
+    } catch {}
+  }
+
+  // twitter's secondary gray lives on the individual info items (join/location carry an inline
+  // color:rgb(83,100,113)), NOT on the items container - which inherits the primary near-black. read
+  // it off a gray item so our injected text matches, and stays theme-correct in dark mode
+  function itemgray(items) {
+    const g = items.querySelector('[data-testid="UserJoinDate"], [data-testid="UserLocation"], [data-testid="UserUrl"]');
+    return g ? getComputedStyle(g).color : "rgb(83,100,113)";
+  }
   function fmtnum(n) {return typeof n === "number" ? n.toLocaleString("en-US") : n}
   function parsetwdate(s) {const d = new Date(s); return isNaN(d) ? null : d}
   function agestr(d) {
@@ -231,7 +251,7 @@
     if (box && box.dataset.sig === sig && box.dataset.handle === handle) return;
     if (box) box.remove();
     if (!id && !email && !source && !changes && !names.length && !flags.length) return;
-    const gray = getComputedStyle(items).color;
+    const gray = itemgray(items);
     box = document.createElement("div");
     box.className = "tumextrablock";
     box.dataset.sig = sig;
@@ -331,7 +351,7 @@
     const item = document.createElement("span");
     item.className = "tumbasedinitem";
     item.dataset.sig = sig;
-    item.style.cssText = "display:inline-flex;align-items:center;gap:4px;font-family:" + CHIRP + ";color:" + getComputedStyle(items).color;
+    item.style.cssText = "display:inline-flex;align-items:center;gap:4px;font-family:" + CHIRP + ";color:" + itemgray(items);
     item.appendChild(iconsvg(PINPATH, 1.25));
     const t = document.createElement("span"); t.textContent = ab.basedIn; item.appendChild(t);
     if (ab.locationAccurate === false) item.appendChild(vpnshield());
@@ -343,40 +363,60 @@
   // @handle whose count opens a panel listing the records. username matches are fuzzy by nature, so
   // the backend already skips short/common handles and discards obvious false-positive floods
 
-  function breachpanel(results, strong, gray, bg) {
-    const panel = document.createElement("div");
-    panel.className = "tumbreachpanel";
-    panel.style.cssText = "position:absolute;width:340px;max-height:60vh;overflow:auto;background:" + bg + ";" +
-      "border:1px solid rgba(128,128,128,.35);border-radius:12px;padding:8px;z-index:2147483646;" +
-      "box-shadow:0 8px 28px rgba(0,0,0,.35);font-family:" + CHIRP + ";font-size:12px;line-height:1.35;color:" + strong + ";text-align:left;cursor:default";
-    panel.addEventListener("click", e => e.stopPropagation());
+  // a large centered modal (backdrop + card) rather than a small dropdown, with each record packed
+  // compactly - fields flow as wrapping "key: value" pairs, several per line, not one per row
+  function breachmodal(results, strong, gray, bg, onclose) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "tumbreachbackdrop";
+    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:24px";
+    const modal = document.createElement("div");
+    modal.style.cssText = "width:min(760px,94vw);max-height:86vh;overflow:auto;background:" + bg + ";" +
+      "border:1px solid rgba(128,128,128,.3);border-radius:16px;padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);" +
+      "font-family:" + CHIRP + ";font-size:13px;line-height:1.35;color:" + strong + ";text-align:left";
+    modal.addEventListener("click", e => e.stopPropagation());
+    const head = document.createElement("div");
+    head.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px";
     const title = document.createElement("div");
     title.textContent = results.length + " breach record" + (results.length === 1 ? "" : "s");
-    title.style.cssText = "font-weight:700;margin:2px 4px 6px;font-size:13px";
-    panel.appendChild(title);
+    title.style.cssText = "font-weight:800;font-size:17px";
+    const x = document.createElement("button");
+    x.textContent = "✕";
+    x.style.cssText = "border:0;background:transparent;color:" + strong + ";font-size:18px;line-height:1;cursor:pointer;padding:4px 6px";
+    x.addEventListener("click", onclose);
+    head.appendChild(title); head.appendChild(x);
+    modal.appendChild(head);
     for (const rec of results) {
       const card = document.createElement("div");
-      card.style.cssText = "border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:6px 8px;margin-bottom:6px";
-      const src = document.createElement("div");
+      card.style.cssText = "border:1px solid rgba(128,128,128,.22);border-radius:10px;padding:6px 10px;margin-bottom:6px";
+      const srcrow = document.createElement("div");
+      srcrow.style.cssText = "display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px";
+      const src = document.createElement("span");
       src.textContent = rec.source || "unknown source";
-      src.style.cssText = "font-weight:700;margin-bottom:2px";
-      card.appendChild(src);
-      for (const [k, v] of Object.entries(rec)) {
-        if (k === "source" || v == null || v === "") continue;
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;gap:6px";
-        const kk = document.createElement("span");
-        kk.textContent = k + ":";
-        kk.style.cssText = "color:" + gray + ";flex:0 0 auto";
-        const vv = document.createElement("span");
-        vv.textContent = Array.isArray(v) ? v.join(", ") : (typeof v === "object" ? JSON.stringify(v) : String(v));
-        vv.style.cssText = "word-break:break-word;min-width:0";
-        row.appendChild(kk); row.appendChild(vv);
-        card.appendChild(row);
+      src.style.cssText = "font-weight:700";
+      srcrow.appendChild(src);
+      if (rec.categories && rec.categories.length) {
+        const cat = document.createElement("span");
+        cat.textContent = Array.isArray(rec.categories) ? rec.categories.join(", ") : rec.categories;
+        cat.style.cssText = "font-size:11px;color:" + gray;
+        srcrow.appendChild(cat);
       }
-      panel.appendChild(card);
+      card.appendChild(srcrow);
+      const fields = document.createElement("div");
+      fields.style.cssText = "display:flex;flex-wrap:wrap;gap:1px 14px";
+      for (const [k, v] of Object.entries(rec)) {
+        if (k === "source" || k === "categories" || v == null || v === "") continue;
+        const f = document.createElement("span");
+        f.style.cssText = "min-width:0;word-break:break-word";
+        const kk = document.createElement("span"); kk.textContent = k + ": "; kk.style.color = gray;
+        f.appendChild(kk);
+        f.appendChild(document.createTextNode(Array.isArray(v) ? v.join(", ") : (typeof v === "object" ? JSON.stringify(v) : String(v))));
+        fields.appendChild(f);
+      }
+      card.appendChild(fields);
+      modal.appendChild(card);
     }
-    return panel;
+    backdrop.appendChild(modal);
+    return backdrop;
   }
 
   function injectbreach(handle) {
@@ -389,30 +429,27 @@
     const leaf = [...un.querySelectorAll("span")].find(s => !s.children.length && (s.textContent || "").trim().toLowerCase() === "@" + handle.toLowerCase());
     if (!leaf) return;
     const strong = getComputedStyle(document.querySelector("main h2") || document.body).color;
-    const gray = getComputedStyle(document.querySelector(ITEMSSEL) || document.body).color;
+    const gray = itemgray(document.querySelector(ITEMSSEL) || document.body);
     const bg = getComputedStyle(document.body).backgroundColor || "#000";
     const badge = document.createElement("span");
     badge.className = "tumbreachbadge";
+    // height kept at/under the @handle line-height and vertical-align:middle so it never grows the line
     badge.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle;" +
-      "height:18px;padding:0 7px;border-radius:9px;background:rgba(244,33,46,.12);color:#f4212e;" +
-      "font-family:" + CHIRP + ";font-size:12px;font-weight:700;line-height:1;cursor:pointer;user-select:none";
-    const ic = iconsvg(DBPATH, 1); ic.style.top = "0"; badge.appendChild(ic);
+      "height:16px;padding:0 6px;border-radius:8px;background:rgba(244,33,46,.12);color:#f4212e;" +
+      "font-family:" + CHIRP + ";font-size:11px;font-weight:700;line-height:1;cursor:pointer;user-select:none";
+    const ic = iconsvg(DBPATH, 1.1); ic.style.top = "0"; badge.appendChild(ic);
     const cnt = document.createElement("span"); cnt.textContent = res.results.length; badge.appendChild(cnt);
     badge.title = res.results.length + " breach record" + (res.results.length === 1 ? "" : "s") + " - click to view";
-    let panel = null;
-    // outside-click only - NOT scroll (x.com fires constant inner scroll events; the panel is
-    // position:absolute in document flow so it scrolls with the page and stays anchored anyway)
-    function close() {if (panel) {panel.remove(); panel = null; document.removeEventListener("click", close)}}
+    let modal = null;
+    function close() {if (modal) {modal.remove(); modal = null; document.removeEventListener("keydown", onkey)}}
+    function onkey(e) {if (e.key === "Escape") close()}
     badge.addEventListener("click", e => {
       e.preventDefault(); e.stopPropagation();
-      if (panel) {close(); return}
-      panel = breachpanel(res.results, strong, gray, bg);
-      // anchored to the badge but appended to body so no clipping ancestor cuts it off
-      const r = badge.getBoundingClientRect();
-      panel.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 348)) + "px";
-      panel.style.top = (r.bottom + window.scrollY + 6) + "px";
-      document.body.appendChild(panel);
-      setTimeout(() => document.addEventListener("click", close), 0);
+      if (modal) {close(); return}
+      modal = breachmodal(res.results, strong, gray, bg, close);
+      modal.addEventListener("click", close); // clicking the backdrop (outside the card) closes
+      document.body.appendChild(modal);
+      document.addEventListener("keydown", onkey);
     });
     leaf.insertAdjacentElement("afterend", badge);
   }
@@ -432,15 +469,15 @@
         });
       } catch {}
     }
+    // memory.lol is queried by numeric id for accuracy (a rename/handle-reuse can't misdirect it),
+    // so wait for usercapture to hand over the rest_id; if it never shows, fall back to the handle
     if (!memcache.has(key)) {
-      memcache.set(key, null);
-      try {
-        chrome.runtime.sendMessage({type: "tummemorylol", handle}, resp => {
-          void chrome.runtime.lastError;
-          memcache.set(key, resp && resp.id ? resp : null);
-          schedule();
-        });
-      } catch {}
+      const uu = userdata.get(key);
+      if (uu && uu.restId) requestmemory(key, {id: uu.restId});
+      else if (!memfallback.has(key)) {
+        memfallback.add(key);
+        setTimeout(() => {if (!memcache.has(key)) requestmemory(key, {handle})}, 3000);
+      }
     }
     if (!breachcache.has(key)) {
       breachcache.set(key, null);

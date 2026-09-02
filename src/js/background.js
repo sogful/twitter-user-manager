@@ -26,14 +26,18 @@ async function memtoken() {
 }
 
 // memory.lol: numeric id + the account's @handle history (renames), one GET. from the worker so
-// the page's csp can't block it. returns {id, names:[{name, from, to}]} sorted oldest-first
-async function memorylol(handle) {
+// the page's csp can't block it. querying by numeric id (/tw/id/<id>) is more accurate than by the
+// current handle - a rename or handle reuse can't misdirect it - so profileinfo passes the rest_id
+// when it has it, else the handle. the by-id endpoint returns the account object directly; the
+// by-handle one wraps it in accounts[]. returns {id, names:[{name, from, to}]} oldest-first
+async function memorylol(q) {
   try {
+    const path = q && q.id ? "id/" + encodeURIComponent(q.id) : encodeURIComponent(q && q.handle);
     const tok = await memtoken();
     const opts = tok ? {headers: {Authorization: "Bearer " + tok}} : undefined;
-    const r = await fetch("https://api.memory.lol/v1/tw/" + encodeURIComponent(handle), opts);
+    const r = await fetch("https://api.memory.lol/v1/tw/" + path, opts);
     const d = await r.json();
-    const acct = d && d.accounts && d.accounts[0];
+    const acct = d && (d.screen_names ? d : (d.accounts && d.accounts[0]));
     if (!acct) return null;
     const names = Object.entries(acct.screen_names || {}).map(([name, range]) => ({name, from: range && range[0], to: range && range[1]}));
     names.sort((a, b) => String(a.from || "").localeCompare(String(b.from || "")));
@@ -78,8 +82,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     lookup(msg.handle).then(email => sendResponse({email}));
     return true;
   }
-  if (msg && msg.type === "tummemorylol" && msg.handle) {
-    memorylol(msg.handle).then(res => sendResponse(res || {}));
+  if (msg && msg.type === "tummemorylol" && (msg.id || msg.handle)) {
+    memorylol({id: msg.id, handle: msg.handle}).then(res => sendResponse(res || {}));
     return true;
   }
   if (msg && msg.type === "tumbreach" && msg.handle) {
