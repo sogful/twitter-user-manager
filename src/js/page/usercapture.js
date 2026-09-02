@@ -36,12 +36,58 @@
       const j = JSON.parse(text);
       const u = j && j.data && j.data.user && j.data.user.result;
       const d = pick(u);
-      if (d) window.postMessage({__tumuser: 1, data: d}, location.origin);
+      if (d) {window.postMessage({__tumuser: 1, data: d}, location.origin); fetchabout(d.handle)}
+    } catch {}
+  }
+
+  // the "About this account" panel (the arrow off the join date -> /handle/about) has data the
+  // profile response lacks: account-based-in country + whether it's accurate (the "possibly using
+  // VPN" shield), what it's connected via, and the username-change count/date. that data comes from
+  // its own AboutAccountQuery, which only fires on the /about page - so we replay it ourselves. the
+  // request is a plain authed GET; we reuse twitter's own bearer (grabbed off its requests, else the
+  // public web one) + the ct0 csrf cookie, and let credentials:include carry the session cookies
+  const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+  const ABOUTQID = "TzOG2twZEfhr9KmClvVVqA"; // AboutAccountQuery id - stable, may need a bump on a big twitter deploy
+  let bearer = null;
+  const aboutdone = new Set();
+  function grabbearer(init) {
+    try {
+      const h = init && init.headers;
+      if (!h) return;
+      const a = typeof h.get === "function" ? h.get("authorization") : (h.authorization || h.Authorization);
+      if (a && /^Bearer /.test(a)) bearer = a;
+    } catch {}
+  }
+  async function fetchabout(handle) {
+    const key = handle.toLowerCase();
+    if (aboutdone.has(key)) return;
+    aboutdone.add(key);
+    try {
+      const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+      const url = "/i/api/graphql/" + ABOUTQID + "/AboutAccountQuery?variables=" + encodeURIComponent(JSON.stringify({screenName: handle}));
+      const r = await origfetch(url, {credentials: "include", headers: {
+        authorization: bearer || PUBBEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-active-user": "yes", "x-twitter-client-language": "en"
+      }});
+      if (!r.ok) return;
+      const j = await r.json();
+      const ab = j && j.data && j.data.user_result_by_screen_name && j.data.user_result_by_screen_name.result && j.data.user_result_by_screen_name.result.about_profile;
+      if (!ab) return;
+      const uc = ab.username_changes || {};
+      window.postMessage({__tumabout: 1, data: {
+        handle,
+        basedIn: ab.account_based_in || null,
+        locationAccurate: ab.location_accurate,
+        source: ab.source || null,
+        changesCount: uc.count != null ? Number(uc.count) : null,
+        changesLastMsec: uc.last_changed_at_msec ? Number(uc.last_changed_at_msec) : null
+      }}, location.origin);
     } catch {}
   }
 
   const origfetch = window.fetch;
   window.fetch = function (...args) {
+    grabbearer(args[1]);
     return origfetch.apply(this, args).then(res => {
       try {
         const url = (args[0] && args[0].url) || args[0] || "";
