@@ -3,31 +3,18 @@
 
   window.tum = window.tum || {};
 
-  // extra detail on a profile beyond the sorting side of the extension. an email pulled from the
-  // breach-data lookup and a numeric id are dropped in as their own items alongside twitter's own
-  // ones (location / link / joined); the richer stats (full join date + age, exact follow counts,
-  // posts/day, full-res pfp/banner) are woven into the native spots they belong next to. only the
-  // handful with no native home (sensitivity/protected/withheld flags, rename history) live in a
-  // small appended block. the breach email fetch runs in the service worker (background.js) to
-  // dodge x.com's connect-src csp; the rich user fields come from usercapture.js (main world)
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)\/?$/;
   const SKIP = /^\/(i|home|explore|search|notifications|messages|settings|compose)\/?$/i;
   const ITEMSSEL = '[data-testid="UserProfileHeader_Items"]';
-  // outlined envelope (material "mail_outline") - fill:currentColor draws it as an outline so it
-  // matches twitter's own fill-based item icons rather than looking like a solid block
+
   const MAILPATH = "M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm0-12l-8 5-8-5h16z";
-  // material "tag" (#) - reads as an identifier next to the numeric id
   const TAGPATH = "M20 10V8h-4V4h-2v4h-4V4H8v4H4v2h4v4H4v2h4v4h2v-4h4v4h2v-4h4v-2h-4v-4h4zm-6 4h-4v-4h4v4z";
-  // material "warning" triangle - for the sensitivity/protected/withheld flags (drawn red)
   const WARNPATH = "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z";
-  // twitter's own about-panel icons, lifted so our surfaced version reads the same as theirs:
-  // the globe (connected via), the circular "username changes" glyph, the shield (possibly-vpn)
   const GLOBEPATH = "M12.25 2C6.59 2 2 6.59 2 12.25S6.59 22.5 12.25 22.5 22.5 17.91 22.5 12.25 17.91 2 12.25 2zM9.13 4.61c-.1.21-.2.44-.29.66-.62 1.6-1.01 3.69-1.08 5.98h-3.7c.36-3.01 2.35-5.53 5.07-6.64zm-5.07 8.64h3.72c.11 2.09.49 4 1.06 5.48.18.46.39.89.62 1.29-2.88-1.04-5.02-3.63-5.4-6.77zM13.79 18c-.29.75-.61 1.28-.91 1.62-.31.33-.52.38-.63.38-.11 0-.32-.05-.63-.38-.3-.34-.62-.87-.91-1.62-.48-1.22-.82-2.87-.92-4.75h4.92c-.1 1.88-.44 3.53-.92 4.75zm-4.03-6.75c.07-2.09.43-3.92.95-5.25.29-.75.61-1.28.91-1.62.31-.33.52-.38.63-.38.11 0 .32.05.63.38.3.34.62.87.91 1.62.52 1.33.88 3.16.95 5.25H9.76zm5.28 8.77c.23-.4.44-.83.62-1.29.57-1.48.95-3.39 1.06-5.48h3.72c-.38 3.14-2.52 5.73-5.4 6.77zm1.7-8.77c-.07-2.29-.46-4.38-1.08-5.98-.09-.22-.19-.45-.29-.66 2.72 1.11 4.71 3.63 5.07 6.64h-3.7z";
   const CHANGESPATH = "M12 3.786c-4.556 0-8.25 3.694-8.25 8.25s3.694 8.25 8.25 8.25c1.595 0 3.081-.451 4.341-1.233l1.054 1.7c-1.568.972-3.418 1.534-5.395 1.534-5.661 0-10.25-4.589-10.25-10.25S6.339 1.786 12 1.786s10.25 4.589 10.25 10.25c0 .901-.21 1.77-.452 2.477-.592 1.731-2.343 2.477-3.917 2.334-1.242-.113-2.307-.74-3.013-1.647-.961 1.253-2.45 2.011-4.092 1.78-2.581-.363-4.127-2.971-3.76-5.578.366-2.606 2.571-4.688 5.152-4.325 1.019.143 1.877.637 2.519 1.342l1.803.258-.507 3.549c-.187 1.31.761 2.509 2.079 2.629.915.083 1.627-.356 1.843-.99.2-.585.345-1.224.345-1.83 0-4.556-3.694-8.25-8.25-8.25zm-.111 5.274c-1.247-.175-2.645.854-2.893 2.623-.249 1.769.811 3.143 2.058 3.319 1.247.175 2.645-.854 2.893-2.623.249-1.769-.811-3.144-2.058-3.319z";
   const SHIELDPATH = "M12 2c1.982.042 3.945.396 5.816 1.05 1.09.372 2.154.816 3.184 1.33v7.64c.03 1.404-.27 2.797-.876 4.065-.606 1.268-1.501 2.376-2.613 3.235-.87.66-1.786 1.254-2.743 1.78-.838.514-1.787.823-2.768.9-.98-.077-1.929-.386-2.768-.9-.956-.526-1.873-1.12-2.743-1.78-1.112-.859-2.007-1.967-2.613-3.235-.606-1.268-.906-2.66-.876-4.066V4.38c1.03-.513 2.095-.957 3.184-1.33C8.056 2.398 10.018 2.043 12 2zm0 2c-1.767.047-3.515.367-5.184.95-.767.25-1.398.51-1.816.69v6.38c-.03 1.091.197 2.175.663 3.164.466.988 1.157 1.853 2.018 2.526.793.601 1.63 1.146 2.5 1.63.55.35 1.172.575 1.819.66.648-.084 1.27-.31 1.822-.66.87-.484 1.706-1.029 2.5-1.63.86-.673 1.55-1.538 2.016-2.526.465-.989.692-2.073.662-3.164V5.64c-.416-.18-1.049-.44-1.816-.69C15.516 4.367 13.767 4.047 12 4zm0 10c.83 0 1.5.67 1.5 1.5S12.83 17 12 17s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm1-1.3c-.004-.001-.502-.2-1-.2-.5 0-1 .2-1 .2L10.75 7h2.5L13 12.7z";
-  // material "place" pin - for the surfaced account-based-in location under the user-defined one
   const PINPATH = "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z";
-  // twitter's own ui font, so our injected pills/labels match rather than falling back to serif
+  const DBPATH = "M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z";
   const CHIRP = '"TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
   // one shared toast for the whole extension - the overlay's twitter-recreation bottom toast
@@ -87,6 +74,7 @@
   const userdata = new Map(); // handle (lc) -> normalized UserByScreenName fields
   const memcache = new Map(); // handle (lc) -> {id, names} | null (requested/none)
   const aboutdata = new Map(); // handle (lc) -> AboutAccountQuery fields | null
+  const breachcache = new Map(); // handle (lc) -> {results} | {skipped} | {discarded} | null
 
   function fmtnum(n) {return typeof n === "number" ? n.toLocaleString("en-US") : n}
   function parsetwdate(s) {const d = new Date(s); return isNaN(d) ? null : d}
@@ -213,6 +201,12 @@
   }
 
   function monthyear(msec) {return new Date(msec).toLocaleDateString("en-GB", {month: "long", year: "numeric"})}
+  // memory.lol dates come as "YYYY-MM-DD" - render day + month + year for accuracy
+  function memdate(s) {
+    if (!s) return "";
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + "T00:00:00" : s);
+    return isNaN(d) ? s : d.toLocaleDateString("en-GB", {day: "numeric", month: "short", year: "numeric"});
+  }
 
   // the whole extension block (id, email, connected-via, username changes, flags), rebuilt as a
   // sibling under twitter's items whenever its data signature changes. gray + chirp are set on the
@@ -250,7 +244,8 @@
     if (changes || names.length) {
       const r = entryrow(CHANGESPATH);
       const wrap = document.createElement("div");
-      wrap.style.cssText = "display:flex;flex-direction:column;gap:1px;min-width:0";
+      // slightly tighter line-height than the block default, just for the change list
+      wrap.style.cssText = "display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.15";
       const head = document.createElement("span");
       const n = changes != null ? changes : names.length;
       head.textContent = n + " username change" + (n === 1 ? "" : "s") + (changedon ? " (Last on " + monthyear(changedon) + ")" : "");
@@ -258,8 +253,8 @@
       // one former @handle per line, in an even smaller font (memory.lol; twitter only gives a count)
       for (const nm of names) {
         const line = document.createElement("span");
-        line.style.cssText = "font-size:11px;opacity:.85";
-        line.textContent = "@" + nm.name + (nm.from ? " (" + nm.from.slice(0, 4) + (nm.to ? "-" + nm.to.slice(0, 4) : "") + ")" : "");
+        line.style.cssText = "font-size:11px";
+        line.textContent = "@" + nm.name + (nm.from ? " (" + memdate(nm.from) + (nm.to ? " - " + memdate(nm.to) : "") + ")" : "");
         wrap.appendChild(line);
       }
       r.appendChild(wrap);
@@ -273,12 +268,26 @@
     items.parentNode.insertBefore(box, items.nextSibling);
   }
 
+  // left offset of the first real text inside el, so a second line can align under it (not its icon)
+  function textleft(el) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if ((node.textContent || "").trim()) {
+        const r = document.createRange();
+        r.selectNodeContents(node);
+        return Math.round(r.getBoundingClientRect().left - el.getBoundingClientRect().left);
+      }
+    }
+    return null;
+  }
+
   // the possibly-using-vpn shield, shown when twitter flags the account location as inaccurate
   function vpnshield() {
     const shield = iconsvg(SHIELDPATH, 1);
     shield.style.color = "#f4212e";
     const wrap = document.createElement("span");
-    wrap.title = "Possibly using VPN";
+    wrap.title = "Possibly using a VPN";
     wrap.style.cssText = "display:inline-flex";
     wrap.appendChild(shield);
     return wrap;
@@ -302,11 +311,15 @@
       if (existing && existing.dataset.sig === sig) return;
       if (existing) existing.remove();
       loc.style.overflow = "visible";
+      // inline-block items align by baseline; a two-line location drags its single-line siblings
+      // (url, join) down to that baseline - pin the whole item to the top so the row stays aligned
+      loc.style.verticalAlign = "top";
       const line = document.createElement("span");
       line.className = "tumbasedin";
       line.dataset.sig = sig;
-      line.style.cssText = "display:flex;align-items:center;gap:3px;font-size:12px;opacity:.85;margin-top:1px";
-      line.appendChild(iconsvg(PINPATH, 1));
+      // no icon - align the text directly under the user-defined location's text (past its pin)
+      const indent = textleft(loc);
+      line.style.cssText = "display:flex;align-items:center;gap:3px;font-size:12px;margin-top:1px;margin-left:" + (indent != null ? indent : 22) + "px";
       const t = document.createElement("span"); t.textContent = ab.basedIn; line.appendChild(t);
       if (ab.locationAccurate === false) line.appendChild(vpnshield());
       loc.appendChild(line);
@@ -323,6 +336,85 @@
     const t = document.createElement("span"); t.textContent = ab.basedIn; item.appendChild(t);
     if (ab.locationAccurate === false) item.appendChild(vpnshield());
     items.appendChild(item);
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+  // breach.vip records (via the swolesome proxy in background.js) - an indicator to the right of the
+  // @handle whose count opens a panel listing the records. username matches are fuzzy by nature, so
+  // the backend already skips short/common handles and discards obvious false-positive floods
+
+  function breachpanel(results, strong, gray, bg) {
+    const panel = document.createElement("div");
+    panel.className = "tumbreachpanel";
+    panel.style.cssText = "position:absolute;width:340px;max-height:60vh;overflow:auto;background:" + bg + ";" +
+      "border:1px solid rgba(128,128,128,.35);border-radius:12px;padding:8px;z-index:2147483646;" +
+      "box-shadow:0 8px 28px rgba(0,0,0,.35);font-family:" + CHIRP + ";font-size:12px;line-height:1.35;color:" + strong + ";text-align:left;cursor:default";
+    panel.addEventListener("click", e => e.stopPropagation());
+    const title = document.createElement("div");
+    title.textContent = results.length + " breach record" + (results.length === 1 ? "" : "s");
+    title.style.cssText = "font-weight:700;margin:2px 4px 6px;font-size:13px";
+    panel.appendChild(title);
+    for (const rec of results) {
+      const card = document.createElement("div");
+      card.style.cssText = "border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:6px 8px;margin-bottom:6px";
+      const src = document.createElement("div");
+      src.textContent = rec.source || "unknown source";
+      src.style.cssText = "font-weight:700;margin-bottom:2px";
+      card.appendChild(src);
+      for (const [k, v] of Object.entries(rec)) {
+        if (k === "source" || v == null || v === "") continue;
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:6px";
+        const kk = document.createElement("span");
+        kk.textContent = k + ":";
+        kk.style.cssText = "color:" + gray + ";flex:0 0 auto";
+        const vv = document.createElement("span");
+        vv.textContent = Array.isArray(v) ? v.join(", ") : (typeof v === "object" ? JSON.stringify(v) : String(v));
+        vv.style.cssText = "word-break:break-word;min-width:0";
+        row.appendChild(kk); row.appendChild(vv);
+        card.appendChild(row);
+      }
+      panel.appendChild(card);
+    }
+    return panel;
+  }
+
+  function injectbreach(handle) {
+    const res = breachcache.get(handle.toLowerCase());
+    const un = document.querySelector('[data-testid="UserName"]');
+    if (!un) return;
+    const existing = un.querySelector(".tumbreachbadge");
+    if (!res || !res.results || !res.results.length) {if (existing) existing.remove(); return}
+    if (existing) return;
+    const leaf = [...un.querySelectorAll("span")].find(s => !s.children.length && (s.textContent || "").trim().toLowerCase() === "@" + handle.toLowerCase());
+    if (!leaf) return;
+    const strong = getComputedStyle(document.querySelector("main h2") || document.body).color;
+    const gray = getComputedStyle(document.querySelector(ITEMSSEL) || document.body).color;
+    const bg = getComputedStyle(document.body).backgroundColor || "#000";
+    const badge = document.createElement("span");
+    badge.className = "tumbreachbadge";
+    badge.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle;" +
+      "height:18px;padding:0 7px;border-radius:9px;background:rgba(244,33,46,.12);color:#f4212e;" +
+      "font-family:" + CHIRP + ";font-size:12px;font-weight:700;line-height:1;cursor:pointer;user-select:none";
+    const ic = iconsvg(DBPATH, 1); ic.style.top = "0"; badge.appendChild(ic);
+    const cnt = document.createElement("span"); cnt.textContent = res.results.length; badge.appendChild(cnt);
+    badge.title = res.results.length + " breach record" + (res.results.length === 1 ? "" : "s") + " - click to view";
+    let panel = null;
+    // outside-click only - NOT scroll (x.com fires constant inner scroll events; the panel is
+    // position:absolute in document flow so it scrolls with the page and stays anchored anyway)
+    function close() {if (panel) {panel.remove(); panel = null; document.removeEventListener("click", close)}}
+    badge.addEventListener("click", e => {
+      e.preventDefault(); e.stopPropagation();
+      if (panel) {close(); return}
+      panel = breachpanel(res.results, strong, gray, bg);
+      // anchored to the badge but appended to body so no clipping ancestor cuts it off
+      const r = badge.getBoundingClientRect();
+      panel.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 348)) + "px";
+      panel.style.top = (r.bottom + window.scrollY + 6) + "px";
+      document.body.appendChild(panel);
+      setTimeout(() => document.addEventListener("click", close), 0);
+    });
+    leaf.insertAdjacentElement("afterend", badge);
   }
 
   function scan() {
@@ -350,6 +442,16 @@
         });
       } catch {}
     }
+    if (!breachcache.has(key)) {
+      breachcache.set(key, null);
+      try {
+        chrome.runtime.sendMessage({type: "tumbreach", handle}, resp => {
+          void chrome.runtime.lastError;
+          breachcache.set(key, resp || {});
+          schedule();
+        });
+      } catch {}
+    }
     const u = userdata.get(key);
     if (u) {
       applyjoin(items, u);
@@ -358,6 +460,7 @@
       applyhd(handle, u);
     }
     injectbasedin(items, handle);
+    injectbreach(handle);
     buildblock(items, handle);
   }
 

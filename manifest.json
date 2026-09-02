@@ -18,7 +18,7 @@
     }
   },
   "permissions": ["storage", "cookies"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", "https://api.memory.lol/*", "https://memory.lol/*"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*"],
   "background": {"service_worker": "src/js/background.js"},
   "content_scripts": [
     {

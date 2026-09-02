@@ -42,6 +42,37 @@ async function memorylol(handle) {
   return null;
 }
 
+// breach.vip lookup via the swolesome proxy (a keyed breach.vip frontend). username searches are
+// inherently fuzzy - anyone who ever reused the handle elsewhere shows up - so we guard hard against
+// noise: skip <=6-char handles, skip a bundled list of a few thousand common usernames, and discard
+// result sets big enough to be obviously a common name rather than this specific person
+let commonset = null;
+async function loadcommon() {
+  if (commonset) return commonset;
+  try {const r = await fetch(chrome.runtime.getURL("assets/static/common.json")); commonset = new Set(await r.json())}
+  catch {commonset = new Set()}
+  return commonset;
+}
+async function breachlookup(handle) {
+  const h = (handle || "").toLowerCase();
+  if (h.length <= 6) return {skipped: "short"};
+  const common = await loadcommon();
+  if (common.has(h)) return {skipped: "common"};
+  try {
+    const r = await fetch("https://swolesome.pages.dev/api/proxy", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({term: handle, fields: ["username"], wildcard: false, case_sensitive: false, _target_url: "https://breach.vip/api/search"})
+    });
+    if (!r.ok) return {error: true};
+    const d = await r.json();
+    const results = Array.isArray(d.results) ? d.results : [];
+    // too many hits = a common handle, not one person - treat as a false positive and drop it
+    if (results.length > 50) return {discarded: true, count: results.length};
+    return {results};
+  } catch {return {error: true}}
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "tumemail" && msg.handle) {
     lookup(msg.handle).then(email => sendResponse({email}));
@@ -49,6 +80,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg && msg.type === "tummemorylol" && msg.handle) {
     memorylol(msg.handle).then(res => sendResponse(res || {}));
+    return true;
+  }
+  if (msg && msg.type === "tumbreach" && msg.handle) {
+    breachlookup(msg.handle).then(res => sendResponse(res || {}));
     return true;
   }
 });
