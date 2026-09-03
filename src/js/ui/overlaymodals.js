@@ -23,21 +23,19 @@
     document.body.appendChild(box);
   }
 
-  function exportdata() {
-    const data = {version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()};
+  const safename = s => (s || "folder").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "folder";
+  function downloadjson(data, name) {
     const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
     const url = URL.createObjectURL(blob);
     const a = el("a");
     a.href = url;
-    a.download = "twitter-user-manager-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.download = name;
     O.root.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("Exported " + tum.folders.list().length + " folders");
   }
-
-  function importdata() {
+  function pickjson(cb) {
     const input = el("input");
     input.type = "file";
     input.accept = "application/json,.json";
@@ -46,15 +44,23 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
-        try {applyimport(JSON.parse(reader.result))}
+        try {cb(JSON.parse(reader.result))}
         catch {toast("Import failed - not valid JSON")}
       };
       reader.readAsText(file);
     });
     input.click();
   }
+  const stamp = () => new Date().toISOString().slice(0, 10);
+
+  function exportdata() {
+    downloadjson({version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()}, "twitter-user-manager-" + stamp() + ".json");
+    toast("Exported " + tum.folders.list().length + " folders");
+  }
+  function importdata() {pickjson(applyimport)}
 
   function applyimport(data) {
+    if (data && data.folder && !Array.isArray(data.folders)) {finishfolderimport(data.folder); return}
     const folders = Array.isArray(data && data.folders) ? data.folders : [];
     const unsorted = Array.isArray(data && data.unsorted) ? data.unsorted : [];
     let nf = 0, nu = 0;
@@ -72,6 +78,33 @@
     state.open = true;
     render();
     toast("Imported " + nf + " folders, " + nu + " loose users");
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  function exportfolder(f) {
+    downloadjson({version: 1, folder: {name: f.name, action: f.action, color: f.color, icon: f.icon, members: f.members || []}},
+      "folder-" + safename(f.name) + "-" + stamp() + ".json");
+    toast("Exported folder " + f.name);
+  }
+  function finishfolderimport(f) {
+    const members = (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle);
+    const doimport = () => {
+      const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon});
+      for (const m of members) tum.folders.addmember(created.id, m);
+      state.open = true;
+      render();
+      toast("Imported folder " + created.name + " (" + members.length + " users)");
+    };
+    if (f.action && members.length) {
+      const cap = f.action.charAt(0).toUpperCase() + f.action.slice(1);
+      openconfirm({
+        title: "Import with auto" + f.action + "?",
+        body: "This folder is set to auto-" + f.action + " its members. Importing will " + f.action + " all " + members.length + " users in it, in the background. You can cancel while it runs.",
+        oklabel: cap + " all",
+        onok: () => {doimport(); tum.actions.enqueue(f.action, members.map(m => m.handle))}
+      });
+    } else doimport();
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -119,7 +152,7 @@
     O.els.modalsave.textContent = "Save";
     selectaction(f.action);
     selectcolor(f.color);
-    O.els.modalactionsrow.style.display = "none";
+    O.els.modalactionsrow.style.display = "";
     showbackdrop();
     O.els.modal.classList.add("tumshow");
   }
@@ -137,12 +170,31 @@
 
   function savemodal() {
     const name = (O.els.modalname.value || "").trim() || "unnamed";
-    const icon = modalicon;
+    const icon = modalicon, action = modalaction, color = modalcolor;
     let filed = false;
     if (state.editing) {
-      tum.folders.update(state.editing, {name, icon, action: modalaction, color: modalcolor});
+      const fid = state.editing;
+      const f = tum.folders.get(fid);
+      const prevaction = f ? f.action : null;
+      const members = f && Array.isArray(f.members) ? f.members.slice() : [];
+      const apply = () => tum.folders.update(fid, {name, icon, action, color});
+      const changed = action && action !== prevaction;
+      // a meaningful batch gets a warning first; a few members just runs quietly
+      if (changed && members.length > 3) {
+        const cap = action.charAt(0).toUpperCase() + action.slice(1);
+        closemodal();
+        openconfirm({
+          title: "Apply auto" + action + " to " + members.length + " members?",
+          body: "Changing this folder to auto-" + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
+          oklabel: cap + " all",
+          onok: () => {apply(); tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
+        });
+        return;
+      }
+      apply();
+      if (changed && members.length) tum.actions.enqueue(action, members.map(m => m.handle));
     } else {
-      const folder = tum.folders.create({name, icon, action: modalaction, color: modalcolor});
+      const folder = tum.folders.create({name, icon, action, color});
       if (state.pendingcreate) {
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
@@ -242,25 +294,37 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  function openconfirm(opts) {
+    state.confirmopen = true;
+    state.confirmaction = typeof opts.onok === "function" ? opts.onok : null;
+    O.els.confirmtitle.textContent = opts.title || "Are you sure?";
+    O.els.confirmbody.textContent = opts.body || "";
+    O.els.confirmok.textContent = opts.oklabel || "Confirm";
+    showbackdrop();
+    O.els.confirmsheet.classList.add("tumshow");
+  }
+
   function confirmfolderdelete(folder) {
     const members = Array.isArray(folder.members) ? folder.members : [];
     if (members.length <= 1) {tum.folders.remove(folder.id); return}
-    state.confirmopen = true;
-    state.confirmtarget = folder.id;
-    O.els.confirmtitle.textContent = "Delete " + folder.name + "?";
-    O.els.confirmbody.textContent = `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active.`;
-    showbackdrop();
-    O.els.confirmsheet.classList.add("tumshow");
+    const id = folder.id;
+    openconfirm({
+      title: "Delete " + folder.name + "?",
+      body: `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active.`,
+      oklabel: "Delete",
+      onok: () => tum.folders.remove(id)
+    });
   }
 
   function closeconfirmsheet() {
     O.els.confirmsheet.classList.remove("tumshow");
     state.confirmopen = false;
-    state.confirmtarget = null;
+    state.confirmaction = null;
     hidebackdrop();
   }
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, opencreatemodal, openeditmodal, closemodal, savemodal,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, openconfirm,
+    opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, closeconfirmsheet});
 })();

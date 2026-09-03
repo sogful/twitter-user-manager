@@ -33,6 +33,7 @@ assets["assets/static/icons.json"] = rd("assets/static/icons.json");
 assets["assets/static/emoji.json"] = rd("assets/static/emoji.json");
 assets["assets/static/common.json"] = rd("assets/static/common.json");
 assets["assets/images/text.png"] = "data:image/png;base64," + b64("assets/images/text.png");
+assets["assets/images/yeah.png"] = "data:image/png;base64," + b64("assets/images/yeah.png");
 
 let svgcount = 0;
 (function walk(dir) {

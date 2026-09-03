@@ -178,14 +178,14 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0
 }
-.tumfoldercollapse, .tumfolderremove {
+.tumfoldercollapse, .tumfolderremove, .tumfolderexport {
   width: 20px; height: 20px;
   border-radius: 50%; background: var(--tumheaderbtnbg,rgba(0,0,0,0.25));
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
   cursor: pointer
 }
-.tumfoldercollapse svg {
+.tumfoldercollapse svg, .tumfolderexport svg {
   width: 12px; height: 12px;
   stroke: var(--tumheaderfg,white); fill: none;
   stroke-width: 2.2; stroke-linecap: round;

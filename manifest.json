@@ -60,7 +60,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "src/css/page.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/*/*.svg", "assets/images/text.png", "desktopdestroyer/*"],
+      "resources": ["src/css/overlay.css", "src/css/page.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/*/*.svg", "assets/images/*.png", "desktopdestroyer/*"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

@@ -12,7 +12,7 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumfolderremove, .tumfoldercollapse")) return;
+      if (e.target.closest(".tumfolderremove, .tumfoldercollapse, .tumfolderexport")) return;
       const rect = node.getBoundingClientRect();
       tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
       const move = ev => {

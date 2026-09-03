@@ -273,8 +273,9 @@
     els.confirmcancel.addEventListener("click", O.closeconfirmsheet);
     els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) O.closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
-      if (state.confirmtarget) tum.folders.remove(state.confirmtarget);
+      const fn = state.confirmaction;
       O.closeconfirmsheet();
+      if (fn) fn();
     });
 
     els.quickadd.addEventListener("click", () => {if (!state.drag) O.opencreatemodal()});
@@ -445,6 +446,7 @@
         </div>
         <div class="tumfolderheadbtns">
           <span class="tumfoldercount">${members.length}</span>
+          <div class="tumfolderexport" title="Export this folder"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M5 20h14"/></svg></div>
           <div class="tumfoldercollapse">${ICONS.chevron}</div>
           <div class="tumfolderremove">${ICONS.close}</div>
         </div>
@@ -467,6 +469,10 @@
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
       e.stopPropagation();
       O.confirmfolderdelete(f);
+    });
+    node.querySelector(".tumfolderexport").addEventListener("click", e => {
+      e.stopPropagation();
+      O.exportfolder(f);
     });
     node.querySelector(".tumfoldercollapse").addEventListener("click", e => {
       e.stopPropagation();

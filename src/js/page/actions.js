@@ -66,11 +66,14 @@
     else if (action === "unmute" || action === "unblock") showposts(handle);
   }
 
-  async function apiaction(action, handle) {
+  // returns the raw http status (0 on network error) so the batch queue can tell
+  // a rate-limit (429/420, back off + retry) apart from a plain reject (403 already
+  // blocked / protected etc - skip and move on)
+  async function apiraw(action, handle) {
     const path = ENDPOINTS[action];
-    if (!path || !handle) return false;
+    if (!path || !handle) return 0;
     const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-    if (!ct0) return false;
+    if (!ct0) return 0;
     try {
       const r = await fetch("/i/api/1.1/" + path, {
         method: "POST",
@@ -85,8 +88,12 @@
         },
         body: "screen_name=" + encodeURIComponent(handle)
       });
-      return r.ok;
-    } catch {return false}
+      return r.status;
+    } catch {return 0}
+  }
+  async function apiaction(action, handle) {
+    const s = await apiraw(action, handle);
+    return s >= 200 && s < 300;
   }
 
   function waitfor(check, timeout) {
@@ -156,7 +163,119 @@
     return ok;
   }
 
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  const DELAYS = {block: 500, mute: 500, follow: 2500}; // ms between requests
+  const JITTER = 0.35;
+  const BACKOFF = 60000;
+  const VERBING = {block: "Blocking", mute: "Muting", follow: "Following"};
+  const jitter = ms => Math.round(ms * (1 + (Math.random() * 2 - 1) * JITTER));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const bstore = tum.storage.create("tum.batchqueue");
+  let bqueue = []; // {action, handle, done, failed}
+  let brunning = false, bcancel = false, bnote = "";
+  const blisteners = new Set();
+
+  function batchstate() {
+    const total = bqueue.length;
+    const done = bqueue.filter(i => i.done).length;
+    const failed = bqueue.filter(i => i.failed).length;
+    const cur = bqueue.find(i => !i.done && !i.failed);
+    return {total, done, failed, pending: total - done - failed, active: brunning, action: cur && cur.action, note: bnote};
+  }
+  function bemit() {
+    const st = batchstate();
+    for (const cb of blisteners) try {cb(st)} catch {}
+    renderbar(st);
+  }
+  function bpersist() {try {bstore.set(bqueue)} catch {}}
+
+  async function brun() {
+    if (brunning) return;
+    brunning = true; bcancel = false;
+    bemit();
+    while (!bcancel) {
+      const next = bqueue.find(i => !i.done && !i.failed);
+      if (!next) break;
+      const status = await apiraw(next.action, next.handle);
+      if (bcancel) break;
+      if (status === 429 || status === 420) {
+        bnote = "ratelimit"; bemit();
+        await sleep(BACKOFF);
+        bnote = "";
+        continue;
+      }
+      if (status >= 200 && status < 300) next.done = true;
+      else next.failed = true;
+      bpersist(); bemit();
+      await sleep(jitter(DELAYS[next.action] || 800));
+    }
+    brunning = false;
+    if (!bcancel) {
+      const done = bqueue.filter(i => i.done).length, failed = bqueue.filter(i => i.failed).length;
+      if (done || failed) try {tum.overlay.toast("Batch done: " + done + " ok" + (failed ? ", " + failed + " skipped" : ""))} catch {}
+    }
+    bqueue = bqueue.filter(i => !i.done && !i.failed);
+    bpersist(); bemit();
+  }
+
+  function enqueue(action, handles) {
+    if (!action || !ENDPOINTS[action] || !Array.isArray(handles)) return;
+    const have = new Set(bqueue.map(i => i.action + "|" + i.handle.toLowerCase()));
+    for (const h of handles) {
+      if (!h) continue;
+      const key = action + "|" + h.toLowerCase();
+      if (have.has(key)) continue;
+      have.add(key);
+      bqueue.push({action, handle: h});
+    }
+    bpersist();
+    brun();
+  }
+  function cancelbatch() {
+    bcancel = true;
+    bqueue = [];
+    bnote = "";
+    bpersist();
+    bemit();
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  let bar = null;
+  function ensurebar() {
+    if (bar && document.body.contains(bar)) return bar;
+    bar = document.createElement("div");
+    bar.className = "tumbatchbar";
+    bar.innerHTML = '<div class="tumbatchfill"></div>' +
+      '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">Cancel</button></div>';
+    bar.querySelector(".tumbatchcancel").addEventListener("click", cancelbatch);
+    (document.body || document.documentElement).appendChild(bar);
+    return bar;
+  }
+  function renderbar(st) {
+    if (!st.total || (!st.active && !st.pending)) {
+      if (bar) {bar.remove(); bar = null}
+      return;
+    }
+    const b = ensurebar();
+    const processed = st.done + st.failed;
+    b.querySelector(".tumbatchfill").style.width = (st.total ? Math.round(processed / st.total * 100) : 0) + "%";
+    let label;
+    if (st.note === "ratelimit") label = "Rate limited, waiting a minute...";
+    else label = (VERBING[st.action] || "Working") + " " + Math.min(processed + 1, st.total) + " / " + st.total + (st.failed ? " (" + st.failed + " skipped)" : "");
+    b.querySelector(".tumbatchlabel").textContent = label;
+  }
+
+  bstore.get().then(v => {
+    bqueue = (Array.isArray(v) ? v : []).filter(i => i && i.action && i.handle && !i.done && !i.failed);
+    if (bqueue.length) {bemit(); brun()}
+  });
+
   window.tum.actions = {
+    enqueue, cancelbatch, batchstate,
+    onbatch(cb) {blisteners.add(cb); return () => blisteners.delete(cb)},
     async run(action, user) {
       if (!action) {log("no action set on this folder, just filing", user.handle); return true}
       log("running", action, "on", user.handle);
