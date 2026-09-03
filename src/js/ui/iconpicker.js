@@ -219,7 +219,7 @@
     if (!iconresults.length && !emojiresults.length) {
       const empty = document.createElement("div");
       empty.className = "tumipempty";
-      empty.textContent = "no icons found";
+      empty.textContent = "No icons found";
       grid.appendChild(empty);
     }
   }
@@ -331,7 +331,7 @@
     panel.innerHTML = `
       <div class="tumipsearch">
         <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5"/><line x1="15" y1="15" x2="20.5" y2="20.5"/></svg>
-        <input class="tumipsearchinput" placeholder="search icons and emoji" autocomplete="off">
+        <input class="tumipsearchinput" placeholder="Search icons and emoji" autocomplete="off">
       </div>
       <div class="tumipcats"></div>
       <div class="tumipcats tumipcatsemoji"></div>

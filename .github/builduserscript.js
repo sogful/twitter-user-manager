@@ -28,6 +28,7 @@ overlaycss = must(overlaycss, overlaycss.replace(/"Chirp"/g, '"TwitterChirp"'), 
 const assets = {};
 assets["src/html/overlay.html"] = rd("src/html/overlay.html");
 assets["src/css/overlay.css"] = overlaycss;
+assets["src/css/page.css"] = rd("src/css/page.css");
 assets["assets/static/icons.json"] = rd("assets/static/icons.json");
 assets["assets/static/emoji.json"] = rd("assets/static/emoji.json");
 assets["assets/static/common.json"] = rd("assets/static/common.json");

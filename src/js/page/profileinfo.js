@@ -15,7 +15,6 @@
   const SHIELDPATH = "M12 2c1.982.042 3.945.396 5.816 1.05 1.09.372 2.154.816 3.184 1.33v7.64c.03 1.404-.27 2.797-.876 4.065-.606 1.268-1.501 2.376-2.613 3.235-.87.66-1.786 1.254-2.743 1.78-.838.514-1.787.823-2.768.9-.98-.077-1.929-.386-2.768-.9-.956-.526-1.873-1.12-2.743-1.78-1.112-.859-2.007-1.967-2.613-3.235-.606-1.268-.906-2.66-.876-4.066V4.38c1.03-.513 2.095-.957 3.184-1.33C8.056 2.398 10.018 2.043 12 2zm0 2c-1.767.047-3.515.367-5.184.95-.767.25-1.398.51-1.816.69v6.38c-.03 1.091.197 2.175.663 3.164.466.988 1.157 1.853 2.018 2.526.793.601 1.63 1.146 2.5 1.63.55.35 1.172.575 1.819.66.648-.084 1.27-.31 1.822-.66.87-.484 1.706-1.029 2.5-1.63.86-.673 1.55-1.538 2.016-2.526.465-.989.692-2.073.662-3.164V5.64c-.416-.18-1.049-.44-1.816-.69C15.516 4.367 13.767 4.047 12 4zm0 10c.83 0 1.5.67 1.5 1.5S12.83 17 12 17s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm1-1.3c-.004-.001-.502-.2-1-.2-.5 0-1 .2-1 .2L10.75 7h2.5L13 12.7z";
   const PINPATH = "M12 7c-1.93 0-3.5 1.57-3.5 3.5S10.07 14 12 14s3.5-1.57 3.5-3.5S13.93 7 12 7zm0 5c-.827 0-1.5-.673-1.5-1.5S11.173 9 12 9s1.5.673 1.5 1.5S12.827 12 12 12zm0-10c-4.687 0-8.5 3.813-8.5 8.5 0 5.967 7.621 11.116 7.945 11.332l.555.37.555-.37c.324-.216 7.945-5.365 7.945-11.332C20.5 5.813 16.687 2 12 2zm0 17.77c-1.665-1.241-6.5-5.196-6.5-9.27C5.5 6.916 8.416 4 12 4s6.5 2.916 6.5 6.5c0 4.073-4.835 8.028-6.5 9.27z";
   const DBPATH = "M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zm5 17c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V19zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V15zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1V8.77c1.34.63 3.13 1 5 1s3.66-.37 5-1V11zM12 8c-3.31 0-5-.65-5-1s1.69-1 5-1 5 .65 5 1-1.69 1-5 1z";
-  const CHIRP = '"TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
   /*//////////////////////////////////////////////////////////////////////*/
   
@@ -25,7 +24,7 @@
     try {
       const ta = document.createElement("textarea");
       ta.value = text;
-      ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0";
+      ta.className = "tumoffscreen";
       document.body.appendChild(ta);
       ta.select();
       document.execCommand("copy");
@@ -48,7 +47,8 @@
   function iconsvg(path, em) {
     const svg = document.createElementNS(SVGNS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
-    svg.style.cssText = "width:" + (em || 1.15) + "em;height:" + (em || 1.15) + "em;flex:0 0 auto;fill:currentColor;position:relative;top:.05em";
+    svg.classList.add("tuminfoicon");
+    svg.style.width = svg.style.height = (em || 1.15) + "em";
     const p = document.createElementNS(SVGNS, "path");
     p.setAttribute("d", path);
     svg.appendChild(p);
@@ -56,7 +56,7 @@
   }
   function entryrow(iconpath) {
     const d = document.createElement("div");
-    d.style.cssText = "display:flex;align-items:flex-start;gap:6px;line-height:1.3";
+    d.className = "tuminforow";
     d.appendChild(iconsvg(iconpath));
     return d;
   }
@@ -140,7 +140,6 @@
     const s = document.createElement("span");
     s.className = "tumperday";
     s.textContent = " (" + pd + "/day)";
-    s.style.cssText = "opacity:.45";
     el.appendChild(s);
   }
 
@@ -149,26 +148,11 @@
     a.className = "tumhd";
     a.textContent = "HD";
     a.href = href; a.target = "_blank"; a.rel = "noopener";
-    a.title = "open full-res in a new tab";
-    a.style.cssText = "position:absolute;bottom:8px;right:8px;z-index:3;display:flex;align-items:center;" +
-      "height:18px;padding:0 6px;border-radius:9px;background:rgba(0,0,0,0.6);color:#fff;" +
-      "font-family:" + CHIRP + ";font-size:10px;font-weight:700;line-height:1;letter-spacing:.02em;" +
-      "cursor:pointer;text-decoration:none;backdrop-filter:blur(4px);opacity:0;transition:opacity .15s,background .12s";
-    a.addEventListener("mouseenter", () => {a.style.background = "rgba(0,0,0,0.82)"});
-    a.addEventListener("mouseleave", () => {a.style.background = "rgba(0,0,0,0.6)"});
+    a.title = "Open full-res in a new tab";
     a.addEventListener("click", e => {e.stopPropagation()});
     return a;
   }
-  let styleadded = false;
-  function ensurehdstyle() {
-    if (styleadded) return;
-    styleadded = true;
-    const s = document.createElement("style");
-    s.textContent = 'a[href*="/header_photo"]:hover .tumhd,[data-testid^="UserAvatar-Container-"]:hover .tumhd{opacity:1!important}';
-    document.head.appendChild(s);
-  }
   function applyhd(handle, u) {
-    ensurehdstyle();
     if (u.banner) {
       const banner = document.querySelector('a[href$="/' + handle + '/header_photo"]');
       if (banner && !banner.querySelector(":scope > .tumhd")) {
@@ -223,7 +207,7 @@
     box.className = "tumextrablock";
     box.dataset.sig = sig;
     box.dataset.handle = handle;
-    box.style.cssText = "display:flex;flex-direction:column;gap:3px;margin-top:6px;font-family:" + CHIRP + ";font-size:13px;line-height:1.3;color:" + gray;
+    box.style.color = gray;
 
     if (id) {const r = entryrow(TAGPATH); const t = document.createElement("span"); t.textContent = "ID: " + id; r.appendChild(t); copyable(r, String(id)); box.appendChild(r)}
     if (email) {const r = entryrow(MAILPATH); const t = document.createElement("span"); t.textContent = email; r.appendChild(t); copyable(r, email); box.appendChild(r)}
@@ -231,14 +215,14 @@
     if (changes || names.length) {
       const r = entryrow(CHANGESPATH);
       const wrap = document.createElement("div");
-      wrap.style.cssText = "display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.15";
+      wrap.className = "tumusernames";
       const head = document.createElement("span");
       const n = changes != null ? changes : names.length;
       head.textContent = n + " username change" + (n === 1 ? "" : "s") + (changedon ? " (Last on " + monthyear(changedon) + ")" : "");
       wrap.appendChild(head);
       for (const nm of names) {
         const line = document.createElement("span");
-        line.style.cssText = "font-size:11px";
+        line.className = "tumusernameold";
         line.textContent = "@" + nm.name + (nm.from ? " (" + memdate(nm.from) + (nm.to ? " - " + memdate(nm.to) : "") + ")" : "");
         wrap.appendChild(line);
       }
@@ -271,7 +255,7 @@
     shield.style.color = "#f4212e";
     const wrap = document.createElement("span");
     wrap.title = "Using/have used a VPN";
-    wrap.style.cssText = "display:inline-flex";
+    wrap.className = "tumvpnwrap";
     wrap.appendChild(shield);
     return wrap;
   }
@@ -298,7 +282,7 @@
       line.className = "tumbasedin";
       line.dataset.sig = sig;
       const indent = textleft(loc);
-      line.style.cssText = "display:flex;align-items:center;gap:3px;font-size:12px;margin-top:1px;margin-left:" + (indent != null ? indent : 22) + "px";
+      line.style.marginLeft = (indent != null ? indent : 22) + "px";
 
       const t = document.createElement("span"); t.textContent = ab.basedIn; line.appendChild(t);
       if (ab.locationAccurate === false) line.appendChild(vpnshield());
@@ -311,7 +295,7 @@
     const item = document.createElement("span");
     item.className = "tumbasedinitem";
     item.dataset.sig = sig;
-    item.style.cssText = "display:inline-flex;align-items:center;gap:4px;font-family:" + CHIRP + ";color:" + itemgray(items);
+    item.style.color = itemgray(items);
     item.appendChild(iconsvg(PINPATH, 1.25));
     const t = document.createElement("span"); t.textContent = ab.basedIn; item.appendChild(t);
     if (ab.locationAccurate === false) item.appendChild(vpnshield());
@@ -323,45 +307,46 @@
   function breachmodal(results, strong, gray, bg, onclose) {
     const backdrop = document.createElement("div");
     backdrop.className = "tumbreachbackdrop";
-    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:24px";
     const modal = document.createElement("div");
-    modal.style.cssText = "width:min(760px,94vw);max-height:86vh;overflow:auto;background:" + bg + ";" +
-      "border:1px solid rgba(128,128,128,.3);border-radius:16px;padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);" +
-      "font-family:" + CHIRP + ";font-size:13px;line-height:1.35;color:" + strong + ";text-align:left";
+    modal.className = "tumbreachmodal";
+    modal.style.background = bg;
+    modal.style.color = strong;
     modal.addEventListener("click", e => e.stopPropagation());
     const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px";
+    head.className = "tumbreachhead";
     const title = document.createElement("div");
     title.textContent = results.length + " breach record" + (results.length === 1 ? "" : "s");
-    title.style.cssText = "font-weight:800;font-size:17px";
+    title.className = "tumbreachtitle";
     const x = document.createElement("button");
     x.textContent = "✕";
-    x.style.cssText = "border:0;background:transparent;color:" + strong + ";font-size:18px;line-height:1;cursor:pointer;padding:4px 6px";
+    x.className = "tumbreachclose";
+    x.style.color = strong;
     x.addEventListener("click", onclose);
     head.appendChild(title); head.appendChild(x);
     modal.appendChild(head);
     for (const rec of results) {
       const card = document.createElement("div");
-      card.style.cssText = "border:1px solid rgba(128,128,128,.22);border-radius:10px;padding:6px 10px;margin-bottom:6px";
+      card.className = "tumbreachcard";
       const srcrow = document.createElement("div");
-      srcrow.style.cssText = "display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px";
+      srcrow.className = "tumbreachsrcrow";
       const src = document.createElement("span");
-      src.textContent = rec.source || "unknown source";
-      src.style.cssText = "font-weight:700";
+      src.textContent = rec.source || "Unknown source";
+      src.className = "tumbreachsrc";
       srcrow.appendChild(src);
       if (rec.categories && rec.categories.length) {
         const cat = document.createElement("span");
         cat.textContent = Array.isArray(rec.categories) ? rec.categories.join(", ") : rec.categories;
-        cat.style.cssText = "font-size:11px;color:" + gray;
+        cat.className = "tumbreachcat";
+        cat.style.color = gray;
         srcrow.appendChild(cat);
       }
       card.appendChild(srcrow);
       const fields = document.createElement("div");
-      fields.style.cssText = "display:flex;flex-wrap:wrap;gap:1px 14px";
+      fields.className = "tumbreachfields";
       for (const [k, v] of Object.entries(rec)) {
         if (k === "source" || k === "categories" || v == null || v === "") continue;
         const f = document.createElement("span");
-        f.style.cssText = "min-width:0;word-break:break-word";
+        f.className = "tumbreachfield";
         const kk = document.createElement("span"); kk.textContent = k + ": "; kk.style.color = gray;
         f.appendChild(kk);
         f.appendChild(document.createTextNode(Array.isArray(v) ? v.join(", ") : (typeof v === "object" ? JSON.stringify(v) : String(v))));
@@ -388,9 +373,6 @@
     const bg = getComputedStyle(document.body).backgroundColor || "#000";
     const badge = document.createElement("span");
     badge.className = "tumbreachbadge";
-    badge.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle;" +
-      "height:16px;padding:0 6px;border-radius:8px;background:rgba(244,33,46,.12);color:#f4212e;" +
-      "font-family:" + CHIRP + ";font-size:11px;font-weight:700;line-height:1;cursor:pointer;user-select:none";
     const ic = iconsvg(DBPATH, 1.1); ic.style.top = "0"; badge.appendChild(ic);
     const cnt = document.createElement("span"); cnt.textContent = res.results.length; badge.appendChild(cnt);
     badge.title = res.results.length + " breach record" + (res.results.length === 1 ? "" : "s") + " - click to view";

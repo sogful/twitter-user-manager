@@ -65,7 +65,7 @@
     const n = parseInt(hex.replace("#", ""), 16);
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    return yiq >= 150 ? "#000" : "#fff";
+    return yiq >= 150 ? "#000" : "white";
   }
   function iconhtml(icon) {
     if (!icon) return "";
@@ -450,7 +450,7 @@
         </div>
       </div>
       <div class="tumfoldertools">
-        <input class="tumfoldersearch" placeholder="search">
+        <input class="tumfoldersearch" placeholder="Search">
         <button class="tumfoldersort" title="${SORTLABEL[f.sort] || SORTLABEL.added}">${ICONS.sort}</button>
       </div>
       <div class="tumfolderlist"></div>
@@ -560,7 +560,7 @@
       t.addEventListener("click", e => {
         e.stopPropagation();
         const text = t.textContent || "";
-        navigator.clipboard.writeText(text).then(() => toast("copied " + text)).catch(() => {});
+        navigator.clipboard.writeText(text).then(() => toast("Copied " + text)).catch(() => {});
       });
     }
   }

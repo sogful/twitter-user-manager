@@ -3,7 +3,19 @@
 
   function safe(label, fn) {try {fn()} catch (e) {console.warn("[tum] " + label + " failed:", e)}}
 
+  function injectpagecss() {
+    if (document.querySelector("link[data-tumpagecss]")) return;
+    let href = "../css/page.css";
+    try {href = chrome.runtime.getURL("src/css/page.css")} catch {}
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.setAttribute("data-tumpagecss", "");
+    (document.head || document.documentElement).appendChild(link);
+  }
+
   function init() {
+    safe("pagecss", injectpagecss);
     safe("overlay", () => tum.overlay.mount());
     safe("dragdetect", () => tum.dragdetect.init());
     safe("badges", () => tum.badges.init());

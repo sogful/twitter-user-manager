@@ -52,7 +52,7 @@
       hover: "rgba(255,255,255,0.06)", cancelborder: "#38444d", backdrop: "rgba(0,0,0,0.72)"
     },
     light: {
-      elev: "#ffffff", deep: "#ffffff", border: "#eff3f4", input: "#ffffff",
+      elev: "white", deep: "white", border: "#eff3f4", input: "white",
       inputborder: "#cfd9de", text: "#0f1419", muted: "#536471",
       hover: "rgba(0,0,0,0.03)", cancelborder: "#cfd9de", backdrop: "rgba(0,0,0,0.6)"
     }

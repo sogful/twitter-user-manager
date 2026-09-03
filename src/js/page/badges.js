@@ -44,10 +44,8 @@
     const badge = document.createElement("span");
     badge.className = "tumpagereasonbadge";
     badge.dataset.handle = handle;
-    badge.title = "note: " + entry.reason.slice(0, 80);
+    badge.title = "Note: " + entry.reason.slice(0, 80);
     badge.innerHTML = PENCIL;
-    badge.style.cssText = "display:inline-flex;flex-shrink:0;vertical-align:middle;margin-left:3px;cursor:pointer;width:13px;height:13px";
-    badge.querySelector("svg").style.cssText = "width:100%;height:100%;fill:none;stroke:#1d9bf0;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round";
     badge.addEventListener("click", e => {
       e.preventDefault();
       e.stopPropagation();
@@ -67,7 +65,7 @@
       }
       if (existing) {
         existing.dataset.handle = handle;
-        existing.title = "note: " + entry.reason.slice(0, 80);
+        existing.title = "Note: " + entry.reason.slice(0, 80);
         continue;
       }
       const namelink = namebox.querySelector('a[role="link"][href^="/"]');
@@ -94,32 +92,29 @@
     }
     if (existing) {
       existing.dataset.handle = handle;
-      existing.title = "note: " + entry.reason.slice(0, 80);
+      existing.title = "Note: " + entry.reason.slice(0, 80);
       return;
     }
     const badge = makebadge(handle, entry);
     badge.classList.add("tumpageprofilereasonbadge");
-    badge.style.width = "16px";
-    badge.style.height = "16px";
     nameel.parentNode.insertBefore(badge, nameel.nextSibling);
   }
 
   function dotcontrast(hex) {
     const n = parseInt((hex || "#1d9bf0").replace("#", ""), 16);
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-    return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#000" : "#fff";
+    return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#000" : "white";
   }
   function filldot(dot, entry, pagebg) {
-    dot.title = "filed in: " + entry.name + " (click to open)";
+    dot.title = "Filed in: " + entry.name + " (click to open)";
     dot.style.background = entry.color;
     dot.style.borderColor = pagebg;
     const fg = dotcontrast(entry.color);
     dot.innerHTML = tum.overlay.foldericonhtml ? tum.overlay.foldericonhtml(entry) : "";
     for (const svg of dot.querySelectorAll("svg")) {
-      if (svg.hasAttribute("fill")) svg.style.cssText = "width:11px;height:11px;color:" + fg + ";display:block";
-      else svg.style.cssText = "width:11px;height:11px;stroke:" + fg + ";fill:none;stroke-width:2.4;display:block";
+      if (svg.hasAttribute("fill")) svg.style.color = fg;
+      else {svg.style.stroke = fg; svg.style.fill = "none"; svg.style.strokeWidth = "2.4"}
     }
-    for (const img of dot.querySelectorAll("img")) {img.style.cssText = "width:12px;height:12px;display:block"}
   }
   function scanavatars() {
     const pagebg = getComputedStyle(document.body).backgroundColor || "#000";
@@ -141,7 +136,6 @@
       const dot = document.createElement("span");
       dot.className = "tumpagefolderdot";
       dot.dataset.folder = entry.id;
-      dot.style.cssText = "position:absolute;bottom:-2px;right:-2px;width:18px;height:18px;border-radius:50%;z-index:9999;pointer-events:auto;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid " + pagebg;
       filldot(dot, entry, pagebg);
       const stop = e => e.stopPropagation();
       for (const ev of ["pointerdown", "pointerup", "mousedown", "mouseup"]) dot.addEventListener(ev, stop, true);

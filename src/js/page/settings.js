@@ -5,7 +5,6 @@
 
   const FAKE = "/settings/usermanager";
   const NAVSEL = 'div[role="tablist"]';
-  const CHIRP = '"TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
   const store = tum.storage.create("tum.settings");
 
   const DEFAULTS = {keepopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
@@ -86,15 +85,11 @@
     const wrap = document.createElement("span");
     wrap.className = "tumsetcheckwrap";
     wrap.dataset.key = key;
-    wrap.style.cssText = "display:flex;align-items:center;justify-content:center;width:38px;height:38px;" +
-      "border-radius:50%;flex:0 0 auto;cursor:pointer;transition:background .15s ease";
     const box = document.createElement("span");
     box.className = "tumsetcheck";
     box.setAttribute("role", "checkbox");
     box.tabIndex = 0;
-    box.style.cssText = "width:20px;height:20px;border-radius:5px;flex:0 0 auto;box-sizing:border-box;" +
-      "display:flex;align-items:center;justify-content:center";
-    box.innerHTML = '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    box.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
     const svg = box.querySelector("svg");
     function paint() {
       const on = !!vals[key];
@@ -106,8 +101,6 @@
     paint();
     box._paint = paint;
     wrap.addEventListener("click", () => setval(key, !vals[key]));
-    wrap.addEventListener("mouseenter", () => {wrap.style.background = "rgba(29,155,240,0.1)"});
-    wrap.addEventListener("mouseleave", () => {wrap.style.background = ""});
     wrap.appendChild(box);
     return wrap;
   }
@@ -115,21 +108,21 @@
 
   function buildrow(item, primary, sec) {
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:16px;padding:12px 16px";
+    row.className = "tumsetrow";
     const txt = document.createElement("div");
-    txt.style.cssText = "flex:1 1 auto;min-width:0";
+    txt.className = "tumsetrowtext";
     const t1 = document.createElement("div");
-    t1.style.cssText = "font-size:15px;color:" + primary;
+    t1.className = "tumsettitle";
+    t1.style.color = primary;
     t1.textContent = item.title;
     const t2 = document.createElement("div");
-    t2.style.cssText = "font-size:13px;color:" + sec + ";margin-top:2px";
+    t2.className = "tumsetdesc";
+    t2.style.color = sec;
     t2.textContent = item.desc;
     txt.appendChild(t1);
     txt.appendChild(t2);
     row.appendChild(txt);
     row.appendChild(makecheckbox(item.key));
-    row.addEventListener("mouseenter", () => {row.style.background = "rgba(120,120,120,0.08)"});
-    row.addEventListener("mouseleave", () => {row.style.background = ""});
     return row;
   }
 
@@ -137,13 +130,14 @@
     const {primary, sec} = palette();
     const pane = document.createElement("div");
     pane.className = "tumsettingspane";
-    pane.style.cssText = "font-family:" + CHIRP;
     const head = document.createElement("div");
-    head.style.cssText = "padding:18px 16px 2px;font-size:20px;font-weight:800;line-height:1.3;color:" + primary;
+    head.className = "tumsetpanehead";
+    head.style.color = primary;
     head.textContent = "User Manager";
     pane.appendChild(head);
     const sub = document.createElement("div");
-    sub.style.cssText = "padding:2px 16px 16px;font-size:13px;color:" + sec;
+    sub.className = "tumsetpanesub";
+    sub.style.color = sec;
     sub.textContent = "Preferences for the extension.";
     pane.appendChild(sub);
     for (const item of SCHEMA) pane.appendChild(buildrow(item, primary, sec));

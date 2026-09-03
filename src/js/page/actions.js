@@ -165,11 +165,11 @@
         if (!ok) ok = await runreal(action, user);
         if (ok) notify(action, user.handle);
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
-        if (!ok) tum.overlay.toast("couldn't " + action + " @" + user.handle + " - scroll back to them and try again");
+        if (!ok) tum.overlay.toast("Couldn't " + action + " @" + user.handle + " - scroll back to them and try again");
         return ok;
       } catch (e) {
         log("action error:", e && e.message);
-        tum.overlay.toast("couldn't " + action + " @" + user.handle);
+        tum.overlay.toast("Couldn't " + action + " @" + user.handle);
         return false;
       }
     }

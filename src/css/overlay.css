@@ -87,11 +87,11 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 .tumtoolclose:hover {background: #f4212e; background-image: none; border-color: #f4212e}
-.tumtoolclose:hover svg {stroke: #fff}
+.tumtoolclose:hover svg {stroke: white}
 .tumtool.tumdiscardover {background: #f4212e; background-image: none; border-color: #f4212e}
-.tumtool.tumdiscardover svg {stroke: #fff}
+.tumtool.tumdiscardover svg {stroke: white}
 .tumtool.tumsettingsover {background: #1d9bf0; background-image: none; border-color: #1d9bf0}
-.tumtool.tumsettingsover svg {stroke: #fff}
+.tumtool.tumsettingsover svg {stroke: white}
 
 .tumgridlayer {
   position: absolute; inset: 0;
@@ -112,7 +112,7 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto;
   --tumcolor: #1d9bf0
 }
-.tumfolder.tumover {outline: 3px solid #fff}
+.tumfolder.tumover {outline: 3px solid white}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
 .tumfolder.tumflash {outline: 3px solid transparent; animation: tumflash .5s ease-in-out 2}
 @keyframes tumflash {
@@ -140,29 +140,29 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderauto {
   display: flex; align-items: center; gap: 4px;
-  color: var(--tumheaderfg, #fff); opacity: .85;
+  color: var(--tumheaderfg, white); opacity: .85;
   font-size: 11px; font-weight: 400;
   white-space: nowrap
 }
 
 .tumfolderautoicon svg {
   width: 11px; height: 11px;
-  fill: none; stroke: var(--tumheaderfg, #fff);
+  fill: none; stroke: var(--tumheaderfg, white);
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round; display: block
 }
 .tumfolderactionicon svg {
   width: 15px; height: 15px;
-  fill: none; stroke: var(--tumheaderfg, #fff);
+  fill: none; stroke: var(--tumheaderfg, white);
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round; display: block
 }
 .tumfolderactionicon svg[fill] {fill: currentColor; stroke: none}
-.tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, #fff)}
+.tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, white)}
 .tumfolderactionicon img {width: 16px; height: 16px; display: block}
 
 .tumfoldername {
-  color: var(--tumheaderfg, #fff); font-size: 13px;
+  color: var(--tumheaderfg, white); font-size: 13px;
   font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis
 }
@@ -173,7 +173,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldercount {
   min-width: 20px; height: 18px;
   padding: 0 6px; border-radius: 999px;
-  background: var(--tumheaderbtnbg,rgba(0,0,0,0.25)); color: var(--tumheaderfg,#fff);
+  background: var(--tumheaderbtnbg,rgba(0,0,0,0.25)); color: var(--tumheaderfg,white);
   font-size: 11px; font-weight: 700;
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0
@@ -187,7 +187,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldercollapse svg {
   width: 12px; height: 12px;
-  stroke: var(--tumheaderfg,#fff); fill: none;
+  stroke: var(--tumheaderfg,white); fill: none;
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform .1s linear
@@ -195,7 +195,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcollapsed .tumfoldercollapse svg {transform: rotate(-90deg)}
 .tumfolderremove svg {
   width: 10px; height: 10px;
-  stroke: var(--tumheaderfg,#fff); fill: none;
+  stroke: var(--tumheaderfg,white); fill: none;
   stroke-width: 2.5
 }
 
@@ -363,7 +363,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumquick.tumdisabled {opacity: .35; pointer-events: none}
 .tumquick.tumover {
   background: rgba(255,255,255,0.22);
-  border-color: #fff; border-style: solid
+  border-color: white; border-style: solid
 }
 .tumquickdelete.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
 .tumquickicon {
@@ -377,7 +377,7 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-linejoin: round
 }
 .tumquick span {
-  color: #fff; font-size: 13px;
+  color: white; font-size: 13px;
   font-weight: 700;
   white-space: nowrap
 }
@@ -405,7 +405,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumactionbtn.tumdisabled {opacity: .35; pointer-events: none}
 .tumactionbtn span {
-  color: #fff; font-size: 13px;
+  color: white; font-size: 13px;
   font-weight: 700; white-space: nowrap
 }
 .tumactionbtn.tumover {border-style: solid}
@@ -676,11 +676,11 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 50%; border: 2px solid transparent;
   cursor: pointer; padding: 0
 }
-.tummodalcolor.tumselected {border-color: var(--tumtext,#fff)}
+.tummodalcolor.tumselected {border-color: var(--tumtext,white)}
 
 .tummodalsave, .tumreasonsave, .tumreasonedit {
   width: 100%; background: #1d9bf0;
-  color: #fff; border: none;
+  color: white; border: none;
   border-radius: 999px; padding: 10px 20px;
   font-weight: 700; cursor: pointer;
   font-size: 14px
@@ -738,7 +738,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumconfirmok {
   width: 100%; background: #f4212e;
-  color: #fff; border: none;
+  color: white; border: none;
   border-radius: 999px; padding: 12px;
   font-weight: 700; font-size: 15px;
   cursor: pointer
@@ -756,7 +756,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumtoast {
   position: absolute; bottom: 32px; left: 50%;
   transform: translateX(-50%);
-  background: #1d9bf0; color: #fff;
+  background: #1d9bf0; color: white;
   padding: 12px; border-radius: 4px;
   font-size: 15px; line-height: 20px;
   max-width: 90%; text-align: center;

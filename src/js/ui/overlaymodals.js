@@ -6,19 +6,14 @@
 
   function launchdestroyer(user) {
     const box = el("div", "tumdestroyer");
-    box.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#000";
     const frame = document.createElement("iframe");
-    frame.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
+    frame.className = "tumdestroyerframe";
     frame.allow = "autoplay";
     frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
 
     const exit = document.createElement("button");
+    exit.className = "tumdestroyerexit";
     exit.innerHTML = ICONS.close;
-    exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;width:34px;height:34px;border-radius:999px;padding:0;" +
-      "background:#16181c;border:1px solid #2f3336;display:flex;align-items:center;justify-content:center;cursor:pointer";
-    exit.querySelector("svg").style.cssText = "width:18px;height:18px;stroke:#e7e9ea;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round";
-    exit.addEventListener("mouseenter", () => {exit.style.background = "#f4212e"; exit.style.borderColor = "#f4212e"; exit.querySelector("svg").style.stroke = "#fff"});
-    exit.addEventListener("mouseleave", () => {exit.style.background = "#16181c"; exit.style.borderColor = "#2f3336"; exit.querySelector("svg").style.stroke = "#e7e9ea"});
     function removeit() {box.remove(); document.removeEventListener("keydown", onkey, true)}
     function onkey(e) {if (e.key === "Escape") removeit()}
     exit.addEventListener("click", removeit);
@@ -39,7 +34,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("exported " + tum.folders.list().length + " folders");
+    toast("Exported " + tum.folders.list().length + " folders");
   }
 
   function importdata() {
@@ -52,7 +47,7 @@
       const reader = new FileReader();
       reader.onload = () => {
         try {applyimport(JSON.parse(reader.result))}
-        catch {toast("import failed - not valid json")}
+        catch {toast("Import failed - not valid JSON")}
       };
       reader.readAsText(file);
     });
@@ -76,7 +71,7 @@
     }
     state.open = true;
     render();
-    toast("imported " + nf + " folders, " + nu + " loose users");
+    toast("Imported " + nf + " folders, " + nu + " loose users");
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -107,7 +102,7 @@
     state.open = true;
     modalicon = "";
     O.els.modalname.value = "";
-    O.els.modalsave.textContent = "create";
+    O.els.modalsave.textContent = "Create";
     selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
     O.els.modalactionsrow.style.display = "";
@@ -121,7 +116,7 @@
     state.modalopen = true;
     modalicon = f.icon || "";
     O.els.modalname.value = f.name;
-    O.els.modalsave.textContent = "save";
+    O.els.modalsave.textContent = "Save";
     selectaction(f.action);
     selectcolor(f.color);
     O.els.modalactionsrow.style.display = "none";
@@ -184,7 +179,7 @@
     const {user} = state.pendingcreate;
     state.reasonopen = true;
     state.reasontarget = null;
-    O.els.reasontitle.textContent = "note for @" + user.handle;
+    O.els.reasontitle.textContent = "Note for @" + user.handle;
     O.els.reasoninput.value = user.reason || "";
     selectreasonaction(null);
     O.els.reasonactionbtns.forEach(b => b.classList.remove("tumdimmed"));
@@ -195,7 +190,7 @@
   function openreasonview(source, m) {
     state.reasonopen = true;
     state.reasontarget = {source, handle: m.handle};
-    O.els.reasontitle.textContent = "note for @" + m.handle;
+    O.els.reasontitle.textContent = "Note for @" + m.handle;
     O.els.reasontext.innerHTML = linkify(m.reason || "");
     if (m.sourceurl) {O.els.reasonsource.href = m.sourceurl; O.els.reasonsource.style.display = ""}
     else O.els.reasonsource.style.display = "none";

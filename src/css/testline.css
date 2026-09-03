@@ -142,7 +142,7 @@ article.fakereply {
 }
 [data-testid="confirmationSheetConfirm"] {
   width: 100%; margin-top: 16px;
-  background: #f4212e; color: #fff;
+  background: #f4212e; color: white;
   border: none; border-radius: 999px;
   padding: 12px; font-weight: 700;
   font-size: 15px; cursor: pointer

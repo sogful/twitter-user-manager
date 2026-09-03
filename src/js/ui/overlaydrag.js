@@ -125,7 +125,7 @@
   }
   function setfollowbutton(act) {
     O.els.actionfollow.dataset.act = act;
-    O.els.actionfollow.querySelector("span").textContent = act;
+    O.els.actionfollow.querySelector("span").textContent = act.charAt(0).toUpperCase() + act.slice(1);
     O.els.actionfollow.querySelector(".tumquickicon").innerHTML = act === "unfollow" ? ICONS.unfollow : ICONS.follow;
   }
 

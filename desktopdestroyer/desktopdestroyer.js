@@ -310,7 +310,7 @@ function setbackdrop() {
   const raw = decodeURIComponent((location.hash || "").slice(1));
   if (!raw) return;
   const av = raw.replace(/_(normal|bigger|mini|\d+x\d+)\.(jpg|jpeg|png|webp|gif)$/i, "_400x400.$2");
-  document.body.style.background = "#fff url('" + av + "') center/min(50vw,50vh) auto no-repeat";
+  document.body.style.background = "white url('" + av + "') center/min(50vw,50vh) auto no-repeat";
 }
 
 async function boot() {
