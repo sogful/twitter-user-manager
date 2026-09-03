@@ -210,7 +210,7 @@
         <div class="tumfreeform"></div>
         <div class="tumquickrow">
           <div class="tumquick tumquickadd"><div class="tumquickicon">${ICONS.plus}</div><span>new folder</span></div>
-          <div class="tumquick tumquickdiscard"><div class="tumquickicon">${ICONS.trash}</div><span>discard</span></div>
+          <div class="tumquick tumquickdelete"><div class="tumquickicon">${ICONS.trash}</div><span>delete</span></div>
           <div class="tumquick tumquickreason"><div class="tumquickicon">${ICONS.pencil}</div><span>custom reason</span></div>
         </div>
         <div class="tumactionbar">
@@ -285,7 +285,7 @@
       gridlayer: root.querySelector(".tumgridlayer"),
       freeform: root.querySelector(".tumfreeform"),
       quickadd: root.querySelector(".tumquickadd"),
-      quickdiscard: root.querySelector(".tumquickdiscard"),
+      quickdelete: root.querySelector(".tumquickdelete"),
       quickreason: root.querySelector(".tumquickreason"),
       chip: root.querySelector(".tumchip"),
       chipavatar: root.querySelector(".tumchipavatar"),
@@ -426,6 +426,32 @@
     closeconfirmsheet();
     hidebackdrop();
   }
+  // open the canvas from nothing (a hotkey, not a drag) - just show it and render what's filed
+  function openoverlay() {
+    state.open = true;
+    showbackdrop();
+    render();
+  }
+  function toggleoverlay() {
+    if (state.drag) return;
+    if (state.open || root.classList.contains("tumactive")) closeoverlay();
+    else openoverlay();
+  }
+  // hide/show EVERYTHING the extension paints - the shadow overlay host plus every element injected
+  // into x.com's own dom (page pencils, folder dots, profile extras, the settings tab). driven off a
+  // class on <html> so a page-level stylesheet can catch nodes the scanners re-add while it's hidden
+  const HIDEALLSEL = "#tum-host,.tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
+    ".tumextrablock,.tumbreachbadge,.tumbreachbackdrop,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday," +
+    '[data-testid="usermanagerLink"]';
+  function togglehideall() {
+    if (!document.getElementById("tumhideallstyle")) {
+      const st = document.createElement("style");
+      st.id = "tumhideallstyle";
+      st.textContent = "html.tumhideall " + HIDEALLSEL.split(",").join(",html.tumhideall ") + "{display:none!important}";
+      document.head.appendChild(st);
+    }
+    document.documentElement.classList.toggle("tumhideall");
+  }
 
   // the "destroy" joke: full-screen the desktopdestroyer (in its own extension iframe so its global
   // canvas/input code stays sandboxed) with the target's avatar as the surface to smash. it's purely
@@ -519,7 +545,7 @@
     // "discard" and "custom reason" need someone actually in hand to apply to - dim them
     // out rather than hide them, so the row stays put and predictable either way
     const active = !!(state.drag && state.drag.kind === "user");
-    els.quickdiscard.classList.toggle("tumdisabled", !active);
+    els.quickdelete.classList.toggle("tumdisabled", !active);
     els.quickreason.classList.toggle("tumdisabled", !active);
     // the side action buttons (follow/mute/block/destroy) act on the person in hand - dim them
     // out when nothing's being carried, same as discard/reason
@@ -894,10 +920,16 @@
     return null;
   }
 
-  function topdiscardtools() {return [els.toolclose, els.toolexport, els.toolimport]}
-  function overtoptool(x, y) {
+  // only the top-left close X doubles as the real "discard" (removes them AND fades the overlay).
+  // the quick-row pill is now a plain "delete" that keeps the overlay open; the gear is its own
+  // drop-target that just opens settings
+  function overclosetool(x, y) {
     if (!state.drag || state.drag.kind !== "user") return null;
-    return topdiscardtools().find(b => b && rectcontains(b.getBoundingClientRect(), x, y)) || null;
+    return rectcontains(els.toolclose.getBoundingClientRect(), x, y) ? els.toolclose : null;
+  }
+  function overgear(x, y) {
+    if (!state.drag || state.drag.kind !== "user") return null;
+    return rectcontains(els.toolgear.getBoundingClientRect(), x, y) ? els.toolgear : null;
   }
   // the middle-right buttons act on whoever's being carried: follow/mute/block run the real action
   // (they used to be folder auto-actions); destroy is the joke that hands them to the destroyer
@@ -908,11 +940,11 @@
   }
   function quickzone(x, y) {
     if (state.drag && state.drag.kind === "user") {
-      if (rectcontains(els.quickdiscard.getBoundingClientRect(), x, y)) return "discard";
+      if (rectcontains(els.quickdelete.getBoundingClientRect(), x, y)) return "delete";
       if (rectcontains(els.quickreason.getBoundingClientRect(), x, y)) return "reason";
-      // releasing onto any of the top-left tools (close / export / import) also discards; the
-      // close X in particular doubles as a discard button
-      if (overtoptool(x, y)) return "discard";
+      // the top-left close X is the only real discard (removes + fades); the gear opens settings
+      if (overclosetool(x, y)) return "discard";
+      if (overgear(x, y)) return "settings";
     }
     if (rectcontains(els.quickadd.getBoundingClientRect(), x, y)) return "add";
     return null;
@@ -928,12 +960,12 @@
     }
     const zone = quickzone(x, y);
     els.quickadd.classList.toggle("tumover", zone === "add");
-    els.quickdiscard.classList.toggle("tumover", zone === "discard");
+    els.quickdelete.classList.toggle("tumover", zone === "delete");
     els.quickreason.classList.toggle("tumover", zone === "reason");
     const act = actionbtnunderpoint(x, y);
     for (const b of els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
-    const tool = overtoptool(x, y);
-    for (const b of topdiscardtools()) b.classList.toggle("tumdiscardover", b === tool);
+    els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
+    els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
   }
 
   function removefromsource(source, handle) {
@@ -953,10 +985,11 @@
     // the page bits were hidden and recorded at drag-start; they stay hidden unless this ends in a
     // discard (handled per-branch below), so nothing to do here
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
-    for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
+    els.toolclose.classList.remove("tumdiscardover");
+    els.toolgear.classList.remove("tumsettingsover");
     for (const b of els.actionbtns) b.classList.remove("tumover");
     els.quickadd.classList.remove("tumover");
-    els.quickdiscard.classList.remove("tumover");
+    els.quickdelete.classList.remove("tumover");
     els.quickreason.classList.remove("tumover");
 
     if (act === "destroy") {
@@ -998,9 +1031,10 @@
       state.pendingcreate = {user, source};
       opencreatemodal();
       return;
-    } else if (zone === "discard") {
-      // a noted user can't be discarded away - that would silently drop their note. they stay
-      // put wherever they came from, and can only be removed from their own note popup
+    } else if (zone === "delete" || zone === "discard") {
+      // delete (quick pill) removes them and KEEPS the overlay open for more sorting; discard (the
+      // top-left close X) removes them AND fades the overlay out. a noted user can't be dropped away
+      // either way - that would silently drop their note; they stay put, removable from the note popup
       if (user.reason) {
         toast("this user has a note - delete them from the note instead");
         restorehidden(user.handle); // they weren't taken - bring the page bits back
@@ -1008,11 +1042,19 @@
         render();
         return;
       }
-      // discard means "not sorting this one" - unlike filing, the page bits return to view
+      // the page bits return to view (unlike filing, which keeps them lifted out)
       removefromsource(source, user.handle);
       restorehidden(user.handle);
+      if (zone === "discard") {render(); closeoverlay(); return}
+      state.open = true;
       render();
+      return;
+    } else if (zone === "settings") {
+      // dropped on the gear: open the settings pane. the carried person is neither filed nor
+      // deleted - their page bits come back and they stay wherever they were
+      restorehidden(user.handle);
       closeoverlay();
+      try {tum.settingspane.open()} catch {}
       return;
     } else if (zone === "reason") {
       state.pendingcreate = {user, source, x, y};
@@ -1039,7 +1081,8 @@
     // cancelling a fresh page drag brings the page bits back; cancelling a re-drag off a filed
     // chip/member leaves them hidden (the person is still filed) and just re-renders the canvas
     if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
-    for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
+    els.toolclose.classList.remove("tumdiscardover");
+    els.toolgear.classList.remove("tumsettingsover");
     for (const b of els.actionbtns) b.classList.remove("tumover");
     root.classList.remove("tumdragging");
     state.drag = null;
@@ -1053,6 +1096,13 @@
   // nothing in hand, escape just closes the overlay
 
   function onkeydown(e) {
+    // global hotkeys (ctrl+shift+key), live whether or not the overlay is open. ctrl+shift avoids
+    // x.com's single-key shortcuts and typing, and none of these combos are reserved by chrome/windows
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === "u") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}   // bring up / dismiss the overlay
+      if (k === "h") {togglehideall(); e.preventDefault(); e.stopPropagation(); return}   // hide / show all extension ui
+    }
     if (!state.drag) {
       if (e.key === "Escape") {closeoverlay(); return}
       // don't let the keyboard scroll the page behind the open overlay (but keep typing in fields)

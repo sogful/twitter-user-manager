@@ -90,9 +90,12 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumtoolclose:hover {background: #f4212e; background-image: none; border-color: #f4212e}
 .tumtoolclose:hover svg {stroke: #fff}
-/* releasing a held user onto any top tool discards them - flag it red like the discard pill */
+/* releasing a held user onto the top-left close X discards them - flag it red like the delete pill */
 .tumtool.tumdiscardover {background: #f4212e; background-image: none; border-color: #f4212e}
 .tumtool.tumdiscardover svg {stroke: #fff}
+/* the gear is a drop-target too - releasing a user onto it opens settings; flag it blue */
+.tumtool.tumsettingsover {background: #1d9bf0; background-image: none; border-color: #1d9bf0}
+.tumtool.tumsettingsover svg {stroke: #fff}
 
 .tumgridlayer {
   position: absolute; inset: 0;
@@ -375,7 +378,7 @@ img {-webkit-user-drag: none; user-drag: none}
   background: rgba(255,255,255,0.22);
   border-color: #fff; border-style: solid
 }
-.tumquickdiscard.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
+.tumquickdelete.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
 .tumquickicon {
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0
