@@ -413,7 +413,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumactionfollow.tumover {border-color: #1d9bf0; background: rgba(29,155,240,0.25)}
 .tumactionmute.tumover {border-color: #ffd400; background: rgba(255,212,0,0.22)}
 .tumactionblock.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
-.tumactiondestroy.tumover {border-color: #ff008c; background: rgba(255,122,0,0.28)}
+.tumactiondestroy.tumover {border-color: #ff00b3; background: rgba(255, 0, 212, 0.28)}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -668,7 +668,8 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tummodalcolors {
   display: flex; gap: 8px;
-  margin-bottom: 16px; flex-wrap: wrap
+  margin-bottom: 16px;
+  justify-content: space-between
 }
 .tummodalcolor {
   width: 26px; height: 26px;

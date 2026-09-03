@@ -28,8 +28,25 @@
   function onus() {return location.pathname.replace(/\/$/, "") === FAKE}
   function navtab() {return document.querySelector('[data-testid="usermanagerLink"]')}
 
+  // twitter paints its "page doesn't exist" card for our unknown route before our scan swaps in the
+  // pane - a css rule keyed off a <html> class hides that card the instant we're on the route, so the
+  // not-found frame never flashes. the class is set synchronously in navto (before twitter's router
+  // even reacts to the popstate) and kept in sync on every scan
+  function ensureflashstyle() {
+    if (document.getElementById("tumusmstyle")) return;
+    const st = document.createElement("style");
+    st.id = "tumusmstyle";
+    st.textContent = 'html.tumusmroute [data-testid="error-detail"]{display:none!important}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function syncroute() {
+    ensureflashstyle();
+    document.documentElement.classList.toggle("tumusmroute", onus());
+  }
+
   function navto(path) {
     history.pushState({}, "", path);
+    syncroute();
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
@@ -83,7 +100,7 @@
     wrap.className = "tumsetcheckwrap";
     wrap.dataset.key = key;
     wrap.style.cssText = "display:flex;align-items:center;justify-content:center;width:38px;height:38px;" +
-      "border-radius:50%;flex:0 0 auto;cursor:pointer";
+      "border-radius:50%;flex:0 0 auto;cursor:pointer;transition:background .15s ease";
     const box = document.createElement("span");
     box.className = "tumsetcheck";
     box.setAttribute("role", "checkbox");
@@ -163,7 +180,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   let scheduled = 0;
-  function scan() {scheduled = 0; ensurenav(); ensurepane()}
+  function scan() {scheduled = 0; syncroute(); ensurenav(); ensurepane()}
   function schedule() {if (!scheduled) scheduled = setTimeout(scan, 80)}
 
   window.tum.settingspane = {open() {if (!onus()) navto(FAKE)}};
@@ -186,6 +203,8 @@
       }, true);
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
+      // cover a direct load / refresh of the route too - hide the card as early as we run
+      syncroute();
       schedule();
     }
   };

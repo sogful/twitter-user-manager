@@ -298,6 +298,7 @@
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
+      modalactionsrow: root.querySelector(".tummodalactions"),
       modalcolors: root.querySelector(".tummodalcolors"),
       modalsave: root.querySelector(".tummodalsave"),
       reasonmodal: root.querySelector(".tumreasonmodal"),
@@ -1244,7 +1245,7 @@
     // no follow/mute/block runs
     selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
-    els.modalactions.forEach(b => b.classList.remove("tumdimmed"));
+    els.modalactionsrow.style.display = "";
     showbackdrop();
     els.modal.classList.add("tumshow");
     els.modalname.focus();
@@ -1258,10 +1259,9 @@
     els.modalsave.textContent = "save";
     selectaction(f.action);
     selectcolor(f.color);
-    // this folder already exists (maybe with members filed under its current action already)
-    // - the action picker still works, just visually backed off so it's not the obvious thing
-    // to fiddle with while renaming
-    els.modalactions.forEach(b => b.classList.add("tumdimmed"));
+    // editing an existing folder keeps its action as-is (already applied to its members) - the
+    // auto-action picker is hidden entirely rather than shown backed-off, so it's not in the way
+    els.modalactionsrow.style.display = "none";
     showbackdrop();
     els.modal.classList.add("tumshow");
   }
