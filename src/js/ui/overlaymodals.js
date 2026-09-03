@@ -1,15 +1,9 @@
 (function () {
   "use strict";
 
-  // the overlay modals + tools - folder create/edit, note (reason) popup, delete-confirm sheet,
-  // json export/import, and the destroyer joke. shares state + helpers via window.tum._ov; the drag
-  // file (loaded before this) puts restorehidden/removefromsource there. manifest: overlay.js, overlaydrag.js, this
   const O = window.tum._ov;
   const {el, linkify, iconhtml, ICONS, state, pan, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
 
-  // the "destroy" joke: full-screen the desktopdestroyer (in its own extension iframe so its global
-  // canvas/input code stays sandboxed) with the target's avatar as the surface to smash. it's purely
-  // for laughs - nothing is blocked/muted/followed - and the exit button just tears the iframe down
   function launchdestroyer(user) {
     const box = el("div", "tumdestroyer");
     box.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#000";
@@ -17,8 +11,7 @@
     frame.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
     frame.allow = "autoplay";
     frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
-    // the same round icon button as the overlay's own close (tumtoolclose), rebuilt inline since
-    // this button lives in the page's light dom, outside the shadow O.root that holds .tumtool css
+
     const exit = document.createElement("button");
     exit.innerHTML = ICONS.close;
     exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;width:34px;height:34px;border-radius:999px;padding:0;" +
@@ -34,9 +27,6 @@
     box.appendChild(exit);
     document.body.appendChild(box);
   }
-
-  // back up / restore everything as a single json file. import merges (never wipes) - imported
-  // folders are added alongside whatever's already there, so a bad import can't cost you data
 
   function exportdata() {
     const data = {version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()};
@@ -75,7 +65,6 @@
     let nf = 0, nu = 0;
     for (const f of folders) {
       if (!f || typeof f !== "object") continue;
-      // create() gives it a fresh id so a re-import can't clobber an existing folder
       const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon, x: f.x, y: f.y});
       for (const m of (Array.isArray(f.members) ? f.members : [])) if (m && m.handle) tum.folders.addmember(created.id, m);
       nf++;
@@ -103,8 +92,6 @@
     for (const b of O.els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
     refreshiconbtn();
   }
-  // clicking the already-selected action deselects it - the toggle reads modal state that lives in
-  // here, so core wires the buttons to these instead of doing the compare itself
   function toggleaction(a) {selectaction(a === modalaction ? null : a)}
   function refreshiconbtn() {
     O.els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
@@ -278,7 +265,6 @@
     hidebackdrop();
   }
 
-  // hand the pieces core and the drag file reach for back to the shared object
   Object.assign(O, {launchdestroyer, exportdata, importdata, opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, closeconfirmsheet});

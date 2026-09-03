@@ -1,8 +1,3 @@
-// the email lookup runs from the service worker, not the content script: x.com's connect-src CSP
-// would block a page-context fetch to the lookup host, but a background fetch (host granted in
-// host_permissions) isn't subject to the page's CSP. no cache here on purpose - the worker is a
-// direct primary-key D1 lookup (~150ms), so every hit is fresh, which keeps timing honest and the
-// data current. dedup within a single profile view is handled content-side (profileinfo.js)
 const ENDPOINT = "https://twt.boomlings.eu.org/?screenname=";
 
 async function lookup(handle) {
@@ -14,10 +9,6 @@ async function lookup(handle) {
   return null;
 }
 
-// memory.lol's google_token is an httpOnly cookie on .memory.lol set when the user logs in there.
-// the api accepts it as a plain bearer, so read it with the cookies api (privileged - httpOnly is
-// fine) and attach it. testing showed the anonymous api already returns full rename history, so
-// this is really just to lift the anonymous rate limit; absent (not logged in) it degrades to anon
 async function memtoken() {
   try {
     const c = await chrome.cookies.get({url: "https://memory.lol/", name: "google_token"});
@@ -25,11 +16,6 @@ async function memtoken() {
   } catch {return null}
 }
 
-// memory.lol: numeric id + the account's @handle history (renames), one GET. from the worker so
-// the page's csp can't block it. querying by numeric id (/tw/id/<id>) is more accurate than by the
-// current handle - a rename or handle reuse can't misdirect it - so profileinfo passes the rest_id
-// when it has it, else the handle. the by-id endpoint returns the account object directly; the
-// by-handle one wraps it in accounts[]. returns {id, names:[{name, from, to}]} oldest-first
 async function memorylol(q) {
   try {
     const path = q && q.id ? "id/" + encodeURIComponent(q.id) : encodeURIComponent(q && q.handle);
@@ -46,10 +32,6 @@ async function memorylol(q) {
   return null;
 }
 
-// breach.vip lookup via the swolesome proxy (a keyed breach.vip frontend). username searches are
-// inherently fuzzy - anyone who ever reused the handle elsewhere shows up - so we guard hard against
-// noise: skip <=6-char handles, skip a bundled list of a few thousand common usernames, and discard
-// result sets big enough to be obviously a common name rather than this specific person
 let commonset = null;
 async function loadcommon() {
   if (commonset) return commonset;
@@ -71,7 +53,6 @@ async function breachlookup(handle) {
     if (!r.ok) return {error: true};
     const d = await r.json();
     const results = Array.isArray(d.results) ? d.results : [];
-    // too many hits = a common handle, not one person - treat as a false positive and drop it
     if (results.length > 50) return {discarded: true, count: results.length};
     return {results};
   } catch {return {error: true}}

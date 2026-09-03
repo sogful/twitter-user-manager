@@ -1,8 +1,3 @@
-// runs in the MAIN world (see manifest world:"MAIN") so it can wrap the page's own fetch/XHR and
-// read x.com's UserByScreenName graphql response - that's where the rich user fields live (id,
-// exact counts, created_at, withheld countries, sensitivity, full-res avatar/banner). the fields
-// migrated out of the old flat `legacy` object into core/relationship_counts/tweet_counts/etc, so
-// this normalizes them, then hands the result to the isolated content script via postMessage
 (function () {
   "use strict";
 
@@ -24,7 +19,6 @@
       blueVerified: !!u.is_blue_verified,
       isProtected: !!(priv.protected || legacy.protected),
       possiblySensitive: !!(u.possibly_sensitive != null ? u.possibly_sensitive : legacy.possibly_sensitive),
-      // only present on withheld accounts - check every place it has lived
       withheld: (legacy.withheld_in_countries && legacy.withheld_in_countries.length ? legacy.withheld_in_countries : null) || u.withheld_in_countries || null,
       avatar: (u.avatar && u.avatar.image_url) || legacy.profile_image_url_https || null,
       banner: (u.banner && u.banner.image_url) || legacy.profile_banner_url || null
@@ -40,14 +34,15 @@
     } catch {}
   }
 
-  // the "About this account" panel (the arrow off the join date -> /handle/about) has data the
-  // profile response lacks: account-based-in country + whether it's accurate (the "possibly using
-  // VPN" shield), what it's connected via, and the username-change count/date. that data comes from
-  // its own AboutAccountQuery, which only fires on the /about page - so we replay it ourselves. the
-  // request is a plain authed GET; we reuse twitter's own bearer (grabbed off its requests, else the
-  // public web one) + the ct0 csrf cookie, and let credentials:include carry the session cookies
   const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
-  const ABOUTQID = "TzOG2twZEfhr9KmClvVVqA"; // AboutAccountQuery id - stable, may need a bump on a big twitter deploy
+  const ABOUTQID = "TzOG2twZEfhr9KmClvVVqA";
+  
+  const qids = {};
+  function learnqid(url) {
+    const m = /\/i\/api\/graphql\/([^/?#]+)\/([A-Za-z0-9_]+)/.exec(String(url || ""));
+    if (m) qids[m[2]] = m[1];
+  }
+  const aboutqid = () => qids.AboutAccountQuery || ABOUTQID;
   let bearer = null;
   const aboutdone = new Set();
   function grabbearer(init) {
@@ -64,7 +59,7 @@
     aboutdone.add(key);
     try {
       const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-      const url = "/i/api/graphql/" + ABOUTQID + "/AboutAccountQuery?variables=" + encodeURIComponent(JSON.stringify({screenName: handle}));
+      const url = "/i/api/graphql/" + aboutqid() + "/AboutAccountQuery?variables=" + encodeURIComponent(JSON.stringify({screenName: handle}));
       const r = await origfetch(url, {credentials: "include", headers: {
         authorization: bearer || PUBBEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes", "x-twitter-client-language": "en"
@@ -88,6 +83,7 @@
   const origfetch = window.fetch;
   window.fetch = function (...args) {
     grabbearer(args[1]);
+    try {learnqid((args[0] && args[0].url) || args[0])} catch {}
     return origfetch.apply(this, args).then(res => {
       try {
         const url = (args[0] && args[0].url) || args[0] || "";
@@ -98,7 +94,7 @@
   };
 
   const origopen = XMLHttpRequest.prototype.open, origsend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function (m, u) {this.__tumurl = u; return origopen.apply(this, arguments)};
+  XMLHttpRequest.prototype.open = function (m, u) {this.__tumurl = u; try {learnqid(u)} catch {} return origopen.apply(this, arguments)};
   XMLHttpRequest.prototype.send = function () {
     try {
       this.addEventListener("load", () => {

@@ -3,8 +3,6 @@
 
   window.tum = window.tum || {};
 
-  // lifted from twitter-flags' theme detection: read the page's actual background
-  // color instead of guessing, since x.com ships light/dim/lights-out and nothing else tells us which
   function rgbof(str) {
     const m = /rgba?\(([^)]+)\)/.exec(str || "");
     if (!m) return null;
@@ -33,15 +31,14 @@
     } catch {return null}
   }
 
-  // x.com ships exactly three themes; classify by the page background so the whole overlay can
-  // recolor to match (not just the drag chip). values below are x.com's own per-theme palette
   function classify() {
     const rgb = backgroundrgb();
     if (!rgb) return "dark";
     if (luminance(rgb) > 0.5) return "light";
-    // dim's background is a blue-gray (#15202b), lights-out is near-pure black
     return (rgb[0] + rgb[1] + rgb[2]) <= 24 ? "dark" : "dim";
   }
+
+  /*//////////////////////////////////////////////////////////////////////*/
 
   const PALETTES = {
     dark: {
@@ -60,6 +57,8 @@
       hover: "rgba(0,0,0,0.03)", cancelborder: "#cfd9de", backdrop: "rgba(0,0,0,0.6)"
     }
   };
+  
+  /*//////////////////////////////////////////////////////////////////////*/
 
   window.tum.theme = {
     css: () => {const rgb = backgroundrgb(); return rgb ? `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` : "#000"},

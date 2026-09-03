@@ -12,13 +12,13 @@
     verified: '<svg viewBox="0 0 24 24" fill="#1d9bf0"><path d="M12 2l2.4 1.4 2.7-.4 1.3 2.4 2.4 1.3-.4 2.7L22 12l-1.6 2.4.4 2.7-2.4 1.3-1.3 2.4-2.7-.4L12 22l-2.4-1.6-2.7.4-1.3-2.4-2.4-1.3.4-2.7L2 12l1.6-2.4-.4-2.7 2.4-1.3 1.3-2.4 2.7.4L12 2z"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
-  // one shared generic silhouette avatar for everyone, same as what x.com itself shows for any
-  // account without a custom photo - closer to "real" than a colorful letter-circle per user
   const DEFAULTAVATAR = "data:image/svg+xml;base64," + btoa(
     '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#2f3336"/>' +
     '<circle cx="48" cy="38" r="18" fill="#71767b"/>' +
     '<path d="M14 92c0-24 15-38 34-38s34 14 34 38" fill="#71767b"/></svg>'
   );
+
+  /*//////////////////////////////////////////////////////////////////////*/
 
   function actionrow(counts) {
     return `
@@ -115,7 +115,7 @@
   function build(USERS, TEXTS) {
     const timeline = document.querySelector(".faketimeline");
     if (!timeline) return;
-    let sid = 1000000, nexttext = USERS.length; // texts past one-per-user are reserved for replies
+    let sid = 1000000, nexttext = USERS.length;
     const replyafter = [1, 4];
     USERS.forEach((user, i) => {
       timeline.appendChild(buildtweet(user, TEXTS[i], sid++, false));
@@ -126,7 +126,6 @@
     });
   }
 
-  // relative to preview.html (src/html/), which is the only page that ever loads this script
   fetch("../../assets/static/testline.json")
     .then(r => r.json())
     .then(data => build(data.users, data.texts))

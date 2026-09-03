@@ -2,9 +2,6 @@
   "use strict";
 
   window.tum = window.tum || {};
-  // shared context for the split-out drag (overlaydrag.js) + modals (overlaymodals.js) files: they
-  // read core state/helpers off this object and hang their own functions back on it. populated at the
-  // bottom of this iife (before those files load), with els/root filled in once wiremarkup runs
   const O = window.tum._ov = {};
 
   const ICONS = {
@@ -24,25 +21,27 @@
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   const TEXTPNG = chrome.runtime.getURL("assets/images/text.png");
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
 
-  const MEMBERCAP = 200; // render cap per folder list - a "+n more" note instead of true virtualization
+  const MEMBERCAP = 200; // render cap per folder list
   const URLRE = /(https?:\/\/[^\s<]+)/g;
 
   let shadow = null, root = null, host = null;
   let els = {};
-  // when off (default), filing someone into a folder fades the whole overlay away; when the
-  // top-right checkbox is ticked it stays open so you can keep sorting. persisted across sessions
+
   const settings = tum.storage.create("tum.settings");
   let keepopen = false;
   function applysetting(v) {keepopen = !!(v && v.keepopen)}
   settings.get().then(applysetting);
   settings.subscribe(applysetting);
-  // state.drag describes whatever is currently being carried around: {kind:"user"|"folder",
-  // user, source: {type:"page"} | {type:"folder", id} | {type:"unsorted"}, folderid}
   let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
+
+  /*//////////////////////////////////////////////////////////////////////*/
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -59,21 +58,15 @@
     return escapehtml(text).replace(URLRE, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
-  // verified/automated/etc badges lifted off the page - stored as html strings so they persist,
-  // rendered inline right after the name the same way the drag chip shows them
   function badgeshtml(badges) {
     return Array.isArray(badges) && badges.length ? `<span class="tumbadges">${badges.join("")}</span>` : "";
   }
-  // a folder's header text/icon sit directly on its color with nothing behind them - most of
-  // the palette is dark enough for white to read fine, but a bright one (yellow) needs black
-  // instead, same call twitter itself makes for text against its own bright accent colors
   function readablefg(hex) {
     const n = parseInt(hex.replace("#", ""), 16);
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 150 ? "#000" : "#fff";
   }
-  // a folder's chosen icon -> html: an emoji image, a bundled svg, or a literal char/empty
   function iconhtml(icon) {
     if (!icon) return "";
     if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
@@ -85,11 +78,6 @@
 
   function loadcss() {
     return new Promise(res => {
-      // always a <link>, never fetch+inline: a relative url() (the font files) only resolves
-      // against the stylesheet's own href when the browser loads it as a real stylesheet resource.
-      // the fallback path is relative to whatever page loaded this script (preview.html, at
-      // src/html/) - the chrome.runtime.getURL path is root-relative within the extension and
-      // doesn't care where it was injected from
       let href = "../css/overlay.css";
       try {href = chrome.runtime.getURL("src/css/overlay.css")} catch {}
       const link = document.createElement("link");
@@ -102,15 +90,7 @@
   }
 
   function build() {
-    // x.com is an SPA - if something on the page ever evicts our host from the DOM (a full
-    // re-render on some route, an aggressive third-party script, etc) this lets main.js
-    // detect it and call mount() again to rebuild, instead of the overlay silently staying gone
     if (document.getElementById("tum-host")) return;
-    // no inline "all:initial" here on purpose - an inline style beats a non-!important
-    // stylesheet rule, which would permanently block the shadow stylesheet's own
-    // :host{position:fixed} from ever taking effect once it loads (this was the actual
-    // cause of the overlay never truly being viewport-fixed - it was stuck in normal
-    // document flow the whole time). the :host rule resets everything else once css loads.
     host = document.createElement("div");
     host.id = "tum-host";
     document.documentElement.appendChild(host);
@@ -118,10 +98,6 @@
     loadcss().then(buildmarkup);
   }
 
-  // some ancestor between the host and the viewport can occasionally break position:fixed's
-  // containing block (a transform/filter/contain on <html> is the usual culprit) - rather than
-  // chase that down blindly, just measure where the host actually rendered and paint-shift it
-  // back to (0,0) with a transform, and keep its box explicitly sized to the real viewport
   let pinraf = 0;
   function pinhost() {
     pinraf = 0;
@@ -137,17 +113,13 @@
   window.addEventListener("scroll", schedulepin, true);
   window.addEventListener("resize", schedulepin);
 
-  // the freeform is an infinite canvas - folders/loose people live in an unbounded space that
-  // this offset pans around, so nothing is clamped to the screen edge anymore. session-only
   let pan = {x: 0, y: 0};
   function applypan() {
     if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
-    // scroll the grid pattern along with the content so the "screen chunks" stay pinned to it
     if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
     schedulemarquees();
   }
-  // a faint dashed grid where each cell is exactly one viewport - a subtle hint that the canvas
-  // extends past the screen edges. purely decorative, tied to the real window size so it lines up
+
   function updategrid() {
     if (!els.gridlayer) return;
     const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.1)";
@@ -156,11 +128,9 @@
   }
   window.addEventListener("resize", updategrid);
 
-  // drag empty canvas (left or middle button) to pan the whole board around; a plain left click
-  // that never moved still closes the overlay, same as tapping the old backdrop did
   function attachpan() {
     const bd = els.backdrop;
-    bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()}); // no middle-click autoscroll
+    bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
       if (e.button !== 0 && e.button !== 1) return;
       const startx = e.clientX, starty = e.clientY;
@@ -212,8 +182,7 @@
       wiremarkup();
     });
   }
-  // the overlay markup lives in src/html/overlay.html (fetched once, cached) rather than a giant
-  // template string in here - keeps this file to logic. wiremarkup runs once it is in the dom
+
   let markuphtml = null;
   function loadmarkup() {
     if (markuphtml != null) return Promise.resolve(markuphtml);
@@ -351,7 +320,7 @@
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
-    O.schedulerestoreall(); // overlay's closing - bring back everything it hid once it's faded
+    O.schedulerestoreall(); 
   }
   function closeoverlay() {
     state.open = false;
@@ -360,7 +329,7 @@
     O.closeconfirmsheet();
     hidebackdrop();
   }
-  // open the canvas from nothing (a hotkey, not a drag) - just show it and render what's filed
+
   function openoverlay() {
     state.open = true;
     showbackdrop();
@@ -371,12 +340,7 @@
     if (state.open || root.classList.contains("tumactive")) closeoverlay();
     else openoverlay();
   }
-  // hide/show EVERYTHING the extension paints - the shadow overlay host plus every element injected
-  // into x.com's own dom (page pencils, folder dots, profile extras, the settings tab). driven off a
-  // class on <html> so a page-level stylesheet can catch nodes the scanners re-add while it's hidden
-  // NOTE: deliberately does NOT include #tum-host (the overlay) - hiding the overlay here would make
-  // ctrl+tab (which also uses ctrl) pointless, since holding ctrl would hide the very thing tab opens.
-  // the peek only clears the extension's PAGE additions so you can glance at the clean profile/timeline
+
   const PEEKSEL = ".tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
     ".tumextrablock,.tumbreachbadge,.tumbreachbackdrop,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday," +
     '[data-testid="usermanagerLink"]';
@@ -387,8 +351,6 @@
     st.textContent = "html.tumhideall " + PEEKSEL.split(",").join(",html.tumhideall ") + "{display:none!important}";
     document.head.appendChild(st);
   }
-  // momentary peek: hold Ctrl or PrtSc to hide the extension's page additions (not the overlay) until
-  // neither is held. tracked as a set so ctrl+prtsc both work and a missed keyup (blur) can't stick
   const peekkeys = new Set();
   function updatepeek() {
     ensurehidestyle();
@@ -404,17 +366,11 @@
     if (!els.freeform) return;
     els.freeform.innerHTML = "";
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
-    // note-only entries (placed === false) hold a note but were never released onto the canvas -
-    // they surface as the page note badge, not as a loose chip here
     for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
     refreshmarquees();
   }
 
-  // truncated folder names / nicknames scroll like ad text - but only the ones actually on screen
-  // (visible in the viewport, and for members not scrolled out of their folder list). measured
-  // synchronously on render / list-scroll / pan, never per-frame, so a 200-long folder never
-  // animates every row - the css animation itself only runs on the handful that are showing
   function enablemarquee(outer) {
     const inner = outer.querySelector(".tummqinner");
     if (!inner) return;
@@ -444,11 +400,6 @@
   let mqraf = 0;
   function schedulemarquees() {if (!mqraf) mqraf = setTimeout(() => {mqraf = 0; refreshmarquees()}, 80)}
 
-  // begindrag() ends by calling render(), which wipes and rebuilds the whole freeform - so the
-  // element the drag started on is already destroyed by the time the drag is live. this lets the
-  // rebuild hide the freshly-made copy of whoever's being carried, instead of leaving it sitting
-  // at its old spot as a ghost beside the drag chip (a stale visibility:hidden on the old node
-  // did nothing). enddrag/canceldrag clear state.drag then render again, restoring it
   function isdragged(source, handle) {
     const d = state.drag;
     if (!d || !d.source || !d.user) return false;
@@ -459,13 +410,9 @@
   }
 
   function updatequickstate() {
-    // "discard" and "custom reason" need someone actually in hand to apply to - dim them
-    // out rather than hide them, so the row stays put and predictable either way
     const active = !!(state.drag && state.drag.kind === "user");
     els.quickdelete.classList.toggle("tumdisabled", !active);
     els.quickreason.classList.toggle("tumdisabled", !active);
-    // the side action buttons (follow/mute/block/destroy) act on the person in hand - dim them
-    // out when nothing's being carried, same as discard/reason
     for (const b of els.actionbtns) b.classList.toggle("tumdisabled", !active);
   }
 
@@ -473,7 +420,6 @@
     const members = Array.isArray(f.members) ? f.members.slice() : [];
     if (f.sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
     else if (f.sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
-    // "added" (default): already newest-first, addmember unshifts
     return members;
   }
 
@@ -484,8 +430,6 @@
     node.style.setProperty("--tumcolor", f.color);
     const fg = readablefg(f.color);
     node.style.setProperty("--tumheaderfg", fg);
-    // the little circle behind the chevron/close/count sits on the folder color too - flip it
-    // light on a bright folder so the now-black icons on it stay readable
     node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
     node.style.left = f.x + "%";
     node.style.top = f.y + "%";
@@ -512,7 +456,6 @@
       <div class="tumfolderlist"></div>
     `;
     const list = node.querySelector(".tumfolderlist");
-    // re-pick which member names are on screen (and should marquee) as the list scrolls
     list.addEventListener("scroll", schedulemarquees);
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", "drop users here"));
@@ -609,8 +552,6 @@
     return chip;
   }
 
-  // an off-page pfp (some new-chat avatars) can 404 in the overlay - hide it rather than show a
-  // broken image box; done in js, not an inline onerror, since the page csp would block that
   function hidebrokenavatar(container) {
     for (const img of container.querySelectorAll("img")) img.addEventListener("error", () => {img.style.visibility = "hidden"}, {once: true});
   }
@@ -625,18 +566,11 @@
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // keyboard: while carrying someone, number keys 1-9 file them straight into the Nth folder,
-  // arrow keys nudge the held chip (shift for a finer step), and escape drops the drag. with
-  // nothing in hand, escape just closes the overlay
 
   function onkeydown(e) {
-    // ctrl+` (backtick) brings up / dismisses the overlay from anywhere - not a browser-reserved
-    // combo (unlike ctrl+tab), and the ctrl-hold peek no longer hides the overlay so it stays visible.
-    // holding ctrl or prtsc to momentarily hide the page ui is handled separately (onpeekdown/up)
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (!state.drag) {
       if (e.key === "Escape") {closeoverlay(); return}
-      // don't let the keyboard scroll the page behind the open overlay (but keep typing in fields)
       const typing = shadow.activeElement && /^(INPUT|TEXTAREA)$/.test(shadow.activeElement.tagName);
       if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;
@@ -685,17 +619,12 @@
     toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), 1800);
   }
 
-  // expose the core state + helpers the drag (overlaydrag.js) and modals (overlaymodals.js) files
-  // read off the shared object. they load AFTER this file, so by the time their iifes run this is
-  // fully populated; els/root were already set in build/wiremarkup. keepopen is a live getter
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast,
     keepopen: () => keepopen
   });
 
-  // public api - the drag/modals functions live on O and load after this file, so wrap them lazily
-  // (an eager `O.enddrag` here would capture undefined)
   window.tum.overlay = {
     mount() {build()},
     begindrag: (user, x, y) => O.begindrag(user, x, y, {type: "page"}),

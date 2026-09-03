@@ -6,8 +6,6 @@
   const LOG = true;
   const log = (...a) => {if (LOG) try {console.log("%c[tum]", "color:#1d9bf0;font-weight:700", ...a)} catch {}};
 
-  // verified live against x.com: follow/block items read "follow @handle" / "block @handle",
-  // but mute reads just "mute" with no handle - matching on a trailing "@" would silently miss it.
   const MENUTEXT = {
     follow: /^follow(\s|$)/i,
     unfollow: /^unfollow(\s|$)/i,
@@ -17,10 +15,6 @@
     unblock: /^unblock(\s|$)/i
   };
 
-  // the primary path: replay twitter's own v1.1 endpoints so an action works for ANY user, whether
-  // or not their tweet/profile is still mounted on the page. these are same-origin (x.com), so the
-  // content-script fetch isn't subject to the page's connect-src csp; they take `screen_name`
-  // directly (no id lookup needed), the public web bearer, and the ct0 cookie as the csrf token
   const ENDPOINTS = {
     follow: "friendships/create.json", unfollow: "friendships/destroy.json",
     mute: "mutes/users/create.json", unmute: "mutes/users/destroy.json",
@@ -28,16 +22,14 @@
   };
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
 
-  // twitter's own toast wording for each action
   const SUCCESSMSG = {
     follow: h => "You followed @" + h, unfollow: h => "You unfollowed @" + h,
     mute: h => "@" + h + " has been muted.", unmute: h => "@" + h + " has been unmuted.",
     block: h => "@" + h + " has been blocked.", unblock: h => "@" + h + " has been unblocked."
   };
 
-  // muting/blocking through the api doesn't update twitter's own react state, so their posts stay
-  // on the page - emulate twitter and hide them ourselves (currently visible + any that load in,
-  // via a persistent observer). the author is matched off the tweet header's own @handle links
+  /*//////////////////////////////////////////////////////////////////////*/
+
   const hidden = new Set();
   let hideobs = null;
   function tweetauthor(art) {
@@ -78,7 +70,7 @@
     const path = ENDPOINTS[action];
     if (!path || !handle) return false;
     const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-    if (!ct0) return false; // not logged in / no csrf token to sign the request
+    if (!ct0) return false;
     try {
       const r = await fetch("/i/api/1.1/" + path, {
         method: "POST",
@@ -126,20 +118,17 @@
   async function clickmenuitem(kind) {
     const re = MENUTEXT[kind];
     const item = await waitfor(() => findmenuitem(re), 1500);
-    if (!item) {log("menu item for", kind, "not found - twitter probably changed the menu"); return false}
+    if (!item) {log("menu item for", kind, "not found, twitter probably changed the menu"); return false}
     item.click();
     return true;
   }
 
   async function confirmdialog() {
-    // block asks for confirmation, mute/follow usually don't
     const btn = await waitfor(() => document.querySelector('[data-testid="confirmationSheetConfirm"]'), 1200);
     if (btn) btn.click();
   }
 
   async function runreal(action, user) {
-    // a profile page has its own dedicated Follow button rather than a "follow @x" item in
-    // the More menu - use it directly when this drag came from there
     if (action === "follow" && user.followbutton) {
       if (!document.contains(user.followbutton)) {
         log("source follow button is gone from the DOM, can't", action, user.handle);
@@ -148,9 +137,6 @@
       user.followbutton.click();
       return true;
     }
-    // a profile-header drag carries its own caret (the page's single overflow button) instead
-    // of an article - using the wrong one here would run the action on whoever's tweet happens
-    // to be first on the page, not the person actually being dropped
     let caret = user.caret;
     if (!caret) {
       if (!user.article || !document.contains(user.article)) {
@@ -166,7 +152,7 @@
     if (!opened) return false;
     const ok = await clickmenuitem(action);
     if (ok && action === "block") await confirmdialog();
-    document.body.click(); // closes any leftover menu
+    document.body.click();
     return ok;
   }
 
@@ -175,15 +161,10 @@
       if (!action) {log("no action set on this folder, just filing", user.handle); return true}
       log("running", action, "on", user.handle);
       try {
-        // api first (works from anywhere); if it fails, fall back to the on-page caret/follow menu
         let ok = await apiaction(action, user.handle);
         if (!ok) ok = await runreal(action, user);
-        if (ok) notify(action, user.handle); // twitter-style toast + hide their posts on mute/block
+        if (ok) notify(action, user.handle);
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
-        // the caret/follow button this needs only exists while the tweet or profile it came
-        // from is still actually mounted on the page - if it scrolled out and got virtualized
-        // away (or the menu item just wasn't where expected), this fails silently otherwise,
-        // which reads as the drop just not having worked at all
         if (!ok) tum.overlay.toast("couldn't " + action + " @" + user.handle + " - scroll back to them and try again");
         return ok;
       } catch (e) {

@@ -3,9 +3,8 @@
 
   window.tum = window.tum || {};
 
-  // block/mute/follow all work reliably now (actions.js hits twitter's api directly), so they're
-  // back as folder auto-actions and note actions - as well as the overlay's action-bar drop-targets
   const ACTIONS = ["follow", "mute", "block"];
+  // how colorful!
   const COLORS = ["#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e"];
   let colorcursor = 0;
   let createcount = 0;
@@ -15,10 +14,14 @@
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
 
+  /*//////////////////////////////////////////////////////////////////////*/
+
   const uid = () => "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {tum.storage.set(list)}
+
+  /*//////////////////////////////////////////////////////////////////////*/
 
   async function load() {
     const v = await tum.storage.get();
@@ -51,7 +54,6 @@
         name: (partial.name || "new folder").slice(0, 40),
         action: ACTIONS.includes(partial.action) ? partial.action : null,
         color: partial.color || nextcolor(),
-        // an id into the icon picker's manifest now, not a raw emoji character - needs more room
         icon: (partial.icon || "").slice(0, 64),
         sort: "added",
         collapsed: false,
@@ -84,10 +86,7 @@
       persist();
       emit();
     },
-    // members are a plain serializable snapshot (not the live DOM/badge data on a dragged
-    // user) since this is what actually gets persisted to storage. callers can pass along
-    // reason/sourceurl explicitly (e.g. when moving a member from another folder) so that
-    // metadata carries over instead of resetting
+
     addmember(id, user) {
       const f = list.find(x => x.id === id);
       if (!f) return null;

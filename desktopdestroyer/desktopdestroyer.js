@@ -62,10 +62,6 @@ function makesound() {
   let ac = null, useel = false, decoding = null;
   const raw = {}, buf = {}, els = {}, loops = {};
 
-  // only FETCH the bytes up front - decoding needs an AudioContext, and creating that at load time
-  // (before any user gesture) leaves it suspended and, in a cross-origin iframe under a strict
-  // autoplay policy, permanently blocked from resuming. so the context is born lazily from the first
-  // real click instead (ensureac), which starts it unblocked
   async function load() {
     if (!audioctx) {
       useel = true;
@@ -76,8 +72,6 @@ function makesound() {
       try {const r = await fetch(sounddir + n + ".wav"); if (r.ok) raw[n] = await r.arrayBuffer()} catch (e) {}
     }));
   }
-  // called from the first user gesture (resume/play): create the context now so it counts as
-  // user-activated, then decode the fetched bytes into it once
   function ensureac() {
     if (useel || ac) return;
     try {ac = new audioctx()} catch (e) {useel = true; return}
@@ -312,14 +306,10 @@ function step() {
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-// when embedded by the extension, the target's avatar comes in via the url hash - paint it as the
-// surface to be destroyed (a big face to smash), full-res where twitter offers a sized variant
 function setbackdrop() {
   const raw = decodeURIComponent((location.hash || "").slice(1));
   if (!raw) return;
   const av = raw.replace(/_(normal|bigger|mini|\d+x\d+)\.(jpg|jpeg|png|webp|gif)$/i, "_400x400.$2");
-  // avatar centered at ~half the page (whichever page side is smaller), aspect kept - not stretched
-  // to cover the whole surface. min(50vw,50vh) stays square for a square pfp
   document.body.style.background = "#fff url('" + av + "') center/min(50vw,50vh) auto no-repeat";
 }
 

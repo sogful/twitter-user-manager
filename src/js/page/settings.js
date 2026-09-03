@@ -28,10 +28,6 @@
   function onus() {return location.pathname.replace(/\/$/, "") === FAKE}
   function navtab() {return document.querySelector('[data-testid="usermanagerLink"]')}
 
-  // twitter paints its "page doesn't exist" card for our unknown route before our scan swaps in the
-  // pane - a css rule keyed off a <html> class hides that card the instant we're on the route, so the
-  // not-found frame never flashes. the class is set synchronously in navto (before twitter's router
-  // even reacts to the popstate) and kept in sync on every scan
   function ensureflashstyle() {
     if (document.getElementById("tumusmstyle")) return;
     const st = document.createElement("style");
@@ -65,7 +61,6 @@
     a.setAttribute("aria-selected", "false");
     const leaf = [...a.querySelectorAll("span")].find(s => !s.children.length);
     if (leaf) leaf.textContent = "User Manager";
-    // sit it just above Help Center (the external link that's always last), else append
     const help = list.querySelector('[data-testid="helpCenterLink"]');
     if (help) list.insertBefore(a, help);
     else list.appendChild(a);
@@ -78,11 +73,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // read twitter's own settings text colour so the pane matches the current theme; the secondary
-  // (description) colour is just the primary dimmed, which reads right in both light and dark
   function palette() {
-    // read the colour off twitter's own tab LABEL (a link's own colour is the blue link colour,
-    // not the near-black primary text) so the pane matches the real settings text in either theme
     const ref = document.querySelector('a[role="tab"] [data-testid="test-LTRtext"]') ||
       document.querySelector('a[role="tab"] span') || document.querySelector('a[role="tab"]') || document.body;
     const primary = getComputedStyle(ref).color || "rgb(15,20,25)";
@@ -91,11 +82,7 @@
     return {primary, sec};
   }
 
-  // twitter's own square checkbox look: rounded box, blue fill + white check when on. a <span>, not
-  // a <button> - twitter's global button styling overrides even an inline !important background
   function makecheckbox(key) {
-    // twitter wraps its checkbox in a larger circular hit area that tints light-blue on hover;
-    // the square check sits centered inside it
     const wrap = document.createElement("span");
     wrap.className = "tumsetcheckwrap";
     wrap.dataset.key = key;
@@ -163,11 +150,10 @@
     return pane;
   }
 
-  // on our route, hide twitter's not-found card and drop our pane into that same detail column
   function ensurepane() {
     if (!onus()) {const p = document.querySelector(".tumsettingspane"); if (p) p.remove(); return}
-    // twitter titles the unknown route "Page not found / X" - make it read our section instead
-    if (document.title !== "User Manager / X") document.title = "User Manager / X";
+    // not sure on how to approach external extensions swapping the end for " / Twitter" so ig it just won't have it
+    if (document.title !== "User Manager") document.title = "User Manager";
     markselected();
     const err = document.querySelector('[data-testid="error-detail"]');
     if (err) err.style.display = "none";
@@ -186,14 +172,9 @@
   window.tum.settingspane = {open() {if (!onus()) navto(FAKE)}};
 
   window.tum.settings = {
-    // synchronous read for the other modules; falls back to the default until the store loads
     get(key) {return key in vals ? vals[key] : DEFAULTS[key]},
-    // fires whenever any toggle changes (and once the store first loads); returns an unsubscribe
     onchange(cb) {listeners.add(cb); return () => listeners.delete(cb)},
     init() {
-      // twitter's tablist swallows clicks on its tab children in the capture phase (it only routes
-      // the tabs it knows), so our <a>'s own listener never fires - catch the click at document
-      // capture, ahead of twitter's, and drive the nav ourselves through a body-level link
       document.addEventListener("click", e => {
         if (e.target.closest && e.target.closest('[data-testid="usermanagerLink"]')) {
           e.preventDefault();
@@ -203,7 +184,6 @@
       }, true);
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
-      // cover a direct load / refresh of the route too - hide the card as early as we run
       syncroute();
       schedule();
     }

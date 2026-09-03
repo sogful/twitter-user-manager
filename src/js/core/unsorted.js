@@ -3,8 +3,6 @@
 
   window.tum = window.tum || {};
 
-  // people dropped outside any folder - kept exactly where they were released instead of
-  // vanishing, draggable later into a real folder (or moved around freely)
   const store = tum.storage.create("tum.unsorted");
 
   let list = [];
@@ -32,9 +30,6 @@
     ready,
     list: () => list.slice(),
     get: handle => list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase()),
-    // placed = actually released onto the canvas (has a spot, renders as a loose chip). a note-only
-    // entry (added with placed:false, no x/y) stores the note but stays off the canvas - it only
-    // surfaces as the page note badge, and becomes placed the moment it's dragged onto the canvas
     add(user, x, y) {
       const key = (user.handle || "").toLowerCase();
       const existing = list.find(m => m.handle.toLowerCase() === key);

@@ -1,0 +1,56 @@
+name: release userscript
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - manifest.json
+      - src/**
+      - assets/**
+      - .github/builduserscript.js
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: build userscript
+        run: node .github/builduserscript.js
+
+      - name: stage asset as userscript.user.js
+        run: cp .github/twitterusermanager.user.js userscript.user.js
+
+      - name: read version from manifest
+        id: ver
+        run: echo "version=$(node -p "require('./manifest.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: write release notes
+        run: |
+          cat > notes.md <<'EOF'
+          install with [tampermonkey](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) or [violentmonkey](https://chromewebstore.google.com/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag).<br>
+          prefer the real extension? load the repo unpacked - the manifest works on both chrome and firefox.<br>
+          [*what is a userscript?*](https://en.wikipedia.org/wiki/Userscript)
+          EOF
+
+      - name: create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ steps.ver.outputs.version }}"
+          title="userscript (v${{ steps.ver.outputs.version }})"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" --notes-file notes.md
+            gh release upload "$tag" userscript.user.js --clobber
+          else
+            gh release create "$tag" userscript.user.js --title "$title" --notes-file notes.md
+          fi

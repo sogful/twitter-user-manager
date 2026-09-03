@@ -8,12 +8,12 @@
   let categories = [];
   let ready = null;
 
-  // the manifest only holds path references now, not inlined svg markup - fetched on demand
-  // (and cached as resolved text, so a later sync lookup through svgfor() can actually hit)
-  // so assets/static/icons.json stays a fraction of the size of the icon set on disk
-  const svgcache = new Map(); // id -> resolved svg text
+  const svgcache = new Map();   // id -> resolved svg text
   const svgpending = new Map(); // id -> in-flight promise
   const loadlisteners = new Set();
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   let notifyraf = 0;
   function notifyloaded() {
     if (notifyraf) return;
@@ -22,9 +22,7 @@
       for (const cb of loadlisteners) try {cb()} catch {}
     });
   }
-  // manifest ids are root-relative ("assets/svgs/..."). chrome.runtime.getURL resolves those
-  // against the extension root regardless of which page injected this script; the fallback
-  // (preview.html, at src/html/) needs them relative to that page instead
+
   function iconurl(id) {
     try {return chrome.runtime.getURL(id)} catch {return "../../" + id}
   }
@@ -40,9 +38,6 @@
     svgpending.set(id, p);
     return p;
   }
-  // warm the cache in the background right after the manifest loads, in small batches so it
-  // doesn't fire 600 requests at once - by the time someone actually opens the picker most
-  // icons are already sitting in memory instead of popping in one by one
   async function prefetchall() {
     const batch = 24;
     for (let i = 0; i < manifest.length; i += batch) {
@@ -68,16 +63,8 @@
   loadmanifest();
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // real twemoji svgs (from the jdecked/twemoji cdn fork - twitter's own repo is archived),
-  // not the system emoji font, so these actually look like twitter's emoji. the full list of
-  // codepoints this covers plus their names/categories lives in its own json (built from a
-  // local mirror of the cdn's asset folder cross-referenced against the standard unicode emoji
-  // metadata), same reasoning as the icon manifest - no point inlining thousands of svgs when
-  // a path reference is enough. category names/order copied from x.com's own compose picker
 
   const EMOJICATORDER = ["Smileys & people", "Animals & nature", "Food & drink", "Activity", "Travel & places", "Objects", "Symbols", "Flags"];
-  // the exact category-tab emoji x.com's own picker uses (read live from its category buttons),
-  // by codepoint - so our tab row mirrors theirs instead of just grabbing the first emoji
   const CATICON = {
     "Smileys & people": "1f600", "Animals & nature": "1f43b", "Food & drink": "1f354",
     "Activity": "26bd", "Travel & places": "1f698", "Objects": "1f4a1",
@@ -87,8 +74,7 @@
   let emojicategories = [];
   let emojiready = null;
 
-  // twitter's own emoji cdn (abs.twimg.com) - x.com's CSP allows it, unlike the jsdelivr twemoji
-  // fork which img-src blocks. same twemoji artwork, same codepoint filenames
+  // i hope they don't remove this cdn from the whole bullshit twemoji phasing out
   function emojiurl(id) {
     return `https://abs.twimg.com/emoji/v2/svg/${id}.svg`;
   }
@@ -113,9 +99,6 @@
   let onpickcb = null, outsideclick = null, hostroot = null;
   let issearching = false;
 
-  // icon categories come from folder names (lowercase: "ai", "analytics") - x.com's picker
-  // headers are capitalized, so title-case them for display (emoji category labels already
-  // arrive proper-cased, so those are left as-is)
   const capitalize = s => s.replace(/\b\w/g, c => c.toUpperCase());
 
   function matches(icon, q) {
@@ -148,23 +131,15 @@
     img.src = emojiurl(e.id);
     img.alt = e.char;
     img.loading = "lazy";
-    // a page's img-src CSP (x.com's included) can block an unlisted external host outright -
-    // fall back to the plain unicode character rather than a broken image icon if that happens
     img.addEventListener("error", () => {img.remove(); btn.textContent = e.char}, {once: true});
     btn.appendChild(img);
     btn.addEventListener("click", () => {
-      // store the codepoint (prefixed so it's distinguishable from an svg path id) rather than
-      // the raw char, so the folder icon can render the same twemoji instead of the OS emoji
       if (onpickcb) onpickcb("emoji:" + e.id);
       close();
     });
     return btn;
   }
 
-  // build just the empty section shells up front, then fill each section's icons only as it nears
-  // the viewport - eagerly building all ~600 icon buttons (+ inlining their svg) is what froze the
-  // page on open. content-visibility on the sections (css) gives the unfilled ones a placeholder
-  // height so the scroll area is sized and the observer doesn't fire for everything at once
   function mksection(cat, type) {
     const section = document.createElement("div");
     section.className = "tumipsection";
@@ -191,9 +166,6 @@
       for (const ic of manifest) if (ic.category === cat) row.appendChild(makeitem(ic));
     }
   }
-  // fill any not-yet-built section whose placeholder is within ~a screen of the viewport; filling
-  // shifts later sections up, so re-run until nothing new comes into range. driven off scroll (an
-  // IntersectionObserver proved unreliable against content-visibility here)
   function fillvisible() {
     if (issearching || !grid) return;
     const gr = grid.getBoundingClientRect();
@@ -203,8 +175,6 @@
       const r = s.getBoundingClientRect();
       if (r.top < gr.bottom + 500 && r.bottom > gr.top - 500) {fillsection(s); did = true}
     }
-    // setTimeout, not rAF - rAF is paused while the tab isn't focused, which would leave the whole
-    // grid blank until the user interacted (same reason badges.js/suggest.js avoid it)
     if (did) setTimeout(fillvisible, 0);
   }
   function rendercategories() {
@@ -300,13 +270,9 @@
 
   function onscroll() {
     if (issearching) return;
-    fillvisible(); // populate sections as they scroll into range
+    fillvisible();
     const sections = [...grid.querySelectorAll(".tumipsection")];
     if (!sections.length) return;
-    // the very last section usually can't be scrolled all the way flush to the top (there's
-    // nothing left below it to push it up further), so a plain nearest-top match would keep
-    // picking the section before it - special-case being scrolled to the bottom, same fix
-    // the kaomoji picker this is modeled on uses for its own category highlighting
     const atbottom = Math.ceil(grid.scrollTop + grid.clientHeight) >= grid.scrollHeight - 1;
     if (atbottom) {selectcat(sections[sections.length - 1].dataset.category); return}
     const gridtop = grid.getBoundingClientRect().top;
@@ -336,9 +302,6 @@
   function open(anchorel, onpick) {
     if (!panel) return;
     onpickcb = onpick;
-    // both manifests need to be in before the first paint - building the tab bar/grid off just
-    // the icon manifest (ready sooner, since it's smaller) and letting the emoji half pop in
-    // once its own fetch finally resolved is what made the emoji rows seem to show "late"
     Promise.all([loadmanifest(), loademoji()]).then(() => {
       buildcats();
       rendercategories();
@@ -348,8 +311,6 @@
       requestAnimationFrame(() => searchinput.focus());
     });
     if (!outsideclick) {
-      // listening on the shadow root itself (not document) - a document-level listener would
-      // see every shadow-internal click retargeted to the host element, breaking contains()
       outsideclick = e => {if (panel && !panel.contains(e.target) && e.target !== anchorel && !anchorel.contains(e.target)) close()};
       hostroot.addEventListener("pointerdown", outsideclick, true);
     }
@@ -385,9 +346,6 @@
     emojicats = panel.querySelector(".tumipcatsemoji");
     grid = panel.querySelector(".tumipgrid");
     searchinput = panel.querySelector(".tumipsearchinput");
-    // x.com's own picker has a skin-tone swatch in this exact footer slot - meaningless for a
-    // flat monochrome icon set, so a color picker sits there instead, previewing a tint live
-    // while browsing (this doesn't persist onto a saved folder icon, just the picker itself)
     panel.querySelector(".tumipcolor").addEventListener("input", e => {
       grid.style.setProperty("--tumipcolor", e.target.value);
     });
@@ -403,8 +361,6 @@
   window.tum.iconpicker = {
     mount: build,
     open, close,
-    // synchronous - returns "" if not fetched yet, which callers fall back to a default icon
-    // for. getsvg() below kicks the real fetch off so a later onload() notification catches up
     svgfor: id => {if (id && !svgcache.has(id)) getsvg(id); return svgcache.get(id) || ""},
     emojiurl,
     onload: cb => loadlisteners.add(cb)

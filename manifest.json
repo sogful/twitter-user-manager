@@ -5,6 +5,15 @@
   "description": "sort and get additional info for accounts!",
   "author": "cv",
   "homepage_url": "https://coolsite.cv",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "twitter-user-manager@cv",
+      "strict_min_version": "128.0"
+    },
+    "gecko_android": {
+      "strict_min_version": "128.0"
+    }
+  },
   "icons": {
     "16": "assets/images/icon16.png",
     "48": "assets/images/icon48.png",
@@ -19,7 +28,7 @@
   },
   "permissions": ["storage", "cookies"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*"],
-  "background": {"service_worker": "src/js/background.js"},
+  "background": {"service_worker": "src/js/background.js", "scripts": ["src/js/background.js"]},
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
@@ -51,7 +60,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg", "assets/images/text.png", "desktopdestroyer/*", "desktopdestroyer/**"],
+      "resources": ["src/css/overlay.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/*/*.svg", "assets/images/text.png", "desktopdestroyer/*"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

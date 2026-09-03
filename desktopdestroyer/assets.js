@@ -43,7 +43,6 @@ for (const k in sheets) {
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-// plain (non-sheet) images, grouped by damage type
 function nums(dir, name, n) {
   return Array.from({length: n}, (nil, i) => img + dir + "/" + name + (i + 1) + ".png");
 }

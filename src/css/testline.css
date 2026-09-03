@@ -1,6 +1,20 @@
-@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../assets/fonts/chirp.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../assets/fonts/chirpbold.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
+@font-face {
+  font-family: "Chirp"; 
+  font-weight: 400; font-display: swap; 
+  src: url("../../assets/fonts/chirp.woff2") format("woff2")
+}
+@font-face {
+  font-family: "Chirp"; 
+  font-weight: 700; font-display: swap; 
+  src: url("../../assets/fonts/chirpbold.woff2") format("woff2")
+}
+@font-face {
+  font-family: "Chirp"; 
+  font-weight: 800; font-display: swap; 
+  src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
 
 html {scrollbar-gutter: stable}
 html, body {margin: 0; height: 100%}
@@ -12,9 +26,6 @@ body {
   -webkit-font-smoothing: antialiased
 }
 
-/* twitter's own scrollbar: thin, rounded, faint gray thumb, no visible track.
-   scrollbar-gutter above keeps its reserved space constant so it never shifts layout,
-   which is as close to a true non-reflowing overlay scrollbar as CSS alone gets in chromium */
 ::-webkit-scrollbar {width: 8px; height: 8px}
 ::-webkit-scrollbar-track {background: transparent}
 ::-webkit-scrollbar-thumb {
@@ -23,6 +34,8 @@ body {
   background-clip: padding-box
 }
 * {scrollbar-width: thin; scrollbar-color: rgba(113,118,123,0.4) transparent}
+
+/*//////////////////////////////////////////////////////////////////////*/
 
 .faketimeline {
   max-width: 600px; margin: 0 auto;
