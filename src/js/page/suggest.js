@@ -33,7 +33,7 @@
     b.dataset.kind = kind;
     b.style.cssText = "display:flex;align-items:center;gap:10px;padding:12px 16px;font-family:" + FONT + ";border-bottom:1px solid " + pal.border + ";background:" + pal.hover + ";color:" + pal.text;
     b.innerHTML =
-      '<span style="flex:1;font-size:13px;line-height:1.35">drag any account here onto a folder in the overlay to sort your ' + KINDS[kind].label + ' list - one at a time, however you like.</span>' +
+      '<span style="flex:1;font-size:13px;line-height:1.35">You can sort your ' + KINDS[kind].label + ' tab into folders from here!</span>' +
       '<button class="tumsuggestx" style="background:none;border:none;color:' + pal.muted + ';cursor:pointer;font-size:13px;font-weight:700;padding:4px 8px;font-family:inherit">dismiss</button>';
     b.querySelector(".tumsuggestx").addEventListener("click", () => {dismissed.add(kind); removebanner()});
     return b;

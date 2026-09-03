@@ -157,6 +157,10 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round; display: block
 }
+/* picker icons carry their own fill/stroke (fill="currentColor" on the root); the built-in stroke
+   icons have no fill attr. so for the custom ones, render by their own fill and kill the inherited
+   fat 2.2 stroke that was outlining + blackening them */
+.tumfolderactionicon svg[fill] {fill: currentColor; stroke: none}
 .tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, #fff)}
 .tumfolderactionicon img {width: 16px; height: 16px; display: block}
 .tumfoldername {
@@ -524,6 +528,7 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
+.tummodaliconbtn svg[fill] {fill: currentColor; stroke: none; color: var(--tumtext,#e7e9ea)}
 .tummodaliconbtn img {width: 22px; height: 22px}
 .tummodalname {border-radius: 999px}
 .tumreasoninput {
@@ -623,7 +628,9 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumipcat svg {width: 15px; height: 15px}
 .tumipcat img {width: 18px; height: 18px}
 .tumipgrid {flex: 1; min-height: 0; overflow-y: auto}
-.tumipsection {margin-bottom: 6px}
+/* content-visibility skips rendering off-screen sections; contain-intrinsic-size gives an unfilled
+   one a placeholder height so the scroll area is sized before its icons are lazily added */
+.tumipsection {margin-bottom: 6px; content-visibility: auto; contain-intrinsic-size: auto 300px}
 /* x.com's own emoji picker uses prominent 17px bold sentence-case section headers in the
    primary text color - matched here rather than the faint gray labels this had before */
 .tumipsectiontitle {

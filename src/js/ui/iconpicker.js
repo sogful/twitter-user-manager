@@ -161,37 +161,58 @@
     return btn;
   }
 
+  // build just the empty section shells up front, then fill each section's icons only as it nears
+  // the viewport - eagerly building all ~600 icon buttons (+ inlining their svg) is what froze the
+  // page on open. content-visibility on the sections (css) gives the unfilled ones a placeholder
+  // height so the scroll area is sized and the observer doesn't fire for everything at once
+  function mksection(cat, type) {
+    const section = document.createElement("div");
+    section.className = "tumipsection";
+    section.dataset.category = cat;
+    section.dataset.type = type;
+    const title = document.createElement("div");
+    title.className = "tumipsectiontitle";
+    title.textContent = type === "emoji" ? cat.slice(6) : capitalize(cat);
+    const row = document.createElement("div");
+    row.className = type === "emoji" ? "tumipemojirow" : "tumiprow";
+    section.appendChild(title);
+    section.appendChild(row);
+    return section;
+  }
+  function fillsection(section) {
+    if (section.dataset.filled) return;
+    section.dataset.filled = "1";
+    const row = section.querySelector(".tumiprow, .tumipemojirow");
+    const cat = section.dataset.category;
+    if (section.dataset.type === "emoji") {
+      const ec = cat.slice(6);
+      for (const e of emojilist) if (e.category === ec) row.appendChild(makeemojiitem(e));
+    } else {
+      for (const ic of manifest) if (ic.category === cat) row.appendChild(makeitem(ic));
+    }
+  }
+  // fill any not-yet-built section whose placeholder is within ~a screen of the viewport; filling
+  // shifts later sections up, so re-run until nothing new comes into range. driven off scroll (an
+  // IntersectionObserver proved unreliable against content-visibility here)
+  function fillvisible() {
+    if (issearching || !grid) return;
+    const gr = grid.getBoundingClientRect();
+    let did = false;
+    for (const s of grid.querySelectorAll(".tumipsection")) {
+      if (s.dataset.filled) continue;
+      const r = s.getBoundingClientRect();
+      if (r.top < gr.bottom + 500 && r.bottom > gr.top - 500) {fillsection(s); did = true}
+    }
+    // setTimeout, not rAF - rAF is paused while the tab isn't focused, which would leave the whole
+    // grid blank until the user interacted (same reason badges.js/suggest.js avoid it)
+    if (did) setTimeout(fillvisible, 0);
+  }
   function rendercategories() {
     grid.innerHTML = "";
     issearching = false;
-    for (const cat of categories) {
-      const section = document.createElement("div");
-      section.className = "tumipsection";
-      section.dataset.category = cat;
-      const title = document.createElement("div");
-      title.className = "tumipsectiontitle";
-      title.textContent = capitalize(cat);
-      const row = document.createElement("div");
-      row.className = "tumiprow";
-      for (const ic of manifest) if (ic.category === cat) row.appendChild(makeitem(ic));
-      section.appendChild(title);
-      section.appendChild(row);
-      grid.appendChild(section);
-    }
-    for (const cat of emojicategories) {
-      const section = document.createElement("div");
-      section.className = "tumipsection";
-      section.dataset.category = "emoji:" + cat;
-      const title = document.createElement("div");
-      title.className = "tumipsectiontitle";
-      title.textContent = cat;
-      const row = document.createElement("div");
-      row.className = "tumipemojirow";
-      for (const e of emojilist) if (e.category === cat) row.appendChild(makeemojiitem(e));
-      section.appendChild(title);
-      section.appendChild(row);
-      grid.appendChild(section);
-    }
+    for (const cat of categories) grid.appendChild(mksection(cat, "icon"));
+    for (const cat of emojicategories) grid.appendChild(mksection("emoji:" + cat, "emoji"));
+    setTimeout(fillvisible, 0);
   }
 
   function rendersearch(q) {
@@ -248,7 +269,7 @@
     btn.addEventListener("click", () => {
       if (issearching) {searchinput.value = ""; rendercategories()}
       const section = grid.querySelector(`.tumipsection[data-category="${CSS.escape(key)}"]`);
-      if (section) section.scrollIntoView({block: "start", behavior: "instant"});
+      if (section) {fillsection(section); section.scrollIntoView({block: "start", behavior: "instant"}); fillvisible()}
       selectcat(key);
     });
     container.appendChild(btn);
@@ -279,6 +300,7 @@
 
   function onscroll() {
     if (issearching) return;
+    fillvisible(); // populate sections as they scroll into range
     const sections = [...grid.querySelectorAll(".tumipsection")];
     if (!sections.length) return;
     // the very last section usually can't be scrolled all the way flush to the top (there's

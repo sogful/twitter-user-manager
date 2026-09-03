@@ -3,9 +3,9 @@
 
   window.tum = window.tum || {};
 
-  // block/mute now live as dedicated drop-targets in the overlay (see overlay.js action bar), so a
-  // folder's own auto-action is just follow. older stored folders keep whatever action they had
-  const ACTIONS = ["follow"];
+  // block/mute/follow all work reliably now (actions.js hits twitter's api directly), so they're
+  // back as folder auto-actions and note actions - as well as the overlay's action-bar drop-targets
+  const ACTIONS = ["follow", "mute", "block"];
   const COLORS = ["#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e"];
   let colorcursor = 0;
   let createcount = 0;

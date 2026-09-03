@@ -379,6 +379,23 @@
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets: dimtargets.filter(Boolean), article, source: "live"};
   }
 
+  // the logged-in account - you can't drag yourself into a folder (nor block/mute/follow yourself).
+  // read off the sidebar profile link, falling back to the account switcher, cached once resolved
+  let ownhandlecache = null;
+  function ownhandle() {
+    if (ownhandlecache) return ownhandlecache;
+    const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
+    let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+    if (!h) {
+      const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]');
+      const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || "");
+      if (m) h = m[1];
+    }
+    if (h) ownhandlecache = h.toLowerCase();
+    return ownhandlecache;
+  }
+  function isself(handle) {const o = ownhandle(); return !!o && (handle || "").toLowerCase() === o}
+
   let tracking = null; // {startx, starty, user, dragging}
 
   function onpointerdown(e) {
@@ -415,6 +432,7 @@
       }
     }
     if (!user) return;
+    if (isself(user.handle)) return; // never pop yourself out - can't file/act on your own account
     tracking = {startx: e.clientX, starty: e.clientY, user, dragging: false};
   }
 

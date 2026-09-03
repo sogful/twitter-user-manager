@@ -28,6 +28,51 @@
   };
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
 
+  // twitter's own toast wording for each action
+  const SUCCESSMSG = {
+    follow: h => "You followed @" + h, unfollow: h => "You unfollowed @" + h,
+    mute: h => "@" + h + " has been muted.", unmute: h => "@" + h + " has been unmuted.",
+    block: h => "@" + h + " has been blocked.", unblock: h => "@" + h + " has been unblocked."
+  };
+
+  // muting/blocking through the api doesn't update twitter's own react state, so their posts stay
+  // on the page - emulate twitter and hide them ourselves (currently visible + any that load in,
+  // via a persistent observer). the author is matched off the tweet header's own @handle links
+  const hidden = new Set();
+  let hideobs = null;
+  function tweetauthor(art) {
+    const nb = art.querySelector('[data-testid="User-Name"]');
+    if (!nb) return null;
+    for (const a of nb.querySelectorAll('a[role="link"][href^="/"]')) {
+      const h = (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "").toLowerCase();
+      if (/^[a-z0-9_]+$/.test(h)) return h;
+    }
+    return null;
+  }
+  function applyhide() {
+    if (!hidden.size) return;
+    for (const art of document.querySelectorAll("article")) {
+      if (art.dataset.tumhidden) continue;
+      const author = tweetauthor(art);
+      if (author && hidden.has(author)) {art.style.display = "none"; art.dataset.tumhidden = author}
+    }
+  }
+  function hideposts(handle) {
+    hidden.add(handle.toLowerCase());
+    if (!hideobs) {hideobs = new MutationObserver(applyhide); hideobs.observe(document.body, {childList: true, subtree: true})}
+    applyhide();
+  }
+  function showposts(handle) {
+    const h = handle.toLowerCase();
+    hidden.delete(h);
+    for (const art of document.querySelectorAll('article[data-tumhidden="' + h + '"]')) {art.style.display = ""; delete art.dataset.tumhidden}
+  }
+  function notify(action, handle) {
+    try {tum.overlay.toast(SUCCESSMSG[action] ? SUCCESSMSG[action](handle) : action + " @" + handle)} catch {}
+    if (action === "mute" || action === "block") hideposts(handle);
+    else if (action === "unmute" || action === "unblock") showposts(handle);
+  }
+
   async function apiaction(action, handle) {
     const path = ENDPOINTS[action];
     if (!path || !handle) return false;
@@ -132,6 +177,7 @@
         // api first (works from anywhere); if it fails, fall back to the on-page caret/follow menu
         let ok = await apiaction(action, user.handle);
         if (!ok) ok = await runreal(action, user);
+        if (ok) notify(action, user.handle); // twitter-style toast + hide their posts on mute/block
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
         // the caret/follow button this needs only exists while the tweet or profile it came
         // from is still actually mounted on the page - if it scrolled out and got virtualized

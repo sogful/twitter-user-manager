@@ -80,7 +80,11 @@
       }
       const namelink = namebox.querySelector('a[role="link"][href^="/"]');
       if (!namelink) continue;
-      namebox.insertBefore(makebadge(handle, entry), namelink.nextSibling);
+      // append onto the display name's own text line (the first dir="ltr" inside the name link) so
+      // it sits inline right after the name in BOTH the timeline row and the expanded column layout
+      // - inserting against the namebox/parent put it on its own line below in the expanded tweet
+      const nameline = namelink.querySelector('div[dir="ltr"]') || namelink;
+      nameline.appendChild(makebadge(handle, entry));
     }
   }
 
@@ -129,7 +133,12 @@
     dot.style.borderColor = pagebg;
     const fg = dotcontrast(entry.color);
     dot.innerHTML = tum.overlay.foldericonhtml ? tum.overlay.foldericonhtml(entry) : "";
-    for (const svg of dot.querySelectorAll("svg")) {svg.style.cssText = "width:11px;height:11px;stroke:" + fg + ";fill:none;stroke-width:2.4;display:block"}
+    for (const svg of dot.querySelectorAll("svg")) {
+      // a custom picker icon carries its own fill="currentColor" paths - just set the colour and let
+      // them draw themselves; only the built-in stroke icons want the forced fill:none + stroke
+      if (svg.hasAttribute("fill")) svg.style.cssText = "width:11px;height:11px;color:" + fg + ";display:block";
+      else svg.style.cssText = "width:11px;height:11px;stroke:" + fg + ";fill:none;stroke-width:2.4;display:block";
+    }
     for (const img of dot.querySelectorAll("img")) {img.style.cssText = "width:12px;height:12px;display:block"}
   }
   function scanavatars() {

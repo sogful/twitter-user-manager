@@ -237,6 +237,8 @@
           </div>
           <div class="tummodalactions">
             <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>autofollow</span></button>
+            <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>automute</span></button>
+            <button data-action="block" class="tummodalaction">${ICONS.block}<span>autoblock</span></button>
           </div>
           <div class="tummodalcolors"></div>
           <button class="tummodalsave">create</button>
@@ -256,7 +258,9 @@
           </div>
           <div class="tumreasonform">
             <div class="tumreasonactions">
-              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>autofollow</span></button>
+              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
+              <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
+              <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
             </div>
             <textarea class="tumreasoninput" maxlength="500" placeholder="Add notes here.."></textarea>
             <button class="tumreasonsave">save note</button>
