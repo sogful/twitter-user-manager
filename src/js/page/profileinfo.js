@@ -459,7 +459,14 @@
     leaf.insertAdjacentElement("afterend", badge);
   }
 
+  // added, removable extras (the woven-in join-date/count rewrites revert on the next page load).
+  // ".tumbreachbadge" also drops its click-opened modal via the badge going away
+  function removeextras() {
+    for (const n of document.querySelectorAll(".tumextrablock, .tumbreachbadge, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday")) n.remove();
+  }
+
   function scan() {
+    if (tum.settings && !tum.settings.get("extrainfo")) {removeextras(); return}
     const handle = currenthandle();
     const items = document.querySelector(ITEMSSEL);
     if (!handle || !items) return;
@@ -523,6 +530,7 @@
         else if (e.data.__tumabout) {aboutdata.set(e.data.data.handle.toLowerCase(), e.data.data); schedule()}
       });
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
+      if (tum.settings) tum.settings.onchange(schedule);
       schedule();
     }
   };

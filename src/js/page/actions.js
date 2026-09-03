@@ -69,7 +69,8 @@
   }
   function notify(action, handle) {
     try {tum.overlay.toast(SUCCESSMSG[action] ? SUCCESSMSG[action](handle) : action + " @" + handle)} catch {}
-    if (action === "mute" || action === "block") hideposts(handle);
+    const hide = !tum.settings || tum.settings.get("hideposts");
+    if (hide && (action === "mute" || action === "block")) hideposts(handle);
     else if (action === "unmute" || action === "unblock") showposts(handle);
   }
 

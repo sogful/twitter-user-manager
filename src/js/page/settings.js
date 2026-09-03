@@ -3,28 +3,31 @@
 
   window.tum = window.tum || {};
 
-  // a fake settings section at /settings/usermanager. twitter's own client already tolerates the
-  // unknown route (it stays on the url and just renders a "page doesn't exist" card in the detail
-  // column), so we add a "User Manager" tab to its nav list and swap that not-found card for our
-  // own pane. works on refresh/direct load because it's driven off location.pathname, not a click
   const FAKE = "/settings/usermanager";
   const NAVSEL = 'div[role="tablist"]';
   const CHIRP = '"TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
   const store = tum.storage.create("tum.settings");
 
-  let keepopen = false;
-  store.get().then(v => {keepopen = !!(v && v.keepopen); syncswitch()});
-  store.subscribe(v => {keepopen = !!(v && v.keepopen); syncswitch()});
+  const DEFAULTS = {keepopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
+  const SCHEMA = [
+    {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after filing someone into a folder instead of fading it out."},
+    {key: "pagepencils", title: "Note pencils on the page", desc: "Show a small pencil next to people you've saved a note on, in tweets and on profiles."},
+    {key: "avatardots", title: "Folder tags on avatars", desc: "Mark the avatar of anyone you've filed with their folder's colour and icon."},
+    {key: "extrainfo", title: "Extended profile info", desc: "Add the account id, email, exact age, location and breach lookups on profiles."},
+    {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."},
+    {key: "destroyoption", title: "Fun", desc: "Yeah..."}
+  ];
+  let vals = {...DEFAULTS};
+  const listeners = new Set();
+  function emitchange() {for (const cb of listeners) try {cb(vals)} catch (e) {}}
+  store.get().then(v => {vals = {...DEFAULTS, ...(v || {})}; syncswitches(); emitchange()});
+  store.subscribe(v => {vals = {...DEFAULTS, ...(v || {})}; syncswitches(); emitchange()});
+  function setval(key, on) {vals = {...vals, [key]: on}; store.set(vals); syncswitches(); emitchange()}
 
   function onsettings() {return location.pathname.indexOf("/settings") === 0}
   function onus() {return location.pathname.replace(/\/$/, "") === FAKE}
   function navtab() {return document.querySelector('[data-testid="usermanagerLink"]')}
 
-  // navigate WITHOUT a reload: twitter's spa router listens on popstate, so pushState + a synthetic
-  // popstate makes it render the route client-side (a raw <a> click, by contrast, full-reloads -
-  // twitter routes via its own react Link handlers, not bare anchor navigations). works from any
-  // page: for /settings/usermanager twitter renders the settings shell + its not-found card, which
-  // ensurepane then swaps for ours
   function navto(path) {
     history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -32,9 +35,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // clone one of twitter's real settings tabs so ours inherits its exact styling, then relabel it.
-  // appended at the end of the list (not spliced in) so react's reconciliation of its own children
-  // doesn't trip over our extra node
   function ensurenav() {
     if (!onsettings()) return;
     const list = document.querySelector(NAVSEL);
@@ -76,11 +76,12 @@
 
   // twitter's own square checkbox look: rounded box, blue fill + white check when on. a <span>, not
   // a <button> - twitter's global button styling overrides even an inline !important background
-  function makecheckbox() {
+  function makecheckbox(key) {
     // twitter wraps its checkbox in a larger circular hit area that tints light-blue on hover;
     // the square check sits centered inside it
     const wrap = document.createElement("span");
     wrap.className = "tumsetcheckwrap";
+    wrap.dataset.key = key;
     wrap.style.cssText = "display:flex;align-items:center;justify-content:center;width:38px;height:38px;" +
       "border-radius:50%;flex:0 0 auto;cursor:pointer";
     const box = document.createElement("span");
@@ -92,20 +93,41 @@
     box.innerHTML = '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
     const svg = box.querySelector("svg");
     function paint() {
-      box.style.background = keepopen ? "#1d9bf0" : "transparent";
-      box.style.border = keepopen ? "2px solid #1d9bf0" : "2px solid rgba(120,120,120,0.7)";
-      svg.style.opacity = keepopen ? "1" : "0";
-      box.setAttribute("aria-checked", keepopen ? "true" : "false");
+      const on = !!vals[key];
+      box.style.background = on ? "#1d9bf0" : "transparent";
+      box.style.border = on ? "2px solid #1d9bf0" : "2px solid rgba(120,120,120,0.7)";
+      svg.style.opacity = on ? "1" : "0";
+      box.setAttribute("aria-checked", on ? "true" : "false");
     }
     paint();
     box._paint = paint;
-    wrap.addEventListener("click", () => {keepopen = !keepopen; store.set({keepopen}); paint()});
+    wrap.addEventListener("click", () => setval(key, !vals[key]));
     wrap.addEventListener("mouseenter", () => {wrap.style.background = "rgba(29,155,240,0.1)"});
     wrap.addEventListener("mouseleave", () => {wrap.style.background = ""});
     wrap.appendChild(box);
     return wrap;
   }
-  function syncswitch() {const s = document.querySelector(".tumsetcheck"); if (s && s._paint) s._paint()}
+  function syncswitches() {for (const s of document.querySelectorAll(".tumsetcheck")) if (s._paint) s._paint()}
+
+  function buildrow(item, primary, sec) {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:16px;padding:12px 16px";
+    const txt = document.createElement("div");
+    txt.style.cssText = "flex:1 1 auto;min-width:0";
+    const t1 = document.createElement("div");
+    t1.style.cssText = "font-size:15px;color:" + primary;
+    t1.textContent = item.title;
+    const t2 = document.createElement("div");
+    t2.style.cssText = "font-size:13px;color:" + sec + ";margin-top:2px";
+    t2.textContent = item.desc;
+    txt.appendChild(t1);
+    txt.appendChild(t2);
+    row.appendChild(txt);
+    row.appendChild(makecheckbox(item.key));
+    row.addEventListener("mouseenter", () => {row.style.background = "rgba(120,120,120,0.08)"});
+    row.addEventListener("mouseleave", () => {row.style.background = ""});
+    return row;
+  }
 
   function buildpane() {
     const {primary, sec} = palette();
@@ -120,24 +142,7 @@
     sub.style.cssText = "padding:2px 16px 16px;font-size:13px;color:" + sec;
     sub.textContent = "Preferences for the extension.";
     pane.appendChild(sub);
-
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:16px;padding:12px 16px";
-    const txt = document.createElement("div");
-    txt.style.cssText = "flex:1 1 auto;min-width:0";
-    const t1 = document.createElement("div");
-    t1.style.cssText = "font-size:15px;color:" + primary;
-    t1.textContent = "Keep open on folder drop";
-    const t2 = document.createElement("div");
-    t2.style.cssText = "font-size:13px;color:" + sec + ";margin-top:2px";
-    t2.textContent = "Leave the overlay open after filing someone into a folder instead of fading it out.";
-    txt.appendChild(t1);
-    txt.appendChild(t2);
-    row.appendChild(txt);
-    row.appendChild(makecheckbox());
-    row.addEventListener("mouseenter", () => {row.style.background = "rgba(120,120,120,0.08)"});
-    row.addEventListener("mouseleave", () => {row.style.background = ""});
-    pane.appendChild(row);
+    for (const item of SCHEMA) pane.appendChild(buildrow(item, primary, sec));
     return pane;
   }
 
@@ -164,6 +169,10 @@
   window.tum.settingspane = {open() {if (!onus()) navto(FAKE)}};
 
   window.tum.settings = {
+    // synchronous read for the other modules; falls back to the default until the store loads
+    get(key) {return key in vals ? vals[key] : DEFAULTS[key]},
+    // fires whenever any toggle changes (and once the store first loads); returns an unsubscribe
+    onchange(cb) {listeners.add(cb); return () => listeners.delete(cb)},
     init() {
       // twitter's tablist swallows clicks on its tab children in the capture phase (it only routes
       // the tabs it knows), so our <a>'s own listener never fires - catch the click at document

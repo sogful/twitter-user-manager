@@ -179,10 +179,14 @@
     }
   }
 
+  function setting(key) {return !tum.settings || tum.settings.get(key)}
+  function removeall(sel) {for (const n of document.querySelectorAll(sel)) n.remove()}
+
   function scan() {
-    scantweets();
-    scanprofileheader();
-    scanavatars();
+    if (setting("pagepencils")) {scantweets(); scanprofileheader()}
+    else removeall(".tumpagereasonbadge, .tumpageprofilereasonbadge");
+    if (setting("avatardots")) scanavatars();
+    else removeall(".tumpagefolderdot");
   }
 
   // setTimeout rather than requestAnimationFrame: rAF is throttled/paused when the tab isn't
@@ -197,6 +201,7 @@
     init() {
       tum.folders.subscribe(() => {rebuildreasonmap(); schedulescan()});
       tum.unsorted.subscribe(() => {rebuildreasonmap(); schedulescan()});
+      if (tum.settings) tum.settings.onchange(schedulescan);
       Promise.all([tum.folders.ready, tum.unsorted.ready]).then(() => {rebuildreasonmap(); schedulescan()});
       new MutationObserver(schedulescan).observe(document.body, {childList: true, subtree: true});
     }

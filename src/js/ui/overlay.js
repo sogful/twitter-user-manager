@@ -312,6 +312,7 @@
       actionbar: root.querySelector(".tumactionbar"),
       actionbtns: [...root.querySelectorAll(".tumactionbtn")],
       actionfollow: root.querySelector(".tumactionfollow"),
+      actiondestroy: root.querySelector(".tumactiondestroy"),
       toolclose: root.querySelector(".tumtoolclose"),
       toolexport: root.querySelector(".tumtoolexport"),
       toolimport: root.querySelector(".tumtoolimport"),
@@ -367,6 +368,16 @@
     els.toolclose.addEventListener("click", () => {if (!state.drag) closeoverlay()});
     els.toolexport.addEventListener("click", exportdata);
     els.toolimport.addEventListener("click", importdata);
+
+    // the joke drop-target can be switched off in the settings pane; a display:none also zeroes its
+    // hit-rect so it stops catching drops. actionbtns is rebuilt to keep the enable/dim loops honest
+    function applydestroyoption() {
+      const on = !tum.settings || tum.settings.get("destroyoption");
+      els.actiondestroy.style.display = on ? "" : "none";
+      els.actionbtns = [...root.querySelectorAll(".tumactionbtn")].filter(b => getComputedStyle(b).display !== "none");
+    }
+    applydestroyoption();
+    if (tum.settings) tum.settings.onchange(applydestroyoption);
 
     document.addEventListener("keydown", onkeydown, true);
 

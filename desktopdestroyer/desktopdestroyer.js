@@ -59,28 +59,37 @@ const soundnames = Array.from(new Set([].concat(
 
 function makesound() {
   const audioctx = window.AudioContext || window.webkitAudioContext;
-  let ac = null, useel = false;
-  const buf = {}, els = {}, loops = {};
+  let ac = null, useel = false, decoding = null;
+  const raw = {}, buf = {}, els = {}, loops = {};
 
+  // only FETCH the bytes up front - decoding needs an AudioContext, and creating that at load time
+  // (before any user gesture) leaves it suspended and, in a cross-origin iframe under a strict
+  // autoplay policy, permanently blocked from resuming. so the context is born lazily from the first
+  // real click instead (ensureac), which starts it unblocked
   async function load() {
-    try {
-      if (!audioctx) throw 0;
-      ac = new audioctx();
-      await Promise.all(soundnames.map(async n => {
-        const r = await fetch(sounddir + n + ".wav");
-        if (!r.ok) throw 0;
-        buf[n] = await ac.decodeAudioData(await r.arrayBuffer());
-      }));
-    } catch (e) {
+    if (!audioctx) {
       useel = true;
-      for (const n of soundnames) {
-        const a = new Audio(sounddir + n + ".wav");
-        a.preload = "auto";
-        els[n] = a;
-      }
+      for (const n of soundnames) {const a = new Audio(sounddir + n + ".wav"); a.preload = "auto"; els[n] = a}
+      return;
     }
+    await Promise.all(soundnames.map(async n => {
+      try {const r = await fetch(sounddir + n + ".wav"); if (r.ok) raw[n] = await r.arrayBuffer()} catch (e) {}
+    }));
   }
-  function resume() {if (ac && ac.state === "suspended") ac.resume()}
+  // called from the first user gesture (resume/play): create the context now so it counts as
+  // user-activated, then decode the fetched bytes into it once
+  function ensureac() {
+    if (useel || ac) return;
+    try {ac = new audioctx()} catch (e) {useel = true; return}
+    decoding = Promise.all(soundnames.map(async n => {
+      if (raw[n]) try {buf[n] = await ac.decodeAudioData(raw[n])} catch (e) {}
+    }));
+  }
+  function resume() {
+    if (useel) return;
+    ensureac();
+    if (ac && ac.state === "suspended") ac.resume();
+  }
   function play(name, vol, looping) {
     if (useel) {
       const t = els[name];
@@ -90,9 +99,9 @@ function makesound() {
       a.play().catch(() => {});
       return a;
     }
-    const b = buf[name];
-    if (!b) return null;
     resume();
+    const b = buf[name];
+    if (!b || !ac) return null;
     const src = ac.createBufferSource(), gain = ac.createGain();
     src.buffer = b; src.loop = !!looping; gain.gain.value = vol;
     src.connect(gain); gain.connect(ac.destination);
