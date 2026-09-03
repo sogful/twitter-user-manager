@@ -115,12 +115,13 @@
       emit();
       return f;
     },
-    setmemberreason(id, handle, reason) {
+    setmemberreason(id, handle, reason, sourceurl) {
       const f = list.find(x => x.id === id);
       if (!f || !Array.isArray(f.members)) return;
       const m = f.members.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
       if (!m) return;
       m.reason = reason;
+      if (sourceurl !== undefined) m.sourceurl = sourceurl;
       persist();
       emit();
     },

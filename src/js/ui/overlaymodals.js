@@ -2,18 +2,26 @@
   "use strict";
 
   const O = window.tum._ov;
-  const {el, linkify, iconhtml, ICONS, state, pan, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const {el, linkify, iconhtml, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
 
   function launchdestroyer(user) {
+    const pal = tum.theme.palette();
+    const bg = tum.theme.css();
     const box = el("div", "tumdestroyer");
+    box.style.background = bg;
     const frame = document.createElement("iframe");
     frame.className = "tumdestroyerframe";
     frame.allow = "autoplay";
-    frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
+    frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") +
+      "#url=" + encodeURIComponent(user.avatarurl || "") + "&bg=" + encodeURIComponent(bg);
 
     const exit = document.createElement("button");
     exit.className = "tumdestroyerexit";
+    exit.style.background = pal.elev;
+    exit.style.borderColor = pal.border;
     exit.innerHTML = ICONS.close;
+    const exitsvg = exit.querySelector("svg");
+    if (exitsvg) exitsvg.style.stroke = pal.text;
     function removeit() {box.remove(); document.removeEventListener("keydown", onkey, true)}
     function onkey(e) {if (e.key === "Escape") removeit()}
     exit.addEventListener("click", removeit);
@@ -99,8 +107,8 @@
     if (f.action && members.length) {
       const cap = f.action.charAt(0).toUpperCase() + f.action.slice(1);
       openconfirm({
-        title: "Import with auto" + f.action + "?",
-        body: "This folder is set to auto-" + f.action + " its members. Importing will " + f.action + " all " + members.length + " users in it, in the background. You can cancel while it runs.",
+        title: "Import and " + f.action + " all?",
+        body: "This folder is set to " + f.action + " its members. Importing will " + f.action + " all " + members.length + " users in it, in the background. You can cancel while it runs.",
         oklabel: cap + " all",
         onok: () => {doimport(); tum.actions.enqueue(f.action, members.map(m => m.handle))}
       });
@@ -184,8 +192,8 @@
         const cap = action.charAt(0).toUpperCase() + action.slice(1);
         closemodal();
         openconfirm({
-          title: "Apply auto" + action + " to " + members.length + " members?",
-          body: "Changing this folder to auto-" + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
+          title: action.charAt(0).toUpperCase() + action.slice(1) + " " + members.length + " members?",
+          body: "Setting this folder's action to " + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
           oklabel: cap + " all",
           onok: () => {apply(); tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
         });
@@ -233,6 +241,7 @@
     state.reasontarget = null;
     O.els.reasontitle.textContent = "Note for @" + user.handle;
     O.els.reasoninput.value = user.reason || "";
+    O.els.reasonsourceinput.value = user.sourceurl || "";
     selectreasonaction(null);
     O.els.reasonactionbtns.forEach(b => b.classList.remove("tumdimmed"));
     O.els.reasonmodal.classList.add("tumshow");
@@ -247,6 +256,7 @@
     if (m.sourceurl) {O.els.reasonsource.href = m.sourceurl; O.els.reasonsource.style.display = ""}
     else O.els.reasonsource.style.display = "none";
     O.els.reasoninput.value = m.reason || "";
+    O.els.reasonsourceinput.value = m.sourceurl || "";
     O.els.reasonmodal.classList.add("tumshow");
     setreasonmode("view");
   }
@@ -262,23 +272,21 @@
 
   function savereason() {
     const text = (O.els.reasoninput.value || "").trim();
+    const src = (O.els.reasonsourceinput.value || "").trim() || null;
     if (state.pendingcreate) {
-      const {user, source, x, y} = state.pendingcreate;
-      const withreason = Object.assign({}, user, {reason: text});
-      removefromsource(source, user.handle);
-      if (source.type === "page") {
-        withreason.placed = false;
-        tum.unsorted.add(withreason);
-        if (!user.skipaction) tum.actions.run(reasonaction, user);
+      const {user, source} = state.pendingcreate;
+      if (source.type === "folder") {
+        tum.folders.setmemberreason(source.id, user.handle, text, src);
+      } else if (source.type === "unsorted") {
+        tum.unsorted.setreason(user.handle, text, src);
       } else {
-        const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
-        const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
-        tum.unsorted.add(withreason, px, py);
+        tum.unsorted.add(Object.assign({}, user, {reason: text, sourceurl: src, placed: false}));
+        if (!user.skipaction) tum.actions.run(reasonaction, user);
       }
     } else if (state.reasontarget) {
       const {source, handle} = state.reasontarget;
-      if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);
-      else tum.unsorted.setreason(handle, text);
+      if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text, src);
+      else tum.unsorted.setreason(handle, text, src);
     }
     closereasonmodal();
     state.open = true;

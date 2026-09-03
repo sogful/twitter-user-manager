@@ -25,8 +25,8 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   const TEXTPNG = chrome.runtime.getURL("assets/images/text.png");
-  const SORTMODES = ["added", "az", "za"];
-  const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
+  const SORTMODES = ["az", "za", "new", "old"];
+  const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
 
   const MEMBERCAP = 200; // render cap per folder list
   const URLRE = /(https?:\/\/[^\s<]+)/g;
@@ -234,6 +234,7 @@
       reasonactions: root.querySelector(".tumreasonactions"),
       reasonactionbtns: root.querySelectorAll(".tumreasonactions .tummodalaction"),
       reasoninput: root.querySelector(".tumreasoninput"),
+      reasonsourceinput: root.querySelector(".tumreasonsourceinput"),
       reasonsave: root.querySelector(".tumreasonsave"),
       confirmsheet: root.querySelector(".tumconfirmsheet"),
       confirmtitle: root.querySelector(".tumconfirmtitle"),
@@ -421,6 +422,7 @@
     const members = Array.isArray(f.members) ? f.members.slice() : [];
     if (f.sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
     else if (f.sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
+    else if (f.sort === "old") members.reverse(); // members are unshifted on add, so index 0 is newest
     return members;
   }
 
@@ -438,14 +440,16 @@
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
-          <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
+          <div class="tumfoldericoncol">
+            <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
+            <span class="tumfoldercount">${members.length}</span>
+          </div>
           <div class="tumfoldertitlelines">
             <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
-            ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>auto${f.action}</span>` : ""}
+            ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
           </div>
         </div>
         <div class="tumfolderheadbtns">
-          <span class="tumfoldercount">${members.length}</span>
           <div class="tumfolderexport" title="Export this folder"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M5 20h14"/></svg></div>
           <div class="tumfoldercollapse">${ICONS.chevron}</div>
           <div class="tumfolderremove">${ICONS.close}</div>
@@ -453,7 +457,7 @@
       </div>
       <div class="tumfoldertools">
         <input class="tumfoldersearch" placeholder="Search">
-        <button class="tumfoldersort" title="${SORTLABEL[f.sort] || SORTLABEL.added}">${ICONS.sort}</button>
+        <button class="tumfoldersort" title="Sort: ${SORTLABEL[f.sort] || SORTLABEL.added}">${SORTLABEL[f.sort] || SORTLABEL.added}</button>
       </div>
       <div class="tumfolderlist"></div>
     `;
@@ -494,6 +498,25 @@
     return node;
   }
 
+  function openprofile(source, m) {
+    const url = "https://x.com/" + encodeURIComponent(m.handle);
+    const go = () => {try {window.open(url, "_blank", "noopener")} catch {}};
+    const folder = source && source.type === "folder" ? tum.folders.get(source.id) : null;
+    if (folder && folder.action === "block") {
+      O.openconfirm({
+        title: "Open @" + m.handle + "?",
+        body: "This folder blocks its members, so @" + m.handle + " is likely blocked. Open their profile anyway?",
+        oklabel: "Open profile",
+        onok: go
+      });
+    } else go();
+  }
+  function wireavatar(av, source, m) {
+    if (!av) return;
+    av.style.cursor = "pointer";
+    av.addEventListener("click", e => {e.stopPropagation(); e.preventDefault(); openprofile(source, m)});
+  }
+
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
@@ -512,6 +535,7 @@
     `;
     wirecopy(row);
     hidebrokenavatar(row);
+    wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       O.openreasonview(source, m);
@@ -546,6 +570,7 @@
     `;
     wirecopy(chip);
     hidebrokenavatar(chip);
+    wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       O.openreasonview({type: "unsorted"}, u);

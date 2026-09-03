@@ -220,11 +220,42 @@
     bpersist(); bemit();
   }
 
-  function enqueue(action, handles) {
+  const TARGETCONN = {follow: "following", mute: "muting", block: "blocking"};
+  async function connections(handles) {
+    const out = new Map();
+    const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+    if (!ct0 || !handles.length) return out;
+    for (let i = 0; i < handles.length; i += 100) {
+      const chunk = handles.slice(i, i + 100);
+      try {
+        const r = await fetch("/i/api/1.1/friendships/lookup.json?screen_name=" + encodeURIComponent(chunk.join(",")), {
+          credentials: "include",
+          headers: {authorization: BEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes"}
+        });
+        if (!r.ok) continue;
+        const d = await r.json();
+        for (const u of (Array.isArray(d) ? d : [])) out.set((u.screen_name || "").toLowerCase(), new Set(u.connections || []));
+      } catch {}
+    }
+    return out;
+  }
+  async function alreadydone(action, handle) {
+    const target = TARGETCONN[action];
+    if (!target) return false;
+    const c = (await connections([handle])).get((handle || "").toLowerCase());
+    return !!(c && c.has(target));
+  }
+
+  async function enqueue(action, handles) {
     if (!action || !ENDPOINTS[action] || !Array.isArray(handles)) return;
+    let list = handles.filter(Boolean);
+    const target = TARGETCONN[action];
+    if (target) {
+      const conns = await connections(list);
+      list = list.filter(h => {const c = conns.get(h.toLowerCase()); return !(c && c.has(target))});
+    }
     const have = new Set(bqueue.map(i => i.action + "|" + i.handle.toLowerCase()));
-    for (const h of handles) {
-      if (!h) continue;
+    for (const h of list) {
       const key = action + "|" + h.toLowerCase();
       if (have.has(key)) continue;
       have.add(key);
@@ -278,6 +309,7 @@
     onbatch(cb) {blisteners.add(cb); return () => blisteners.delete(cb)},
     async run(action, user) {
       if (!action) {log("no action set on this folder, just filing", user.handle); return true}
+      if (await alreadydone(action, user.handle)) {log("already", action, user.handle); return true}
       log("running", action, "on", user.handle);
       try {
         let ok = await apiaction(action, user.handle);

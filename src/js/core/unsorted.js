@@ -63,10 +63,11 @@
       persist();
       emit();
     },
-    setreason(handle, reason) {
+    setreason(handle, reason, sourceurl) {
       const m = list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
       if (!m) return;
       m.reason = reason;
+      if (sourceurl !== undefined) m.sourceurl = sourceurl;
       persist();
       emit();
     },
