@@ -48,7 +48,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg"],
+      "resources": ["src/css/overlay.css", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg", "assets/desktopdestroyer/*", "assets/desktopdestroyer/**"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

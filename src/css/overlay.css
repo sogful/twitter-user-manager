@@ -419,6 +419,34 @@ img {-webkit-user-drag: none; user-drag: none}
   white-space: nowrap
 }
 
+/* the middle-right action drop-targets: follow / mute / block / destroy. same pill look as the
+   quick row but stacked down the right edge, each with its own tint when a user is dropped on it */
+.tumactionbar {
+  position: absolute; right: 2.5%; top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column;
+  gap: 16px; pointer-events: none
+}
+.tumactionbtn {
+  display: flex; align-items: center;
+  gap: 8px; padding: 11px 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  border: 2px dashed rgba(255,255,255,0.4);
+  pointer-events: auto; cursor: default;
+  user-select: none
+}
+.tumactionbtn.tumdisabled {opacity: .35; pointer-events: none}
+.tumactionbtn span {
+  color: #fff; font-size: 13px;
+  font-weight: 700; white-space: nowrap
+}
+.tumactionbtn.tumover {border-style: solid}
+.tumactionfollow.tumover {border-color: #1d9bf0; background: rgba(29,155,240,0.25)}
+.tumactionmute.tumover {border-color: #ffd400; background: rgba(255,212,0,0.22)}
+.tumactionblock.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
+.tumactiondestroy.tumover {border-color: #ff7a00; background: rgba(255,122,0,0.28)}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
 .tumchip {

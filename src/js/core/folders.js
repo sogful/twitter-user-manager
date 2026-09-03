@@ -3,7 +3,9 @@
 
   window.tum = window.tum || {};
 
-  const ACTIONS = ["follow", "mute", "block"];
+  // block/mute now live as dedicated drop-targets in the overlay (see overlay.js action bar), so a
+  // folder's own auto-action is just follow. older stored folders keep whatever action they had
+  const ACTIONS = ["follow"];
   const COLORS = ["#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e"];
   let colorcursor = 0;
   let createcount = 0;

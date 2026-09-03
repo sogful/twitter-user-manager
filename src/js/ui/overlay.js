@@ -16,7 +16,8 @@
     download: '<svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>',
     upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
-    folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>'
+    folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
+    destroy: '<svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8c0 2.6 1 4.2 2.5 5.2V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2.8C19 15.2 20 13.6 20 11a8 8 0 0 0-8-8z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 17v2M12 16.5v3M14 17v2"/></svg>'
   };
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
@@ -212,6 +213,12 @@
           <div class="tumquick tumquickdiscard"><div class="tumquickicon">${ICONS.trash}</div><span>discard</span></div>
           <div class="tumquick tumquickreason"><div class="tumquickicon">${ICONS.pencil}</div><span>custom reason</span></div>
         </div>
+        <div class="tumactionbar">
+          <div class="tumactionbtn tumactionfollow" data-act="follow"><div class="tumquickicon">${ICONS.follow}</div><span>follow</span></div>
+          <div class="tumactionbtn tumactionmute" data-act="mute"><div class="tumquickicon">${ICONS.mute}</div><span>mute</span></div>
+          <div class="tumactionbtn tumactionblock" data-act="block"><div class="tumquickicon">${ICONS.block}</div><span>block</span></div>
+          <div class="tumactionbtn tumactiondestroy" data-act="destroy"><div class="tumquickicon">${ICONS.destroy}</div><span>destroy</span></div>
+        </div>
       </div>
       <div class="tumchip">
         <img class="tumchipavatar">
@@ -229,9 +236,7 @@
             <button class="tummodalclose">${ICONS.close}</button>
           </div>
           <div class="tummodalactions">
-            <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
-            <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
-            <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
+            <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>autofollow</span></button>
           </div>
           <div class="tummodalcolors"></div>
           <button class="tummodalsave">create</button>
@@ -251,9 +256,7 @@
           </div>
           <div class="tumreasonform">
             <div class="tumreasonactions">
-              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
-              <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
-              <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
+              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>autofollow</span></button>
             </div>
             <textarea class="tumreasoninput" maxlength="500" placeholder="Add notes here.."></textarea>
             <button class="tumreasonsave">save note</button>
@@ -301,6 +304,8 @@
       reasonedit: root.querySelector(".tumreasonedit"),
       reasondelete: root.querySelector(".tumreasondelete"),
       keepopencb: root.querySelector(".tumkeepopencb"),
+      actionbar: root.querySelector(".tumactionbar"),
+      actionbtns: [...root.querySelectorAll(".tumactionbtn")],
       toolclose: root.querySelector(".tumtoolclose"),
       toolexport: root.querySelector(".tumtoolexport"),
       toolimport: root.querySelector(".tumtoolimport"),
@@ -406,6 +411,29 @@
     hidebackdrop();
   }
 
+  // the "destroy" joke: full-screen the desktopdestroyer (in its own extension iframe so its global
+  // canvas/input code stays sandboxed) with the target's avatar as the surface to smash. it's purely
+  // for laughs - nothing is blocked/muted/followed - and the exit button just tears the iframe down
+  function launchdestroyer(user) {
+    const box = el("div", "tumdestroyer");
+    box.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#000";
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
+    frame.allow = "autoplay";
+    frame.src = chrome.runtime.getURL("assets/desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
+    const exit = document.createElement("button");
+    exit.textContent = "✕ exit";
+    exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;padding:9px 16px;border-radius:999px;border:0;" +
+      "background:rgba(0,0,0,0.55);color:#fff;font:700 14px/1 -apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;backdrop-filter:blur(4px)";
+    function removeit() {box.remove(); document.removeEventListener("keydown", onkey, true)}
+    function onkey(e) {if (e.key === "Escape") removeit()}
+    exit.addEventListener("click", removeit);
+    document.addEventListener("keydown", onkey, true);
+    box.appendChild(frame);
+    box.appendChild(exit);
+    document.body.appendChild(box);
+  }
+
   /*//////////////////////////////////////////////////////////////////////*/
 
   function render() {
@@ -470,6 +498,9 @@
     const active = !!(state.drag && state.drag.kind === "user");
     els.quickdiscard.classList.toggle("tumdisabled", !active);
     els.quickreason.classList.toggle("tumdisabled", !active);
+    // the side action buttons (follow/mute/block/destroy) act on the person in hand - dim them
+    // out when nothing's being carried, same as discard/reason
+    for (const b of els.actionbtns) b.classList.toggle("tumdisabled", !active);
   }
 
   function sortedmembers(f) {
@@ -805,6 +836,13 @@
     if (!state.drag || state.drag.kind !== "user") return null;
     return topdiscardtools().find(b => b && rectcontains(b.getBoundingClientRect(), x, y)) || null;
   }
+  // the middle-right buttons act on whoever's being carried: follow/mute/block run the real action
+  // (they used to be folder auto-actions); destroy is the joke that hands them to the destroyer
+  function actionbtnunderpoint(x, y) {
+    if (!state.drag || state.drag.kind !== "user") return null;
+    const b = els.actionbtns.find(n => rectcontains(n.getBoundingClientRect(), x, y));
+    return b ? b.dataset.act : null;
+  }
   function quickzone(x, y) {
     if (state.drag && state.drag.kind === "user") {
       if (rectcontains(els.quickdiscard.getBoundingClientRect(), x, y)) return "discard";
@@ -829,6 +867,8 @@
     els.quickadd.classList.toggle("tumover", zone === "add");
     els.quickdiscard.classList.toggle("tumover", zone === "discard");
     els.quickreason.classList.toggle("tumover", zone === "reason");
+    const act = actionbtnunderpoint(x, y);
+    for (const b of els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
     const tool = overtoptool(x, y);
     for (const b of topdiscardtools()) b.classList.toggle("tumdiscardover", b === tool);
   }
@@ -842,17 +882,36 @@
   function enddrag(x, y) {
     if (!state.drag) return;
     const {user, source} = state.drag;
-    const target = foldertargetunderpoint(x, y);
-    const zone = quickzone(x, y);
+    const act = actionbtnunderpoint(x, y);
+    const target = act ? null : foldertargetunderpoint(x, y);
+    const zone = act ? null : quickzone(x, y);
     root.classList.remove("tumdragging");
     state.drag = null;
     // the page bits were hidden and recorded at drag-start; they stay hidden unless this ends in a
     // discard (handled per-branch below), so nothing to do here
     for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
     for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
+    for (const b of els.actionbtns) b.classList.remove("tumover");
     els.quickadd.classList.remove("tumover");
     els.quickdiscard.classList.remove("tumover");
     els.quickreason.classList.remove("tumover");
+
+    if (act === "destroy") {
+      // the joke: genuinely no action - not filed, not un-filed, nobody blocked. just fade out and
+      // hand them to the destroyer; the page bits come back on their own once the overlay's faded
+      // (they're hidden under the full-screen takeover anyway), and a re-dragged member stays filed
+      launchdestroyer(user);
+      closeoverlay();
+      return;
+    } else if (act) {
+      // follow / mute / block - run it for real (only on a fresh page drag, like the old folder
+      // auto-actions did; a re-drag off a filed chip has no live caret to act through)
+      if (source.type === "page" && !user.skipaction) tum.actions.run(act, user);
+      else removefromsource(source, user.handle);
+      render();
+      closeoverlay();
+      return;
+    }
 
     if (target && target.zone === "remove") {
       const folder = tum.folders.get(target.id);
@@ -918,6 +977,7 @@
     // chip/member leaves them hidden (the person is still filed) and just re-renders the canvas
     if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
     for (const b of topdiscardtools()) b.classList.remove("tumdiscardover");
+    for (const b of els.actionbtns) b.classList.remove("tumover");
     root.classList.remove("tumdragging");
     state.drag = null;
     hidebackdrop();

@@ -1,0 +1,218 @@
+  0  picture of tool selection
+  1  picture of tool selection (English
+  2  sprite of selection cursor
+  3  sprite of tool
+  4  sprite of quiet hammer
+  5  sprite of knock hammer
+  6  sprite of potsherd 1
+  7  sprite of potsherd 1 horizontal
+  8  sprite of potsherd 1 vertical
+  9  sprite of potsherd 1 direction
+ 10  sprite of potsherd 1 visible
+ 11  sprite of potsherd 1 moving
+ 12  sprite of potsherd 1 phase
+ 13  sprite of potsherd 1 state
+ 14  sprite of potsherd 2
+ 15  sprite of potsherd 2 horizontal
+ 16  sprite of potsherd 2 vertical
+ 17  sprite of potsherd 2 direction
+ 18  sprite of potsherd 2 visible
+ 19  sprite of potsherd 2 moving
+ 20  sprite of potsherd 2 phase
+ 21  sprite of potsherd 2 state
+ 22  sprite of potsherd 3
+ 23  sprite of potsherd 3 horizontal
+ 24  sprite of potsherd 3 vertical
+ 25  sprite of potsherd 3 direction
+ 26  sprite of potsherd 3 visible
+ 27  sprite of potsherd 3 moving
+ 28  sprite of potsherd 3 phase
+ 29  sprite of potsherd 3 state
+ 30  sprite of potsherd 4
+ 31  sprite of potsherd 4 horizontal
+ 32  sprite of potsherd 4 vertical
+ 33  sprite of potsherd 4 direction
+ 34  sprite of potsherd 4 visible
+ 35  sprite of potsherd 4 moving
+ 36  sprite of potsherd 4 phase
+ 37  sprite of potsherd 4 state
+ 38  sprite of potsherd 5
+ 39  sprite of potsherd 5 horizontal
+ 40  sprite of potsherd 5 vertical
+ 41  sprite of potsherd 5 direction
+ 42  sprite of potsherd 5 visible
+ 43  sprite of potsherd 5 moving
+ 44  sprite of potsherd 5 phase
+ 45  sprite of potsherd 5 state
+ 46  picture of hammer hit 1
+ 47  picture of hammer hit 2
+ 48  picture of hammer hit 3
+ 49  picture of hammer hit 4
+ 50  picture of hammer hit 5
+ 51  picture of hammer hit 6
+ 52  picture of hammer hit 7
+ 53  picture of hammer hit 8
+ 54  sprite of quiet chain-saw
+ 55  sprite of sawing chain-saw
+ 56  sprite of splinter 1
+ 57  sprite of splinter 1 horizontal
+ 58  sprite of splinter 1 vertical
+ 59  sprite of splinter 1 direction
+ 60  sprite of splinter 1 visible
+ 61  sprite of splinter 1 moving
+ 62  sprite of splinter 1 phase
+ 63  sprite of splinter 1 state
+ 64  sprite of splinter 2
+ 65  sprite of splinter 2 horizontal
+ 66  sprite of splinter 2 vertical
+ 67  sprite of splinter 2 direction
+ 68  sprite of splinter 2 visible
+ 69  sprite of splinter 2 moving
+ 70  sprite of splinter 2 phase
+ 71  sprite of splinter 2 state
+ 72  sprite of splinter 3
+ 73  sprite of splinter 3 horizontal
+ 74  sprite of splinter 3 vertical
+ 75  sprite of splinter 3 direction
+ 76  sprite of splinter 3 visible
+ 77  sprite of splinter 3 moving
+ 78  sprite of splinter 3 phase
+ 79  sprite of splinter 3 state
+ 80  sprite of splinter 4
+ 81  sprite of splinter 4 horizontal
+ 82  sprite of splinter 4 vertical
+ 83  sprite of splinter 4 direction
+ 84  sprite of splinter 4 visible
+ 85  sprite of splinter 4 moving
+ 86  sprite of splinter 4 phase
+ 87  sprite of splinter 4 state
+ 88  sprite of splinter 5
+ 89  sprite of splinter 5 horizontal
+ 90  sprite of splinter 5 vertical
+ 91  sprite of splinter 5 direction
+ 92  sprite of splinter 5 visible
+ 93  sprite of splinter 5 moving
+ 94  sprite of splinter 5 phase
+ 95  sprite of splinter 5 state
+ 96  sprite of quiet machine gun
+ 97  sprite of shooting machine gun
+ 98  sprite of hit by machine gun
+ 99  sprite of hit by machine gun horizontal
+100  sprite of hit by machine gun vertical
+101  sprite of hit by machine gun direction
+102  sprite of hit by machine gun visible
+103  sprite of hit by machine gun moving
+104  sprite of hit by machine gun phase
+105  sprite of hit by machine gun state
+106  sprite of shell from machine gun
+107  sprite of shell from machine gun horizontal
+108  sprite of shell from machine gun vertical
+109  sprite of shell from machine gun direction
+110  sprite of shell from machine gun visible
+111  sprite of shell from machine gun moving
+112  sprite of shell from machine gun phase
+113  sprite of shell from machine gun state
+114  picture of hit by machine gun 0
+115  picture of hit by machine gun 1
+116  picture of hit by machine gun 2
+117  picture of hit by machine gun 3
+118  sprite of flame-thrower
+119  sprite of flame
+120  sprite of flame horizontal
+121  sprite of flame vertical
+122  sprite of flame direction
+123  sprite of flame visible
+124  sprite of flame moving
+125  sprite of flame phase
+126  sprite of flame state
+127  sprite of standing flame
+128  sprite of standing flame horizontal
+129  sprite of standing flame vertical
+130  sprite of standing flame direction
+131  sprite of standing flame visible
+132  sprite of standing flame moving
+133  sprite of standing flame phase
+134  sprite of standing flame state
+135  picture of flame-thrower hit 1
+136  picture of flame-thrower hit 2
+137  picture of flame-thrower hit 3
+138  picture of flame-thrower hit 4
+139  sprite of color-thrower
+140  sprite of color - red
+141  sprite of color - green
+142  sprite of color - blue
+143  sprite of color - yellow
+144  sprite of color - purple
+145  sprite of color - cyan
+146  sprite of color - orange
+147  sprite of color - pink
+148  picture of hit by color-thrower 1
+149  picture of hit by color-thrower 2
+150  picture of hit by color-thrower 3
+151  picture of hit by color-thrower 4
+152  picture of hit by color-thrower 5
+153  sprite of phaser
+154  sprite of shooting phaser
+155  picture of phaser hit 1
+156  picture of phaser hit 2
+157  picture of phaser hit 3
+158  picture of phaser hit 4
+159  picture of phaser hit 5
+160  picture of phaser hit 6
+161  picture of phaser hit 7
+162  picture of phaser hit 8
+163  picture of phaser hit 9
+164  picture of phaser hit 10
+165  sprite of stamp
+166  sprite of stamp down
+167  picture of stamp print 1
+168  picture of stamp print 2
+169  picture of stamp print 3
+170  picture of stamp print 3 (English
+171  picture of stamp print 4
+172  picture of stamp print 4 (English
+173  picture of stamp print 5
+174  picture of stamp print 6
+175  picture of stamp print 7
+176  picture of stamp print 8
+177  picture of stamp print 9
+178  picture of stamp print 10
+179  sprite of termite on hand
+180  sprite of termite down
+181  sprite of washing
+182  sprite of proceeding washing
+183  sprite of new bullet
+184  sprite of new bullet horizontal
+185  sprite of new bullet vertical
+186  sprite of new bullet direction
+187  sprite of new bullet visible
+188  sprite of new bullet moving
+189  sprite of new bullet phase
+190  sprite of new bullet state
+191  picture of hit
+192  sprite of hit
+193  sprite of hit horizontal
+194  sprite of hit vertical
+195  sprite of hit direction
+196  sprite of hit visible
+197  sprite of hit moving
+198  sprite of hit phase
+199  sprite of hit state
+200  sprite of shell
+201  sprite of shell horizontal
+202  sprite of shell vertical
+203  sprite of shell direction
+204  sprite of shell visible
+205  sprite of shell moving
+206  sprite of shell phase
+207  sprite of shell state
+208  sprite of color
+209  sprite of color horizontal
+210  sprite of color vertical
+211  sprite of color direction
+212  sprite of color visible
+213  sprite of color moving
+214  sprite of color phase
+215  sprite of color state
+216  picture of blot
+217  picture of print
