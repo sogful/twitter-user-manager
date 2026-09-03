@@ -1,8 +1,0 @@
-program_executable_path=/C:/Users/Admin/Documents/GitHub/cv003.github.io/desktopdestroyer/stress-reducer-desktop-destroyer.exe
-program_name=stress-reducer-desktop-destroyer.exe
-language_id=x86:LE:32:default
-image_base=00400000
-min_address=00400000
-max_address=ffdfffff
-entry_point=004092c0
-export_time_utc=2026-06-12T18:33:23.713417500Z

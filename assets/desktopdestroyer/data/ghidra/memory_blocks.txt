@@ -1,8 +1,0 @@
-name	start	end	size	read	write	execute	initialized	comment
-Headers	00400000	00400fff	1000	true	false	false	true	
-.text	00401000	00432fff	32000	true	false	true	true	
-.rdata	00433000	00435fff	3000	true	false	false	true	
-.data	00436000	00437988	1989	true	true	false	true	
-.rsrc	00438000	0043ffff	8000	true	false	false	true	
-.petprg	00440000	0053e3ff	fe400	true	false	false	true	
-tdb	ffdff000	ffdfffff	1000	true	true	false	true	
