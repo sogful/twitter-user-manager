@@ -821,17 +821,30 @@
     els.actionfollow.querySelector(".tumquickicon").innerHTML = act === "unfollow" ? ICONS.unfollow : ICONS.follow;
   }
 
+  // page drags (dragdetect) hand over a user with no stored note, so a noted person lifted off a
+  // tweet would show no pencil on the chip while the same person shows one everywhere else. fill it
+  // in from the saved data by handle so every drag source renders the chip identically
+  function notefor(handle) {
+    const h = (handle || "").toLowerCase();
+    for (const u of tum.unsorted.list()) if (u.handle.toLowerCase() === h && u.reason) return u.reason;
+    for (const f of tum.folders.list()) for (const m of (f.members || [])) if (m.handle.toLowerCase() === h && m.reason) return m.reason;
+    return "";
+  }
+
   function begindrag(user, x, y, source) {
+    if (!user.reason) user.reason = notefor(user.handle);
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
     setfollowbutton(detectfollowing(user.handle) === true ? "unfollow" : "follow");
     hidesource(user.dimtargets);
     recordhidden(user.handle, user.dimtargets);
-    // some sources (the new chat's off-page pfps) hand over an image url that won't actually load
-    // in the chip - show it only once it's confirmed good, and drop it on error rather than a broken box
-    els.chipavatar.onerror = () => {els.chipavatar.style.display = "none"};
-    els.chipavatar.onload = () => {els.chipavatar.style.display = ""};
-    els.chipavatar.style.display = user.avatarurl ? "" : "none";
+    // some sources (the new chat's off-page pfps) hand over an image url that won't actually load.
+    // hide a broken/slow one with VISIBILITY (not display) so the 40px avatar slot stays reserved -
+    // display:none collapsed the chip narrower/shorter than the resting loose chip, which reads as
+    // the dragged element "resizing" and losing its padding. matches hidebrokenavatar on the chips
+    els.chipavatar.onerror = () => {els.chipavatar.style.visibility = "hidden"};
+    els.chipavatar.onload = () => {els.chipavatar.style.visibility = "visible"};
+    els.chipavatar.style.visibility = user.avatarurl ? "visible" : "hidden";
     els.chipavatar.src = user.avatarurl || "";
     els.chipname.textContent = user.displayname || user.handle;
     els.chiphandle.textContent = "@" + user.handle;
