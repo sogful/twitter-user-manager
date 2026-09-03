@@ -17,6 +17,40 @@
     unblock: /^unblock(\s|$)/i
   };
 
+  // the primary path: replay twitter's own v1.1 endpoints so an action works for ANY user, whether
+  // or not their tweet/profile is still mounted on the page. these are same-origin (x.com), so the
+  // content-script fetch isn't subject to the page's connect-src csp; they take `screen_name`
+  // directly (no id lookup needed), the public web bearer, and the ct0 cookie as the csrf token
+  const ENDPOINTS = {
+    follow: "friendships/create.json", unfollow: "friendships/destroy.json",
+    mute: "mutes/users/create.json", unmute: "mutes/users/destroy.json",
+    block: "blocks/create.json", unblock: "blocks/destroy.json"
+  };
+  const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+
+  async function apiaction(action, handle) {
+    const path = ENDPOINTS[action];
+    if (!path || !handle) return false;
+    const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+    if (!ct0) return false; // not logged in / no csrf token to sign the request
+    try {
+      const r = await fetch("/i/api/1.1/" + path, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          authorization: BEARER,
+          "x-csrf-token": ct0,
+          "x-twitter-auth-type": "OAuth2Session",
+          "x-twitter-active-user": "yes",
+          "x-twitter-client-language": "en",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: "screen_name=" + encodeURIComponent(handle)
+      });
+      return r.ok;
+    } catch {return false}
+  }
+
   function waitfor(check, timeout) {
     return new Promise(res => {
       const v = check();
@@ -95,7 +129,9 @@
       if (!action) {log("no action set on this folder, just filing", user.handle); return true}
       log("running", action, "on", user.handle);
       try {
-        const ok = await runreal(action, user);
+        // api first (works from anywhere); if it fails, fall back to the on-page caret/follow menu
+        let ok = await apiaction(action, user.handle);
+        if (!ok) ok = await runreal(action, user);
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
         // the caret/follow button this needs only exists while the tweet or profile it came
         // from is still actually mounted on the page - if it scrolled out and got virtualized

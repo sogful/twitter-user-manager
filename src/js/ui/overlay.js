@@ -929,10 +929,10 @@
       closeoverlay();
       return;
     } else if (act) {
-      // follow / mute / block - run it for real (only on a fresh page drag, like the old folder
-      // auto-actions did; a re-drag off a filed chip has no live caret to act through)
-      if (source.type === "page" && !user.skipaction) tum.actions.run(act, user);
-      else removefromsource(source, user.handle);
+      // follow / mute / block / unfollow - run it for real. actions.js hits twitter's api directly
+      // now, so this works for ANY carried user, not just a fresh page drag; a re-dragged member is
+      // acted on but left filed where it was. skipaction rows (already blocked/muted lists) are left
+      if (!user.skipaction) tum.actions.run(act, user);
       render();
       closeoverlay();
       return;
