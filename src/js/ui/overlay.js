@@ -5,6 +5,7 @@
 
   const ICONS = {
     follow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
+    unfollow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
     mute: '<svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .9-.4 1.8-1 2.5l-1 1.2c-.5.6 0 1.5.8 1.5h13.4c.8 0 1.3-.9.8-1.5l-1-1.2c-.6-.7-1-1.6-1-2.5V8a5 5 0 0 0-5-5z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg>',
     block: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -17,7 +18,8 @@
     upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
-    destroy: '<svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8c0 2.6 1 4.2 2.5 5.2V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2.8C19 15.2 20 13.6 20 11a8 8 0 0 0-8-8z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 17v2M12 16.5v3M14 17v2"/></svg>'
+    destroy: '<svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8c0 2.6 1 4.2 2.5 5.2V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2.8C19 15.2 20 13.6 20 11a8 8 0 0 0-8-8z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 17v2M12 16.5v3M14 17v2"/></svg>',
+    gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>'
   };
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
@@ -31,7 +33,7 @@
   // top-right checkbox is ticked it stays open so you can keep sorting. persisted across sessions
   const settings = tum.storage.create("tum.settings");
   let keepopen = false;
-  function applysetting(v) {keepopen = !!(v && v.keepopen); if (els.keepopencb) els.keepopencb.checked = keepopen}
+  function applysetting(v) {keepopen = !!(v && v.keepopen)}
   settings.get().then(applysetting);
   settings.subscribe(applysetting);
   // state.drag describes whatever is currently being carried around: {kind:"user"|"folder",
@@ -197,15 +199,13 @@
       <div class="tumbackdrop"></div>
       <div class="tumcanvas">
         <div class="tumgridlayer"></div>
-        <label class="tumkeepopen" title="keep the overlay open after filing someone into a folder">
-          <input type="checkbox" class="tumkeepopencb">
-          <span class="tumkeepopenbox">${ICONS.check}</span>
-          <span class="tumkeepopentext">keep open on folder drop</span>
-        </label>
         <div class="tumtools">
           <button class="tumtool tumtoolclose" title="close the overlay">${ICONS.close}</button>
           <button class="tumtool tumtoolexport" title="export folders and notes as a json backup">${ICONS.download}</button>
           <button class="tumtool tumtoolimport" title="import folders from a json backup">${ICONS.upload}</button>
+        </div>
+        <div class="tumtools tumtoolsright">
+          <button class="tumtool tumtoolgear" title="user manager settings">${ICONS.gear}</button>
         </div>
         <div class="tumfreeform"></div>
         <div class="tumquickrow">
@@ -303,9 +303,10 @@
       reasonsource: root.querySelector(".tumreasonsource"),
       reasonedit: root.querySelector(".tumreasonedit"),
       reasondelete: root.querySelector(".tumreasondelete"),
-      keepopencb: root.querySelector(".tumkeepopencb"),
+      toolgear: root.querySelector(".tumtoolgear"),
       actionbar: root.querySelector(".tumactionbar"),
       actionbtns: [...root.querySelectorAll(".tumactionbtn")],
+      actionfollow: root.querySelector(".tumactionfollow"),
       toolclose: root.querySelector(".tumtoolclose"),
       toolexport: root.querySelector(".tumtoolexport"),
       toolimport: root.querySelector(".tumtoolimport"),
@@ -345,11 +346,10 @@
     els.reasondelete.addEventListener("click", deletenoteduser);
     els.reasonsave.addEventListener("click", savereason);
 
-    // remember the keep-open preference across drops and sessions
-    els.keepopencb.checked = keepopen;
-    els.keepopencb.addEventListener("change", () => {
-      keepopen = els.keepopencb.checked;
-      settings.set({keepopen});
+    // the keep-open preference lives in the /settings/usermanager pane now; the gear opens it
+    els.toolgear.addEventListener("click", () => {
+      closeoverlay();
+      try {tum.settingspane.open()} catch {}
     });
     els.confirmcancel.addEventListener("click", closeconfirmsheet);
     els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) closeconfirmsheet()});
@@ -440,7 +440,9 @@
     if (!els.freeform) return;
     els.freeform.innerHTML = "";
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
-    for (const u of tum.unsorted.list()) els.freeform.appendChild(buildloosechip(u));
+    // note-only entries (placed === false) hold a note but were never released onto the canvas -
+    // they surface as the page note badge, not as a loose chip here
+    for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
     refreshmarquees();
   }
@@ -755,7 +757,12 @@
   const hiddenmap = new Map(); // handle (lowercased) -> [page elements]
   function hidesource(targets) {
     if (!targets) return;
-    for (const t of targets) if (t) t.style.visibility = "hidden";
+    for (const t of targets) if (t) {
+      t.style.visibility = "hidden";
+      // the note pencil lives inside the name block we just hid - keep it showing (visibility on a
+      // child overrides the hidden parent) so dragging a noted user doesn't take their badge with it
+      if (t.querySelectorAll) for (const b of t.querySelectorAll(".tumpagereasonbadge, .tumpageprofilereasonbadge")) b.style.visibility = "visible";
+    }
   }
   function recordhidden(handle, targets) {
     if (!handle || !targets) return;
@@ -787,9 +794,27 @@
     }, 240);
   }
 
+  // if the page still shows this account's follow control and it reads "Following @handle", they're
+  // already followed - flip the action button to unfollow so the drop does the right thing. handle
+  // is matched so a stray follow button elsewhere on the page can't mislead it; unknown = follow
+  function detectfollowing(handle) {
+    const h = (handle || "").toLowerCase();
+    for (const b of document.querySelectorAll("button[aria-label]")) {
+      const mm = /^(following|follow)\s+@([A-Za-z0-9_]+)$/i.exec((b.getAttribute("aria-label") || "").trim());
+      if (mm && mm[2].toLowerCase() === h) return /^following/i.test(mm[1]);
+    }
+    return null;
+  }
+  function setfollowbutton(act) {
+    els.actionfollow.dataset.act = act;
+    els.actionfollow.querySelector("span").textContent = act;
+    els.actionfollow.querySelector(".tumquickicon").innerHTML = act === "unfollow" ? ICONS.unfollow : ICONS.follow;
+  }
+
   function begindrag(user, x, y, source) {
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;
+    setfollowbutton(detectfollowing(user.handle) === true ? "unfollow" : "follow");
     hidesource(user.dimtargets);
     recordhidden(user.handle, user.dimtargets);
     // some sources (the new chat's off-page pfps) hand over an image url that won't actually load
@@ -1235,10 +1260,17 @@
       const {user, source, x, y} = state.pendingcreate;
       const withreason = Object.assign({}, user, {reason: text});
       removefromsource(source, user.handle);
-      const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
-      const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
-      tum.unsorted.add(withreason, px, py);
-      if (source.type === "page" && !user.skipaction) tum.actions.run(reasonaction, user);
+      // noting someone straight off the page (never on the canvas) just saves the note - it doesn't
+      // drop a loose chip onto the canvas. a re-drag of someone already loose/filed keeps its spot
+      if (source.type === "page") {
+        withreason.placed = false;
+        tum.unsorted.add(withreason);
+        if (!user.skipaction) tum.actions.run(reasonaction, user);
+      } else {
+        const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
+        const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
+        tum.unsorted.add(withreason, px, py);
+      }
     } else if (state.reasontarget) {
       const {source, handle} = state.reasontarget;
       if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);

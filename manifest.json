@@ -41,6 +41,7 @@
         "src/js/page/badges.js",
         "src/js/page/suggest.js",
         "src/js/page/profileinfo.js",
+        "src/js/page/settings.js",
         "src/js/main.js"
       ],
       "run_at": "document_idle"

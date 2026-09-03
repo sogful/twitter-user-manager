@@ -63,46 +63,14 @@ img {-webkit-user-drag: none; user-drag: none}
   opacity: 1; visibility: visible
 }
 
-.tumkeepopen {
-  position: absolute; top: 0; right: 0;
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  background: var(--tumelev,#16181c);
-  border: 1px solid var(--tumborder,#2f3336);
-  border-top: none; border-right: none;
-  border-radius: 0 0 0 14px;
-  pointer-events: auto; cursor: pointer;
-  user-select: none; z-index: 3
-}
-.tumkeepopencb {position: absolute; opacity: 0; width: 0; height: 0}
-.tumkeepopenbox {
-  width: 20px; height: 20px;
-  border-radius: 6px; background: transparent;
-  border: 2px solid var(--tummuted,#71767b);
-  display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0
-}
-.tumkeepopenbox svg {
-  width: 14px; height: 14px;
-  stroke: #fff; fill: none; opacity: 0;
-  stroke-width: 3; stroke-linecap: round;
-  stroke-linejoin: round
-}
-.tumkeepopencb:checked + .tumkeepopenbox {background: #1d9bf0; border-color: #1d9bf0}
-.tumkeepopencb:checked + .tumkeepopenbox svg {opacity: 1}
-.tumkeepopentext {
-  color: var(--tumtext,#e7e9ea);
-  font-size: 13px; font-weight: 700;
-  line-height: 1.2; max-width: 104px;
-  white-space: normal
-}
-
 /* export/import cluster, top-left of the overlay */
 .tumtools {
   position: absolute; top: 14px; left: 16px;
   display: flex; gap: 8px;
   pointer-events: auto; z-index: 3
 }
+/* the gear sits opposite the close/export/import cluster - top-right instead of top-left */
+.tumtoolsright {left: auto; right: 16px}
 .tumtool {
   width: 34px; height: 34px;
   border-radius: 999px; cursor: pointer;

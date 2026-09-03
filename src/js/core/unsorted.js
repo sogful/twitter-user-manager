@@ -32,9 +32,13 @@
     ready,
     list: () => list.slice(),
     get: handle => list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase()),
+    // placed = actually released onto the canvas (has a spot, renders as a loose chip). a note-only
+    // entry (added with placed:false, no x/y) stores the note but stays off the canvas - it only
+    // surfaces as the page note badge, and becomes placed the moment it's dragged onto the canvas
     add(user, x, y) {
       const key = (user.handle || "").toLowerCase();
       const existing = list.find(m => m.handle.toLowerCase() === key);
+      const placed = user.placed !== undefined ? user.placed : (typeof x === "number" || !existing || existing.placed !== false);
       const entry = {
         handle: user.handle,
         displayname: user.displayname,
@@ -42,6 +46,7 @@
         sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
         reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
         badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || [],
+        placed,
         x: typeof x === "number" ? x : (existing ? existing.x : 50),
         y: typeof y === "number" ? y : (existing ? existing.y : 50)
       };
