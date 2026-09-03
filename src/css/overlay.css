@@ -1,11 +1,15 @@
-@font-face {font-family: "Chirp"; font-weight: 400; font-display: swap; src: url("../../assets/fonts/chirp.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 700; font-display: swap; src: url("../../assets/fonts/chirpbold.woff2") format("woff2")}
-@font-face {font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
-
-/* colors below reference --tum* variables set on the host by overlay.js from theme.js's palette
-   (light / dim / dark), each with x.com's own dark value as the fallback - so before js runs, or
-   if detection fails, everything still looks like x.com dark. accent blue, danger red, the scrims
-   and the whites that sit on colored headers stay literal since those don't change per theme */
+@font-face {
+  font-family: "Chirp"; 
+  font-weight: 400; font-display: swap; 
+  src: url("../../assets/fonts/chirp.woff2") format("woff2")
+}
+@font-face {
+  font-family: "Chirp"; 
+  font-weight: 700; font-display: swap; 
+  src: url("../../assets/fonts/chirpbold.woff2") format("woff2")
+}
+@font-face {
+  font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
 
 :host {
   all: initial;
@@ -16,8 +20,6 @@
 
 * {box-sizing: border-box; font-family: "Chirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 img {-webkit-user-drag: none; user-drag: none}
-/* kill default browser focus rings app-wide (the drag chip especially picks these up) - the
-   .tumover/.tumoverremove drop-target highlights are more specific so they still win */
 *, *:focus {outline: none; -webkit-tap-highlight-color: transparent}
 
 .tumroot {
@@ -26,7 +28,6 @@ img {-webkit-user-drag: none; user-drag: none}
   user-select: none
 }
 
-/* twitter's own scrollbar: thin, rounded, just a faint gray thumb, no visible track */
 .tumroot ::-webkit-scrollbar {width: 8px; height: 8px}
 .tumroot ::-webkit-scrollbar-track {background: transparent}
 .tumroot ::-webkit-scrollbar-thumb {
@@ -63,13 +64,11 @@ img {-webkit-user-drag: none; user-drag: none}
   opacity: 1; visibility: visible
 }
 
-/* export/import cluster, top-left of the overlay */
 .tumtools {
   position: absolute; top: 14px; left: 16px;
   display: flex; gap: 8px;
   pointer-events: auto; z-index: 3
 }
-/* the gear sits opposite the close/export/import cluster - top-right instead of top-left */
 .tumtoolsright {left: auto; right: 16px}
 .tumtool {
   width: 34px; height: 34px;
@@ -79,8 +78,6 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   justify-content: center
 }
-/* keep the fill solid on hover (a translucent --tumhover would let the page show through) -
-   layering it as an image over the elev background colour composites to an opaque tint */
 .tumtool:hover {background-image: linear-gradient(var(--tumhover,rgba(255,255,255,0.06)),var(--tumhover,rgba(255,255,255,0.06)))}
 .tumtool svg {
   width: 18px; height: 18px;
@@ -88,12 +85,11 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2; stroke-linecap: round;
   stroke-linejoin: round
 }
+
 .tumtoolclose:hover {background: #f4212e; background-image: none; border-color: #f4212e}
 .tumtoolclose:hover svg {stroke: #fff}
-/* releasing a held user onto the top-left close X discards them - flag it red like the delete pill */
 .tumtool.tumdiscardover {background: #f4212e; background-image: none; border-color: #f4212e}
 .tumtool.tumdiscardover svg {stroke: #fff}
-/* the gear is a drop-target too - releasing a user onto it opens settings; flag it blue */
 .tumtool.tumsettingsover {background: #1d9bf0; background-image: none; border-color: #1d9bf0}
 .tumtool.tumsettingsover svg {stroke: #fff}
 
@@ -148,6 +144,7 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 11px; font-weight: 400;
   white-space: nowrap
 }
+
 .tumfolderautoicon svg {
   width: 11px; height: 11px;
   fill: none; stroke: var(--tumheaderfg, #fff);
@@ -160,12 +157,10 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round; display: block
 }
-/* picker icons carry their own fill/stroke (fill="currentColor" on the root); the built-in stroke
-   icons have no fill attr. so for the custom ones, render by their own fill and kill the inherited
-   fat 2.2 stroke that was outlining + blackening them */
 .tumfolderactionicon svg[fill] {fill: currentColor; stroke: none}
 .tumfolderactionicon {font-size: 14px; line-height: 1; color: var(--tumheaderfg, #fff)}
 .tumfolderactionicon img {width: 16px; height: 16px; display: block}
+
 .tumfoldername {
   color: var(--tumheaderfg, #fff); font-size: 13px;
   font-weight: 700; white-space: nowrap;
@@ -247,9 +242,8 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* member rows (folders) and loose chips (unsorted) both use a two-row text layout so the
-   handle has room to breathe instead of getting crushed onto one line with the name */
 
+/* user rows / chips */
 .tumfoldermember, .tumloosechip {
   display: flex; align-items: center;
   gap: 8px; cursor: grab
@@ -265,7 +259,7 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; min-width: 0;
   display: flex; flex-direction: column
 }
-/* match the drag chip's 1px name/handle gap exactly so text doesn't nudge down on release */
+
 .tumloosechipinfo {gap: 1px}
 .tumfoldermembernamerow, .tumloosechipnamerow {
   display: flex; align-items: center; gap: 4px;
@@ -284,8 +278,6 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcopy {cursor: pointer}
 .tumcopy:hover {text-decoration: underline}
 
-/* marquee: the name span is the clip, the inner span holds the text and slides. only elements
-   given .tummarqueeon (on-screen + actually truncated) animate; the rest sit still */
 .tummqinner {display: inline-block; white-space: nowrap}
 .tummarqueeon .tummqinner {animation: tummarquee var(--mqdur,6s) ease-in-out infinite}
 @keyframes tummarquee {
@@ -326,8 +318,6 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldermemberremove:hover svg, .tumloosechipremove:hover svg {stroke: var(--tumtext,#e7e9ea)}
 
-/* deliberately identical to .tumchip (same avatar size, padding, font sizes) - a user
-   shouldn't visually change between being held and being released */
 .tumloosechip {
   position: absolute;
   transform: translate(-50%,-50%);
@@ -360,9 +350,6 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; justify-content: center;
   gap: 34px; pointer-events: none
 }
-/* a pill (icon + label side by side) rather than a circle - a wider hit target is less likely
-   to catch an accidental drop meant for the pill right next to it. always sits on the darkened
-   scrim (not the page), so its whites stay literal across themes */
 .tumquick {
   display: flex; flex-direction: row;
   align-items: center; gap: 8px;
@@ -395,8 +382,6 @@ img {-webkit-user-drag: none; user-drag: none}
   white-space: nowrap
 }
 
-/* the middle-right action drop-targets: follow / mute / block / destroy. same pill look as the
-   quick row but stacked down the right edge, each with its own tint when a user is dropped on it */
 .tumactionbar {
   position: absolute; right: 2.5%; top: 50%;
   transform: translateY(-50%);
@@ -413,7 +398,7 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto; cursor: default;
   user-select: none
 }
-/* the joke drop-target carries only the text.png graphic, no icon/label */
+
 .tumdestroytext {
   height: 34px; width: auto;
   display: block; pointer-events: none
@@ -424,10 +409,11 @@ img {-webkit-user-drag: none; user-drag: none}
   font-weight: 700; white-space: nowrap
 }
 .tumactionbtn.tumover {border-style: solid}
+/* special drag in colors for these Eyes Emoji */
 .tumactionfollow.tumover {border-color: #1d9bf0; background: rgba(29,155,240,0.25)}
 .tumactionmute.tumover {border-color: #ffd400; background: rgba(255,212,0,0.22)}
 .tumactionblock.tumover {border-color: #f4212e; background: rgba(244,33,46,0.25)}
-.tumactiondestroy.tumover {border-color: #ff7a00; background: rgba(255,122,0,0.28)}
+.tumactiondestroy.tumover {border-color: #ff008c; background: rgba(255,122,0,0.28)}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -478,9 +464,6 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: none; z-index: 3
 }
 .tummodal.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
-/* its own self-contained popup with its own dim - like .tumconfirmsheet, not the full black
-   canvas backdrop - so clicking a note badge on the real page doesn't drag the whole folder
-   canvas into view behind it, it's just meant to be a quick standalone lookup */
 .tumreasonmodal {
   position: absolute; inset: 0;
   background: rgba(91,112,131,0.4);
@@ -489,8 +472,6 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: none; z-index: 5
 }
 .tumreasonmodal.tumshow {opacity: 1; visibility: visible; pointer-events: auto}
-/* matches .tumconfirmcard exactly (the page-bg surface, red filled confirm pill) - same card,
-   same dim, same everything as the "delete folder?" warning, just different content */
 .tumreasoncard {
   width: 300px; background: var(--tumdeep,#000);
   border: 1px solid var(--tumborder,#2f3336);
@@ -616,9 +597,6 @@ img {-webkit-user-drag: none; user-drag: none}
   flex: 1; min-width: 0; background: transparent;
   border: none; outline: none; color: var(--tumtext,#e7e9ea); font-size: 15px
 }
-/* every icon folder gets a tab here, and every emoji category gets its own tab on a second row
-   right below it. deliberately as compact as possible - tiny buttons that hug their glyph with
-   no padding and no gaps between them, since these are just quick scroll-to jumps */
 .tumipcats {
   display: flex; flex-wrap: wrap; gap: 0;
   flex-shrink: 0
@@ -638,21 +616,16 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumipcat.tumselected {background: rgba(29,155,240,0.15); color: #1d9bf0}
 .tumipcat svg {width: 15px; height: 15px}
 .tumipcat img {width: 18px; height: 18px}
+
 .tumipgrid {flex: 1; min-height: 0; overflow-y: auto}
-/* content-visibility skips rendering off-screen sections; contain-intrinsic-size gives an unfilled
-   one a placeholder height so the scroll area is sized before its icons are lazily added */
+
 .tumipsection {margin-bottom: 6px; content-visibility: auto; contain-intrinsic-size: auto 300px}
-/* x.com's own emoji picker uses prominent 17px bold sentence-case section headers in the
-   primary text color - matched here rather than the faint gray labels this had before */
 .tumipsectiontitle {
   color: var(--tumtext,#e7e9ea); font-size: 17px; font-weight: 700;
   padding: 8px 2px 4px
 }
-/* both rows fill the panel's exact width edge to edge (grid columns, 0 gap) instead of a
-   flex-wrap that leaves blank space trailing the last row - the icon buttons are narrower than
-   the emoji ones (more columns) but the svg glyph inside each stays the same actual size,
-   only the button's own footprint shrinks */
 .tumiprow {display: grid; grid-template-columns: repeat(10, 1fr); gap: 0}
+
 .tumipemojirow {display: grid; grid-template-columns: repeat(9, 1fr); gap: 0}
 .tumipemoji {
   padding: 0; margin: 0; border: none;
@@ -662,6 +635,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumipemoji:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
 .tumipemoji img {width: 24px; height: 24px; pointer-events: none; vertical-align: middle}
+
 .tumipitem {
   padding: 0; margin: 0; width: 100%; height: 30px;
   background: transparent; border: none; cursor: pointer; border-radius: 4px;
@@ -670,18 +644,19 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumipitem svg {width: 19px; height: 19px; flex-shrink: 0}
 .tumipitem:hover {background: var(--tumhover,rgba(255,255,255,0.08))}
+
 .tumipempty {
   width: 100%; text-align: center; color: var(--tummuted,#71767b);
   font-size: 12px; padding: 20px 0
 }
-/* the same slot x.com's own picker uses for its skin-tone swatch - meaningless for flat
-   monochrome icons, so a tint color picker sits there instead */
+
 .tumipfooter {
   display: flex; align-items: center; gap: 8px;
   flex-shrink: 0; padding-top: 8px;
   border-top: 1px solid var(--tumborder,#2f3336);
   color: var(--tummuted,#71767b); font-size: 12px
 }
+
 .tumipcolor {
   width: 24px; height: 24px; padding: 0;
   border: none; border-radius: 50%;
@@ -735,9 +710,6 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* the card itself matches x.com's own confirmation dialog (page-bg surface, red filled confirm
-   pill, bordered cancel pill) but with its own lighter blue-gray dim behind it instead of
-   stacking onto the main backdrop, left-aligned text, and a bumped-up title size */
 
 .tumconfirmsheet {
   position: absolute; inset: 0;
@@ -780,8 +752,6 @@ img {-webkit-user-drag: none; user-drag: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-/* a 1:1 recreation of x.com's own bottom toast (blue pill, white text, 4px radius, 12px pad) -
-   appears instantly (transition:none on show) but fades out (base transition), matching twitter */
 .tumtoast {
   position: absolute; bottom: 32px; left: 50%;
   transform: translateX(-50%);
@@ -790,7 +760,7 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 15px; line-height: 20px;
   max-width: 90%; text-align: center;
   opacity: 0; visibility: hidden;
-  transition: opacity .17s cubic-bezier(0,0,1,1), visibility .17s;
+  transition: opacity .17s cubic-bezier(0,0,1,1);
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {

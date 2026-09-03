@@ -380,6 +380,10 @@
     if (tum.settings) tum.settings.onchange(applydestroyoption);
 
     document.addEventListener("keydown", onkeydown, true);
+    document.addEventListener("keydown", onpeekdown, true);
+    document.addEventListener("keyup", onpeekup, true);
+    // a missed keyup (alt-tabbing away mid-hold) would otherwise leave the ui stuck hidden
+    window.addEventListener("blur", () => {peekkeys.clear(); updatepeek()});
 
     tum.folders.subscribe(render);
     tum.unsorted.subscribe(render);
@@ -440,18 +444,29 @@
   // hide/show EVERYTHING the extension paints - the shadow overlay host plus every element injected
   // into x.com's own dom (page pencils, folder dots, profile extras, the settings tab). driven off a
   // class on <html> so a page-level stylesheet can catch nodes the scanners re-add while it's hidden
-  const HIDEALLSEL = "#tum-host,.tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
+  // NOTE: deliberately does NOT include #tum-host (the overlay) - hiding the overlay here would make
+  // ctrl+tab (which also uses ctrl) pointless, since holding ctrl would hide the very thing tab opens.
+  // the peek only clears the extension's PAGE additions so you can glance at the clean profile/timeline
+  const PEEKSEL = ".tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
     ".tumextrablock,.tumbreachbadge,.tumbreachbackdrop,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday," +
     '[data-testid="usermanagerLink"]';
-  function togglehideall() {
-    if (!document.getElementById("tumhideallstyle")) {
-      const st = document.createElement("style");
-      st.id = "tumhideallstyle";
-      st.textContent = "html.tumhideall " + HIDEALLSEL.split(",").join(",html.tumhideall ") + "{display:none!important}";
-      document.head.appendChild(st);
-    }
-    document.documentElement.classList.toggle("tumhideall");
+  function ensurehidestyle() {
+    if (document.getElementById("tumhideallstyle")) return;
+    const st = document.createElement("style");
+    st.id = "tumhideallstyle";
+    st.textContent = "html.tumhideall " + PEEKSEL.split(",").join(",html.tumhideall ") + "{display:none!important}";
+    document.head.appendChild(st);
   }
+  // momentary peek: hold Ctrl or PrtSc to hide the extension's page additions (not the overlay) until
+  // neither is held. tracked as a set so ctrl+prtsc both work and a missed keyup (blur) can't stick
+  const peekkeys = new Set();
+  function updatepeek() {
+    ensurehidestyle();
+    document.documentElement.classList.toggle("tumhideall", peekkeys.size > 0);
+  }
+  function ispeekkey(e) {return e.key === "Control" || e.key === "PrintScreen"}
+  function onpeekdown(e) {if (ispeekkey(e)) {peekkeys.add(e.key); updatepeek()}}
+  function onpeekup(e) {if (ispeekkey(e)) {peekkeys.delete(e.key); updatepeek()}}
 
   // the "destroy" joke: full-screen the desktopdestroyer (in its own extension iframe so its global
   // canvas/input code stays sandboxed) with the target's avatar as the surface to smash. it's purely
@@ -1019,7 +1034,9 @@
       const folder = tum.folders.get(target.id);
       if (folder) {
         tum.folders.addmember(folder.id, user);
-        if (source.type === "page" && !user.skipaction) tum.actions.run(folder.action, user);
+        // run the auto-action for a page drag OR a loose unsorted chip being filed for the first
+        // time; a folder->folder move is exempt (it already ran when they were first filed)
+        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
       }
       // unless "keep open" is ticked, filing someone away fades the whole overlay out
       if (!keepopen) {render(); closeoverlay(); return}
@@ -1096,13 +1113,10 @@
   // nothing in hand, escape just closes the overlay
 
   function onkeydown(e) {
-    // global hotkeys (ctrl+shift+key), live whether or not the overlay is open. ctrl+shift avoids
-    // x.com's single-key shortcuts and typing, and none of these combos are reserved by chrome/windows
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey) {
-      const k = e.key.toLowerCase();
-      if (k === "u") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}   // bring up / dismiss the overlay
-      if (k === "h") {togglehideall(); e.preventDefault(); e.stopPropagation(); return}   // hide / show all extension ui
-    }
+    // ctrl+` (backtick) brings up / dismisses the overlay from anywhere - not a browser-reserved
+    // combo (unlike ctrl+tab), and the ctrl-hold peek no longer hides the overlay so it stays visible.
+    // holding ctrl or prtsc to momentarily hide the page ui is handled separately (onpeekdown/up)
+    if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (!state.drag) {
       if (e.key === "Escape") {closeoverlay(); return}
       // don't let the keyboard scroll the page behind the open overlay (but keep typing in fields)
@@ -1220,6 +1234,9 @@
   function opencreatemodal() {
     state.editing = null;
     state.modalopen = true;
+    // the overlay stays open behind the popup - dismissing the popup returns you to the canvas
+    // instead of tearing the whole overlay down (a drag-into-"new folder" leaves state.open false)
+    state.open = true;
     modalicon = "";
     els.modalname.value = "";
     els.modalsave.textContent = "create";
@@ -1267,6 +1284,7 @@
     // purely cosmetic - swaps out the action icon shown on the folder header, the action
     // itself (follow/mute/block) still runs exactly the same either way
     const icon = modalicon;
+    let filed = false;
     if (state.editing) {
       tum.folders.update(state.editing, {name, icon, action: modalaction, color: modalcolor});
     } else {
@@ -1275,10 +1293,16 @@
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
         tum.folders.addmember(folder.id, user);
-        if (source.type === "page" && !user.skipaction) tum.actions.run(folder.action, user);
+        // run the auto-action for anyone not already sitting in a folder (a page drag OR a loose
+        // unsorted chip re-picked-up) - only a folder->folder move is exempt, since it already ran
+        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
+        filed = true;
       }
     }
     closemodal();
+    // filing someone off a drag fades the overlay out (unless keep-open); creating an empty folder
+    // by clicking "new folder" leaves it open to carry on
+    if (filed && !keepopen) closeoverlay();
     state.open = true;
     render();
   }
