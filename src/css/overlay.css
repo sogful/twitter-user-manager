@@ -363,7 +363,8 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumquick {
   display: flex; flex-direction: row;
   align-items: center; gap: 8px;
-  padding: 12px 22px; border-radius: 999px;
+  height: 56px; box-sizing: border-box;
+  padding: 0 28px; border-radius: 999px;
   background: rgba(255,255,255,0.12);
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
@@ -401,12 +402,18 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumactionbtn {
   display: flex; align-items: center;
-  gap: 8px; padding: 11px 18px;
-  border-radius: 999px;
+  justify-content: center; gap: 8px;
+  height: 56px; box-sizing: border-box;
+  padding: 0 14px; border-radius: 999px;
   background: rgba(255,255,255,0.12);
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
   user-select: none
+}
+/* the joke drop-target carries only the text.png graphic, no icon/label */
+.tumdestroytext {
+  height: 34px; width: auto;
+  display: block; pointer-events: none
 }
 .tumactionbtn.tumdisabled {opacity: .35; pointer-events: none}
 .tumactionbtn span {
@@ -437,7 +444,8 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 50%; object-fit: cover
 }
 .tumchipinfo {
-  display: flex; flex-direction: column;
+  flex: 1; display: flex;
+  flex-direction: column;
   gap: 1px; min-width: 0
 }
 .tumchipnamerow {

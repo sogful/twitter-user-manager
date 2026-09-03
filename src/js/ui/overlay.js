@@ -18,9 +18,9 @@
     upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
-    destroy: '<svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8c0 2.6 1 4.2 2.5 5.2V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2.8C19 15.2 20 13.6 20 11a8 8 0 0 0-8-8z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 17v2M12 16.5v3M14 17v2"/></svg>',
-    gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>'
+    gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
+  const TEXTPNG = chrome.runtime.getURL("assets/images/text.png");
   const SORTMODES = ["added", "az", "za"];
   const SORTLABEL = {added: "newest first", az: "A - Z", za: "Z - A"};
 
@@ -217,13 +217,13 @@
           <div class="tumactionbtn tumactionfollow" data-act="follow"><div class="tumquickicon">${ICONS.follow}</div><span>follow</span></div>
           <div class="tumactionbtn tumactionmute" data-act="mute"><div class="tumquickicon">${ICONS.mute}</div><span>mute</span></div>
           <div class="tumactionbtn tumactionblock" data-act="block"><div class="tumquickicon">${ICONS.block}</div><span>block</span></div>
-          <div class="tumactionbtn tumactiondestroy" data-act="destroy"><div class="tumquickicon">${ICONS.destroy}</div><span>destroy</span></div>
+          <div class="tumactionbtn tumactiondestroy" data-act="destroy"><img class="tumdestroytext" src="${TEXTPNG}" alt="destroy"></div>
         </div>
       </div>
       <div class="tumchip">
         <img class="tumchipavatar">
         <div class="tumchipinfo">
-          <div class="tumchipnamerow"><span class="tumchipname"></span><span class="tumchipbadges"></span></div>
+          <div class="tumchipnamerow"><span class="tumchipname"></span><span class="tumchipbadges"></span><span class="tumreasonbadge tumchipreason">${ICONS.pencil}</span></div>
           <span class="tumchiphandle"></span>
         </div>
         <button class="tumchipremove">${ICONS.close}</button>
@@ -291,6 +291,7 @@
       chipavatar: root.querySelector(".tumchipavatar"),
       chipname: root.querySelector(".tumchipname"),
       chipbadges: root.querySelector(".tumchipbadges"),
+      chipreason: root.querySelector(".tumchipreason"),
       chiphandle: root.querySelector(".tumchiphandle"),
       modal: root.querySelector(".tummodal"),
       modaliconbtn: root.querySelector(".tummodaliconbtn"),
@@ -424,11 +425,16 @@
     const frame = document.createElement("iframe");
     frame.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
     frame.allow = "autoplay";
-    frame.src = chrome.runtime.getURL("assets/desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
+    frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
+    // the same round icon button as the overlay's own close (tumtoolclose), rebuilt inline since
+    // this button lives in the page's light dom, outside the shadow root that holds .tumtool css
     const exit = document.createElement("button");
-    exit.textContent = "✕ exit";
-    exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;padding:9px 16px;border-radius:999px;border:0;" +
-      "background:rgba(0,0,0,0.55);color:#fff;font:700 14px/1 -apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;backdrop-filter:blur(4px)";
+    exit.innerHTML = ICONS.close;
+    exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;width:34px;height:34px;border-radius:999px;padding:0;" +
+      "background:#16181c;border:1px solid #2f3336;display:flex;align-items:center;justify-content:center;cursor:pointer";
+    exit.querySelector("svg").style.cssText = "width:18px;height:18px;stroke:#e7e9ea;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round";
+    exit.addEventListener("mouseenter", () => {exit.style.background = "#f4212e"; exit.style.borderColor = "#f4212e"; exit.querySelector("svg").style.stroke = "#fff"});
+    exit.addEventListener("mouseleave", () => {exit.style.background = "#16181c"; exit.style.borderColor = "#2f3336"; exit.querySelector("svg").style.stroke = "#e7e9ea"});
     function removeit() {box.remove(); document.removeEventListener("keydown", onkey, true)}
     function onkey(e) {if (e.key === "Escape") removeit()}
     exit.addEventListener("click", removeit);
@@ -830,6 +836,10 @@
     els.chipname.textContent = user.displayname || user.handle;
     els.chiphandle.textContent = "@" + user.handle;
     els.chipbadges.innerHTML = (user.badges || []).join("");
+    // match the resting loose chip exactly - an empty badges span would still eat a namerow gap,
+    // and the note pencil has to ride along or the chip shrinks the moment a noted user is lifted
+    els.chipbadges.style.display = (user.badges && user.badges.length) ? "" : "none";
+    els.chipreason.style.display = user.reason ? "" : "none";
     // no fixed color for the chip - it should look like it was lifted straight off the page,
     // so it just borrows whatever background/text color x.com is actually rendering right now
     els.chip.style.background = tum.theme.css();

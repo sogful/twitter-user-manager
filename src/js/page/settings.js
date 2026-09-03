@@ -77,11 +77,17 @@
   // twitter's own square checkbox look: rounded box, blue fill + white check when on. a <span>, not
   // a <button> - twitter's global button styling overrides even an inline !important background
   function makecheckbox() {
+    // twitter wraps its checkbox in a larger circular hit area that tints light-blue on hover;
+    // the square check sits centered inside it
+    const wrap = document.createElement("span");
+    wrap.className = "tumsetcheckwrap";
+    wrap.style.cssText = "display:flex;align-items:center;justify-content:center;width:38px;height:38px;" +
+      "border-radius:50%;flex:0 0 auto;cursor:pointer";
     const box = document.createElement("span");
     box.className = "tumsetcheck";
     box.setAttribute("role", "checkbox");
     box.tabIndex = 0;
-    box.style.cssText = "width:20px;height:20px;border-radius:5px;cursor:pointer;flex:0 0 auto;box-sizing:border-box;" +
+    box.style.cssText = "width:20px;height:20px;border-radius:5px;flex:0 0 auto;box-sizing:border-box;" +
       "display:flex;align-items:center;justify-content:center";
     box.innerHTML = '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
     const svg = box.querySelector("svg");
@@ -93,8 +99,11 @@
     }
     paint();
     box._paint = paint;
-    box.addEventListener("click", () => {keepopen = !keepopen; store.set({keepopen}); paint()});
-    return box;
+    wrap.addEventListener("click", () => {keepopen = !keepopen; store.set({keepopen}); paint()});
+    wrap.addEventListener("mouseenter", () => {wrap.style.background = "rgba(29,155,240,0.1)"});
+    wrap.addEventListener("mouseleave", () => {wrap.style.background = ""});
+    wrap.appendChild(box);
+    return wrap;
   }
   function syncswitch() {const s = document.querySelector(".tumsetcheck"); if (s && s._paint) s._paint()}
 
