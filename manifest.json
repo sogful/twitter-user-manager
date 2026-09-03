@@ -38,6 +38,8 @@
         "src/js/page/actions.js",
         "src/js/page/dragdetect.js",
         "src/js/ui/overlay.js",
+        "src/js/ui/overlaydrag.js",
+        "src/js/ui/overlaymodals.js",
         "src/js/page/badges.js",
         "src/js/page/suggest.js",
         "src/js/page/profileinfo.js",
@@ -49,7 +51,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg", "assets/images/text.png", "desktopdestroyer/*", "desktopdestroyer/**"],
+      "resources": ["src/css/overlay.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/svgs/**/*.svg", "assets/images/text.png", "desktopdestroyer/*", "desktopdestroyer/**"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]

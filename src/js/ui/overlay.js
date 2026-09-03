@@ -2,6 +2,10 @@
   "use strict";
 
   window.tum = window.tum || {};
+  // shared context for the split-out drag (overlaydrag.js) + modals (overlaymodals.js) files: they
+  // read core state/helpers off this object and hang their own functions back on it. populated at the
+  // bottom of this iife (before those files load), with els/root filled in once wiremarkup runs
+  const O = window.tum._ov = {};
 
   const ICONS = {
     follow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
@@ -68,6 +72,13 @@
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 150 ? "#000" : "#fff";
+  }
+  // a folder's chosen icon -> html: an emoji image, a bundled svg, or a literal char/empty
+  function iconhtml(icon) {
+    if (!icon) return "";
+    if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
+    if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon);
+    return escapehtml(icon);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -177,9 +188,6 @@
     });
   }
 
-  // while the overlay is up, the page behind it must not scroll. the backdrop already blocks
-  // clicks/hover; this stops wheel/touch too, but still lets the overlay's own scrollable bits
-  // (a folder's member list, the icon grid, a long note) scroll normally
   function setupscrolllock() {
     const allow = ev => {
       for (const n of (ev.composedPath ? ev.composedPath() : [])) {
@@ -195,91 +203,27 @@
 
   function buildmarkup() {
     root = el("div", "tumroot");
-    root.innerHTML = `
-      <div class="tumbackdrop"></div>
-      <div class="tumcanvas">
-        <div class="tumgridlayer"></div>
-        <div class="tumtools">
-          <button class="tumtool tumtoolclose" title="close the overlay">${ICONS.close}</button>
-          <button class="tumtool tumtoolexport" title="export folders and notes as a json backup">${ICONS.download}</button>
-          <button class="tumtool tumtoolimport" title="import folders from a json backup">${ICONS.upload}</button>
-        </div>
-        <div class="tumtools tumtoolsright">
-          <button class="tumtool tumtoolgear" title="user manager settings">${ICONS.gear}</button>
-        </div>
-        <div class="tumfreeform"></div>
-        <div class="tumquickrow">
-          <div class="tumquick tumquickadd"><div class="tumquickicon">${ICONS.plus}</div><span>new folder</span></div>
-          <div class="tumquick tumquickdelete"><div class="tumquickicon">${ICONS.trash}</div><span>delete</span></div>
-          <div class="tumquick tumquickreason"><div class="tumquickicon">${ICONS.pencil}</div><span>custom reason</span></div>
-        </div>
-        <div class="tumactionbar">
-          <div class="tumactionbtn tumactionfollow" data-act="follow"><div class="tumquickicon">${ICONS.follow}</div><span>follow</span></div>
-          <div class="tumactionbtn tumactionmute" data-act="mute"><div class="tumquickicon">${ICONS.mute}</div><span>mute</span></div>
-          <div class="tumactionbtn tumactionblock" data-act="block"><div class="tumquickicon">${ICONS.block}</div><span>block</span></div>
-          <div class="tumactionbtn tumactiondestroy" data-act="destroy"><img class="tumdestroytext" src="${TEXTPNG}" alt="destroy"></div>
-        </div>
-      </div>
-      <div class="tumchip">
-        <img class="tumchipavatar">
-        <div class="tumchipinfo">
-          <div class="tumchipnamerow"><span class="tumchipname"></span><span class="tumchipbadges"></span><span class="tumreasonbadge tumchipreason">${ICONS.pencil}</span></div>
-          <span class="tumchiphandle"></span>
-        </div>
-        <button class="tumchipremove">${ICONS.close}</button>
-      </div>
-      <div class="tummodal">
-        <div class="tummodalcard">
-          <div class="tummodalhead">
-            <button class="tummodaliconbtn">${ICONS.folder}</button>
-            <input class="tummodalname" maxlength="40" placeholder="folder name">
-            <button class="tummodalclose">${ICONS.close}</button>
-          </div>
-          <div class="tummodalactions">
-            <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>autofollow</span></button>
-            <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>automute</span></button>
-            <button data-action="block" class="tummodalaction">${ICONS.block}<span>autoblock</span></button>
-          </div>
-          <div class="tummodalcolors"></div>
-          <button class="tummodalsave">create</button>
-        </div>
-      </div>
-      <div class="tumreasonmodal">
-        <div class="tumreasoncard">
-          <div class="tumreasonhead">
-            <span class="tumreasontitle"></span>
-            <button class="tumreasonclose">${ICONS.close}</button>
-          </div>
-          <div class="tumreasonview">
-            <div class="tumreasontext"></div>
-            <a class="tumreasonsource" target="_blank" rel="noopener">view attached post</a>
-            <button class="tumreasonedit">edit</button>
-            <button class="tumreasondelete">delete</button>
-          </div>
-          <div class="tumreasonform">
-            <div class="tumreasonactions">
-              <button data-action="follow" class="tummodalaction">${ICONS.follow}<span>follow</span></button>
-              <button data-action="mute" class="tummodalaction">${ICONS.mute}<span>mute</span></button>
-              <button data-action="block" class="tummodalaction">${ICONS.block}<span>block</span></button>
-            </div>
-            <textarea class="tumreasoninput" maxlength="500" placeholder="Add notes here.."></textarea>
-            <button class="tumreasonsave">save note</button>
-          </div>
-        </div>
-      </div>
-      <div class="tumconfirmsheet">
-        <div class="tumconfirmcard">
-          <div class="tumconfirmtitle"></div>
-          <div class="tumconfirmbody"></div>
-          <button class="tumconfirmok">Delete</button>
-          <button class="tumconfirmcancel">Cancel</button>
-        </div>
-      </div>
-      <div class="tumtoast"></div>
-    `;
-    shadow.appendChild(root);
+    O.root = root;
+    loadmarkup().then(html => {
+      root.innerHTML = html;
+      const tp = root.querySelector("[data-tumtextpng]");
+      if (tp) tp.src = TEXTPNG;
+      shadow.appendChild(root);
+      wiremarkup();
+    });
+  }
+  // the overlay markup lives in src/html/overlay.html (fetched once, cached) rather than a giant
+  // template string in here - keeps this file to logic. wiremarkup runs once it is in the dom
+  let markuphtml = null;
+  function loadmarkup() {
+    if (markuphtml != null) return Promise.resolve(markuphtml);
+    let url = "overlay.html";
+    try {url = chrome.runtime.getURL("src/html/overlay.html")} catch {}
+    return fetch(url).then(r => r.text()).then(t => {markuphtml = t; return t});
+  }
+  function wiremarkup() {
 
-    els = {
+    els = O.els = {
       backdrop: root.querySelector(".tumbackdrop"),
       canvas: root.querySelector(".tumcanvas"),
       gridlayer: root.querySelector(".tumgridlayer"),
@@ -334,44 +278,41 @@
       const sw = el("button", "tummodalcolor");
       sw.style.backgroundColor = c;
       sw.dataset.color = c;
-      sw.addEventListener("click", () => selectcolor(c));
+      sw.addEventListener("click", () => O.selectcolor(c));
       els.modalcolors.appendChild(sw);
     }
     tum.iconpicker.mount(root);
-    tum.iconpicker.onload(() => {render(); if (state.modalopen) refreshiconbtn()});
+    tum.iconpicker.onload(() => {render(); if (state.modalopen) O.refreshiconbtn()});
 
     attachpan();
     setupscrolllock();
-    els.modalclose.addEventListener("click", closemodal);
-    els.modalsave.addEventListener("click", savemodal);
-    els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => selecticon(id))});
-    for (const b of els.modalactions) b.addEventListener("click", () => selectaction(b.dataset.action === modalaction ? null : b.dataset.action));
-    for (const b of els.reasonactionbtns) b.addEventListener("click", () => selectreasonaction(b.dataset.action === reasonaction ? null : b.dataset.action));
-    els.reasonclose.addEventListener("click", closereasonmodal);
-    els.reasonmodal.addEventListener("click", e => {if (e.target === els.reasonmodal) closereasonmodal()});
-    els.reasonedit.addEventListener("click", () => setreasonmode("edit"));
-    els.reasondelete.addEventListener("click", deletenoteduser);
-    els.reasonsave.addEventListener("click", savereason);
+    els.modalclose.addEventListener("click", O.closemodal);
+    els.modalsave.addEventListener("click", O.savemodal);
+    els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
+    for (const b of els.modalactions) b.addEventListener("click", () => O.toggleaction(b.dataset.action));
+    for (const b of els.reasonactionbtns) b.addEventListener("click", () => O.togglereasonaction(b.dataset.action));
+    els.reasonclose.addEventListener("click", O.closereasonmodal);
+    els.reasonmodal.addEventListener("click", e => {if (e.target === els.reasonmodal) O.closereasonmodal()});
+    els.reasonedit.addEventListener("click", () => O.setreasonmode("edit"));
+    els.reasondelete.addEventListener("click", O.deletenoteduser);
+    els.reasonsave.addEventListener("click", O.savereason);
 
-    // the keep-open preference lives in the /settings/usermanager pane now; the gear opens it
     els.toolgear.addEventListener("click", () => {
       closeoverlay();
       try {tum.settingspane.open()} catch {}
     });
-    els.confirmcancel.addEventListener("click", closeconfirmsheet);
-    els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) closeconfirmsheet()});
+    els.confirmcancel.addEventListener("click", O.closeconfirmsheet);
+    els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) O.closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
       if (state.confirmtarget) tum.folders.remove(state.confirmtarget);
-      closeconfirmsheet();
+      O.closeconfirmsheet();
     });
 
-    els.quickadd.addEventListener("click", () => {if (!state.drag) opencreatemodal()});
+    els.quickadd.addEventListener("click", () => {if (!state.drag) O.opencreatemodal()});
     els.toolclose.addEventListener("click", () => {if (!state.drag) closeoverlay()});
-    els.toolexport.addEventListener("click", exportdata);
-    els.toolimport.addEventListener("click", importdata);
+    els.toolexport.addEventListener("click", O.exportdata);
+    els.toolimport.addEventListener("click", O.importdata);
 
-    // the joke drop-target can be switched off in the settings pane; a display:none also zeroes its
-    // hit-rect so it stops catching drops. actionbtns is rebuilt to keep the enable/dim loops honest
     function applydestroyoption() {
       const on = !tum.settings || tum.settings.get("destroyoption");
       els.actiondestroy.style.display = on ? "" : "none";
@@ -383,7 +324,6 @@
     document.addEventListener("keydown", onkeydown, true);
     document.addEventListener("keydown", onpeekdown, true);
     document.addEventListener("keyup", onpeekup, true);
-    // a missed keyup (alt-tabbing away mid-hold) would otherwise leave the ui stuck hidden
     window.addEventListener("blur", () => {peekkeys.clear(); updatepeek()});
 
     tum.folders.subscribe(render);
@@ -395,10 +335,6 @@
     pinhost();
   }
 
-  // push x.com's current theme palette onto the host as css variables - overlay.css reads these
-  // via var(--tum..., <dark fallback>), so the whole overlay (folders, modals, picker, backdrop)
-  // recolors to match light/dim/dark instead of being hardcoded dark. re-applied on every open in
-  // case the user switched themes while the tab stayed put
   function applytheme() {
     if (!host) return;
     const p = tum.theme.palette();
@@ -407,28 +343,21 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // deliberately NOT locking scroll via overflow:hidden on html/body - x.com's timeline is a
-  // virtualized list, and toggling overflow on an ancestor makes it think its container just
-  // resized, which resets its own scroll position back to the top. the full-viewport backdrop
-  // (pointer-events: auto while active) already blocks wheel/touch from reaching the real page
-  // underneath on its own, so nothing needs to touch the page's own scroll state at all
   function showbackdrop() {
     applytheme();
     root.classList.add("tumactive");
-    // re-evaluate marquees now that the canvas is actually visible - an IntersectionObserver set
-    // up while it was hidden reports nothing intersecting, so this fresh pass is what lights them
     refreshmarquees();
   }
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     root.classList.remove("tumactive");
-    schedulerestoreall(); // overlay's closing - bring back everything it hid once it's faded
+    O.schedulerestoreall(); // overlay's closing - bring back everything it hid once it's faded
   }
   function closeoverlay() {
     state.open = false;
-    closemodal();
-    closereasonmodal();
-    closeconfirmsheet();
+    O.closemodal();
+    O.closereasonmodal();
+    O.closeconfirmsheet();
     hidebackdrop();
   }
   // open the canvas from nothing (a hotkey, not a drag) - just show it and render what's filed
@@ -468,34 +397,6 @@
   function ispeekkey(e) {return e.key === "Control" || e.key === "PrintScreen"}
   function onpeekdown(e) {if (ispeekkey(e)) {peekkeys.add(e.key); updatepeek()}}
   function onpeekup(e) {if (ispeekkey(e)) {peekkeys.delete(e.key); updatepeek()}}
-
-  // the "destroy" joke: full-screen the desktopdestroyer (in its own extension iframe so its global
-  // canvas/input code stays sandboxed) with the target's avatar as the surface to smash. it's purely
-  // for laughs - nothing is blocked/muted/followed - and the exit button just tears the iframe down
-  function launchdestroyer(user) {
-    const box = el("div", "tumdestroyer");
-    box.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#000";
-    const frame = document.createElement("iframe");
-    frame.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
-    frame.allow = "autoplay";
-    frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") + "#" + encodeURIComponent(user.avatarurl || "");
-    // the same round icon button as the overlay's own close (tumtoolclose), rebuilt inline since
-    // this button lives in the page's light dom, outside the shadow root that holds .tumtool css
-    const exit = document.createElement("button");
-    exit.innerHTML = ICONS.close;
-    exit.style.cssText = "position:absolute;top:16px;right:16px;z-index:2;width:34px;height:34px;border-radius:999px;padding:0;" +
-      "background:#16181c;border:1px solid #2f3336;display:flex;align-items:center;justify-content:center;cursor:pointer";
-    exit.querySelector("svg").style.cssText = "width:18px;height:18px;stroke:#e7e9ea;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round";
-    exit.addEventListener("mouseenter", () => {exit.style.background = "#f4212e"; exit.style.borderColor = "#f4212e"; exit.querySelector("svg").style.stroke = "#fff"});
-    exit.addEventListener("mouseleave", () => {exit.style.background = "#16181c"; exit.style.borderColor = "#2f3336"; exit.querySelector("svg").style.stroke = "#e7e9ea"});
-    function removeit() {box.remove(); document.removeEventListener("keydown", onkey, true)}
-    function onkey(e) {if (e.key === "Escape") removeit()}
-    exit.addEventListener("click", removeit);
-    document.addEventListener("keydown", onkey, true);
-    box.appendChild(frame);
-    box.appendChild(exit);
-    document.body.appendChild(box);
-  }
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -619,10 +520,10 @@
       for (const m of members.slice(0, MEMBERCAP)) list.appendChild(buildmemberrow({type: "folder", id: f.id}, m));
       if (members.length > MEMBERCAP) list.appendChild(el("div", "tumfoldermore", `+${members.length - MEMBERCAP} more`));
     }
-    attachfolderdrag(node, f);
+    O.attachfolderdrag(node, f);
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
       e.stopPropagation();
-      confirmfolderdelete(f);
+      O.confirmfolderdelete(f);
     });
     node.querySelector(".tumfoldercollapse").addEventListener("click", e => {
       e.stopPropagation();
@@ -664,13 +565,13 @@
     hidebrokenavatar(row);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
-      openreasonview(source, m);
+      O.openreasonview(source, m);
     });
     row.querySelector(".tumfoldermemberremove").addEventListener("click", e => {
       e.stopPropagation();
       tum.folders.removemember(source.id, m.handle);
     });
-    attachmemberdrag(row, source, m);
+    O.attachmemberdrag(row, source, m);
     return row;
   }
 
@@ -698,13 +599,13 @@
     hidebrokenavatar(chip);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
-      openreasonview({type: "unsorted"}, u);
+      O.openreasonview({type: "unsorted"}, u);
     });
     chip.querySelector(".tumloosechipremove").addEventListener("click", e => {
       e.stopPropagation();
       tum.unsorted.remove(u.handle);
     });
-    attachmemberdrag(chip, {type: "unsorted"}, u);
+    O.attachmemberdrag(chip, {type: "unsorted"}, u);
     return chip;
   }
 
@@ -724,391 +625,6 @@
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // dragging folders around (freeform reposition) and dragging users out of a folder/the
-  // unsorted area (into another folder, back to unsorted, or onto a quick action) both reuse
-  // the same click-vs-drag threshold pattern dragdetect.js uses for the page itself
-
-  const THRESHOLD = 6;
-
-  function attachfolderdrag(node, f) {
-    const head = node.querySelector(".tumfolderhead");
-    let tracking = null;
-    head.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumfolderremove, .tumfoldercollapse")) return;
-      // folders are positioned by their top-left corner (not centered), so track the exact
-      // spot within the folder the user grabbed it - without this, starting a drag from the
-      // header snaps the whole folder to re-center itself under the cursor instead of moving
-      // smoothly from wherever it was actually grabbed
-      const rect = node.getBoundingClientRect();
-      tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
-      const move = ev => {
-        if (!tracking) return;
-        const dx = ev.clientX - tracking.startx, dy = ev.clientY - tracking.starty;
-        if (!tracking.dragging) {
-          if (Math.hypot(dx, dy) < THRESHOLD) return;
-          tracking.dragging = true;
-          root.classList.add("tumfolderdragging");
-        }
-        // subtract the pan so the folder tracks the cursor even when the canvas is panned; no
-        // clamp to the viewport - the canvas is infinite, drag it off-screen and pan back to it
-        const px = ev.clientX - tracking.offsetx - pan.x;
-        const py = ev.clientY - tracking.offsety - pan.y;
-        node.style.left = (px / window.innerWidth * 100) + "%";
-        node.style.top = (py / window.innerHeight * 100) + "%";
-      };
-      const up = ev => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        root.classList.remove("tumfolderdragging");
-        if (tracking && tracking.dragging) {
-          const px = ev.clientX - tracking.offsetx - pan.x;
-          const py = ev.clientY - tracking.offsety - pan.y;
-          tum.folders.move(f.id, px / window.innerWidth * 100, py / window.innerHeight * 100);
-        } else if (tracking) {
-          openeditmodal(f);
-        }
-        tracking = null;
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
-    });
-  }
-
-  function attachmemberdrag(row, source, m) {
-    row.addEventListener("pointerdown", e => {
-      // the remove/reason buttons stay click-only (no threshold), but everything else -
-      // including the copyable name/handle text - can start a drag once it moves enough,
-      // same threshold pattern as the click-vs-drag split everywhere else in this file
-      if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge")) return;
-      const startx = e.clientX, starty = e.clientY;
-      let tracking = true, dragging = false;
-      const move = ev => {
-        if (!tracking) return;
-        if (!dragging) {
-          if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < THRESHOLD) return;
-          dragging = true;
-          const user = {handle: m.handle, displayname: m.displayname, avatarurl: m.avatarurl, sourceurl: m.sourceurl, reason: m.reason, badges: m.badges || []};
-          // render() inside begindrag rebuilds the freeform and hides this person's fresh copy
-          // itself (via isdragged), so nothing to hide on the old node here
-          begindrag(user, ev.clientX, ev.clientY, source);
-        }
-        updatedrag(ev.clientX, ev.clientY);
-      };
-      const up = ev => {
-        tracking = false;
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        if (dragging) {
-          enddrag(ev.clientX, ev.clientY);
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
-    });
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  // a live tweet's avatar/name/handle go invisible the moment they're carried (no ghost at the
-  // origin) and stay invisible for as long as the overlay is up - the "lifted out" look. they are
-  // NOT hidden forever: everything comes back once the overlay fully fades (scroll is locked while
-  // it's open, so the page behind can't virtualize the hidden nodes out from under us mid-session).
-  // discarding or cancelling a fresh page drag restores that one immediately. tracked by handle so
-  // a person picked back up off a chip/member (a re-drag carries no page refs) can still be found
-  const hiddenmap = new Map(); // handle (lowercased) -> [page elements]
-  function hidesource(targets) {
-    if (!targets) return;
-    for (const t of targets) if (t) {
-      t.style.visibility = "hidden";
-      // the note pencil lives inside the name block we just hid - keep it showing (visibility on a
-      // child overrides the hidden parent) so dragging a noted user doesn't take their badge with it
-      if (t.querySelectorAll) for (const b of t.querySelectorAll(".tumpagereasonbadge, .tumpageprofilereasonbadge")) b.style.visibility = "visible";
-    }
-  }
-  function recordhidden(handle, targets) {
-    if (!handle || !targets) return;
-    const key = handle.toLowerCase();
-    const arr = hiddenmap.get(key) || [];
-    for (const t of targets) if (t && arr.indexOf(t) === -1) arr.push(t);
-    hiddenmap.set(key, arr);
-  }
-  function restoreels(arr) {
-    for (const t of arr) if (t) {t.style.visibility = ""; t.style.opacity = ""}
-  }
-  function restorehidden(handle) {
-    const key = (handle || "").toLowerCase();
-    const arr = hiddenmap.get(key);
-    if (!arr) return;
-    restoreels(arr);
-    hiddenmap.delete(key);
-  }
-  // everything hidden this session comes back - run once the overlay has actually faded (so the
-  // "lifted" look holds through the fade, per the release behaviour), and only if it's still shut
-  let restoretimer = 0;
-  function schedulerestoreall() {
-    clearTimeout(restoretimer);
-    restoretimer = setTimeout(() => {
-      if (root && !root.classList.contains("tumactive")) {
-        for (const arr of hiddenmap.values()) restoreels(arr);
-        hiddenmap.clear();
-      }
-    }, 240);
-  }
-
-  // if the page still shows this account's follow control and it reads "Following @handle", they're
-  // already followed - flip the action button to unfollow so the drop does the right thing. handle
-  // is matched so a stray follow button elsewhere on the page can't mislead it; unknown = follow
-  function detectfollowing(handle) {
-    const h = (handle || "").toLowerCase();
-    for (const b of document.querySelectorAll("button[aria-label]")) {
-      const mm = /^(following|follow)\s+@([A-Za-z0-9_]+)$/i.exec((b.getAttribute("aria-label") || "").trim());
-      if (mm && mm[2].toLowerCase() === h) return /^following/i.test(mm[1]);
-    }
-    return null;
-  }
-  function setfollowbutton(act) {
-    els.actionfollow.dataset.act = act;
-    els.actionfollow.querySelector("span").textContent = act;
-    els.actionfollow.querySelector(".tumquickicon").innerHTML = act === "unfollow" ? ICONS.unfollow : ICONS.follow;
-  }
-
-  // page drags (dragdetect) hand over a user with no stored note, so a noted person lifted off a
-  // tweet would show no pencil on the chip while the same person shows one everywhere else. fill it
-  // in from the saved data by handle so every drag source renders the chip identically
-  function notefor(handle) {
-    const h = (handle || "").toLowerCase();
-    for (const u of tum.unsorted.list()) if (u.handle.toLowerCase() === h && u.reason) return u.reason;
-    for (const f of tum.folders.list()) for (const m of (f.members || [])) if (m.handle.toLowerCase() === h && m.reason) return m.reason;
-    return "";
-  }
-
-  function begindrag(user, x, y, source) {
-    if (!user.reason) user.reason = notefor(user.handle);
-    state.drag = {kind: "user", user, source: source || {type: "page"}};
-    state.open = false;
-    setfollowbutton(detectfollowing(user.handle) === true ? "unfollow" : "follow");
-    hidesource(user.dimtargets);
-    recordhidden(user.handle, user.dimtargets);
-    // some sources (the new chat's off-page pfps) hand over an image url that won't actually load.
-    // hide a broken/slow one with VISIBILITY (not display) so the 40px avatar slot stays reserved -
-    // display:none collapsed the chip narrower/shorter than the resting loose chip, which reads as
-    // the dragged element "resizing" and losing its padding. matches hidebrokenavatar on the chips
-    els.chipavatar.onerror = () => {els.chipavatar.style.visibility = "hidden"};
-    els.chipavatar.onload = () => {els.chipavatar.style.visibility = "visible"};
-    els.chipavatar.style.visibility = user.avatarurl ? "visible" : "hidden";
-    els.chipavatar.src = user.avatarurl || "";
-    els.chipname.textContent = user.displayname || user.handle;
-    els.chiphandle.textContent = "@" + user.handle;
-    els.chipbadges.innerHTML = (user.badges || []).join("");
-    // match the resting loose chip exactly - an empty badges span would still eat a namerow gap,
-    // and the note pencil has to ride along or the chip shrinks the moment a noted user is lifted
-    els.chipbadges.style.display = (user.badges && user.badges.length) ? "" : "none";
-    els.chipreason.style.display = user.reason ? "" : "none";
-    // no fixed color for the chip - it should look like it was lifted straight off the page,
-    // so it just borrows whatever background/text color x.com is actually rendering right now
-    els.chip.style.background = tum.theme.css();
-    els.chip.style.setProperty("--tumfg", tum.theme.fg());
-    root.classList.add("tumdragging");
-    showbackdrop();
-    movechip(x, y);
-    render();
-  }
-
-  function movechip(x, y) {
-    els.chip.style.left = x + "px";
-    els.chip.style.top = y + "px";
-    // remembered so keyboard nudges/number-drops know where the held chip currently is
-    if (state.drag) {state.drag.lastx = x; state.drag.lasty = y}
-  }
-
-  function rectcontains(rect, x, y) {
-    return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-  }
-
-  function foldertargetunderpoint(x, y) {
-    for (const n of els.freeform.querySelectorAll(".tumfolder")) {
-      const badge = n.querySelector(".tumfolderremove");
-      if (rectcontains(badge.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "remove"};
-      if (rectcontains(n.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "body"};
-    }
-    return null;
-  }
-
-  // only the top-left close X doubles as the real "discard" (removes them AND fades the overlay).
-  // the quick-row pill is now a plain "delete" that keeps the overlay open; the gear is its own
-  // drop-target that just opens settings
-  function overclosetool(x, y) {
-    if (!state.drag || state.drag.kind !== "user") return null;
-    return rectcontains(els.toolclose.getBoundingClientRect(), x, y) ? els.toolclose : null;
-  }
-  function overgear(x, y) {
-    if (!state.drag || state.drag.kind !== "user") return null;
-    return rectcontains(els.toolgear.getBoundingClientRect(), x, y) ? els.toolgear : null;
-  }
-  // the middle-right buttons act on whoever's being carried: follow/mute/block run the real action
-  // (they used to be folder auto-actions); destroy is the joke that hands them to the destroyer
-  function actionbtnunderpoint(x, y) {
-    if (!state.drag || state.drag.kind !== "user") return null;
-    const b = els.actionbtns.find(n => rectcontains(n.getBoundingClientRect(), x, y));
-    return b ? b.dataset.act : null;
-  }
-  function quickzone(x, y) {
-    if (state.drag && state.drag.kind === "user") {
-      if (rectcontains(els.quickdelete.getBoundingClientRect(), x, y)) return "delete";
-      if (rectcontains(els.quickreason.getBoundingClientRect(), x, y)) return "reason";
-      // the top-left close X is the only real discard (removes + fades); the gear opens settings
-      if (overclosetool(x, y)) return "discard";
-      if (overgear(x, y)) return "settings";
-    }
-    if (rectcontains(els.quickadd.getBoundingClientRect(), x, y)) return "add";
-    return null;
-  }
-
-  function updatedrag(x, y) {
-    if (!state.drag) return;
-    movechip(x, y);
-    const target = foldertargetunderpoint(x, y);
-    for (const n of els.freeform.querySelectorAll(".tumfolder")) {
-      n.classList.toggle("tumover", !!target && target.zone === "body" && n.dataset.id === target.id);
-      n.classList.toggle("tumoverremove", !!target && target.zone === "remove" && n.dataset.id === target.id);
-    }
-    const zone = quickzone(x, y);
-    els.quickadd.classList.toggle("tumover", zone === "add");
-    els.quickdelete.classList.toggle("tumover", zone === "delete");
-    els.quickreason.classList.toggle("tumover", zone === "reason");
-    const act = actionbtnunderpoint(x, y);
-    for (const b of els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
-    els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
-    els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
-  }
-
-  function removefromsource(source, handle) {
-    if (!source || source.type === "page") return;
-    if (source.type === "folder") tum.folders.removemember(source.id, handle);
-    else if (source.type === "unsorted") tum.unsorted.remove(handle);
-  }
-
-  function enddrag(x, y) {
-    if (!state.drag) return;
-    const {user, source} = state.drag;
-    const act = actionbtnunderpoint(x, y);
-    const target = act ? null : foldertargetunderpoint(x, y);
-    const zone = act ? null : quickzone(x, y);
-    root.classList.remove("tumdragging");
-    state.drag = null;
-    // the page bits were hidden and recorded at drag-start; they stay hidden unless this ends in a
-    // discard (handled per-branch below), so nothing to do here
-    for (const n of els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
-    els.toolclose.classList.remove("tumdiscardover");
-    els.toolgear.classList.remove("tumsettingsover");
-    for (const b of els.actionbtns) b.classList.remove("tumover");
-    els.quickadd.classList.remove("tumover");
-    els.quickdelete.classList.remove("tumover");
-    els.quickreason.classList.remove("tumover");
-
-    if (act === "destroy") {
-      // the joke: genuinely no action - not filed, not un-filed, nobody blocked. just fade out and
-      // hand them to the destroyer; the page bits come back on their own once the overlay's faded
-      // (they're hidden under the full-screen takeover anyway), and a re-dragged member stays filed
-      launchdestroyer(user);
-      closeoverlay();
-      return;
-    } else if (act) {
-      // follow / mute / block / unfollow - run it for real. actions.js hits twitter's api directly
-      // now, so this works for ANY carried user, not just a fresh page drag; a re-dragged member is
-      // acted on but left filed where it was. skipaction rows (already blocked/muted lists) are left
-      if (!user.skipaction) tum.actions.run(act, user);
-      render();
-      closeoverlay();
-      return;
-    }
-
-    if (target && target.zone === "remove") {
-      const folder = tum.folders.get(target.id);
-      if (folder) confirmfolderdelete(folder);
-    } else if (target && target.zone === "body") {
-      // moving between/into folders doesn't re-trigger follow/mute/block - that only happens
-      // once, on the original live drag off a real tweet
-      removefromsource(source, user.handle);
-      const folder = tum.folders.get(target.id);
-      if (folder) {
-        tum.folders.addmember(folder.id, user);
-        // run the auto-action for a page drag OR a loose unsorted chip being filed for the first
-        // time; a folder->folder move is exempt (it already ran when they were first filed)
-        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
-      }
-      // unless "keep open" is ticked, filing someone away fades the whole overlay out
-      if (!keepopen) {render(); closeoverlay(); return}
-    } else if (zone === "add") {
-      // no render() here on purpose - the source data hasn't changed yet (still pending the
-      // modal's save), and a render right now would rebuild their old row/chip from scratch,
-      // undoing the hidden state set at drag-start and leaving a duplicate visible behind the
-      // modal. closemodal() renders once the modal actually resolves, either way
-      state.pendingcreate = {user, source};
-      opencreatemodal();
-      return;
-    } else if (zone === "delete" || zone === "discard") {
-      // delete (quick pill) removes them and KEEPS the overlay open for more sorting; discard (the
-      // top-left close X) removes them AND fades the overlay out. a noted user can't be dropped away
-      // either way - that would silently drop their note; they stay put, removable from the note popup
-      if (user.reason) {
-        toast("this user has a note - delete them from the note instead");
-        restorehidden(user.handle); // they weren't taken - bring the page bits back
-        state.open = true;
-        render();
-        return;
-      }
-      // the page bits return to view (unlike filing, which keeps them lifted out)
-      removefromsource(source, user.handle);
-      restorehidden(user.handle);
-      if (zone === "discard") {render(); closeoverlay(); return}
-      state.open = true;
-      render();
-      return;
-    } else if (zone === "settings") {
-      // dropped on the gear: open the settings pane. the carried person is neither filed nor
-      // deleted - their page bits come back and they stay wherever they were
-      restorehidden(user.handle);
-      closeoverlay();
-      try {tum.settingspane.open()} catch {}
-      return;
-    } else if (zone === "reason") {
-      state.pendingcreate = {user, source, x, y};
-      openreasonedit();
-      return;
-    } else {
-      // not dropped on anything - pin them right where they were let go instead of losing
-      // them, whether they started on the page, in a folder, or already loose
-      removefromsource(source, user.handle);
-      // pan-aware, unclamped: they stay exactly where dropped in canvas space
-      const px = (x - pan.x) / window.innerWidth * 100, py = (y - pan.y) / window.innerHeight * 100;
-      tum.unsorted.add(user, px, py);
-      state.open = true;
-      render();
-      return;
-    }
-    state.open = true;
-    hidebackdrop();
-    render();
-  }
-
-  function canceldrag() {
-    const d = state.drag;
-    // cancelling a fresh page drag brings the page bits back; cancelling a re-drag off a filed
-    // chip/member leaves them hidden (the person is still filed) and just re-renders the canvas
-    if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
-    els.toolclose.classList.remove("tumdiscardover");
-    els.toolgear.classList.remove("tumsettingsover");
-    for (const b of els.actionbtns) b.classList.remove("tumover");
-    root.classList.remove("tumdragging");
-    state.drag = null;
-    hidebackdrop();
-    render();
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
   // keyboard: while carrying someone, number keys 1-9 file them straight into the Nth folder,
   // arrow keys nudge the held chip (shift for a finer step), and escape drops the drag. with
   // nothing in hand, escape just closes the overlay
@@ -1125,11 +641,11 @@
       if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;
     }
-    if (e.key === "Escape") {canceldrag(); e.preventDefault(); return}
+    if (e.key === "Escape") {O.canceldrag(); e.preventDefault(); return}
     const folders = [...els.freeform.querySelectorAll(".tumfolder")];
     if (/^[1-9]$/.test(e.key)) {
       const f = folders[parseInt(e.key, 10) - 1];
-      if (f) {const r = f.getBoundingClientRect(); enddrag(r.left + r.width / 2, r.top + r.height / 2)}
+      if (f) {const r = f.getBoundingClientRect(); O.enddrag(r.left + r.width / 2, r.top + r.height / 2)}
       e.preventDefault();
       return;
     }
@@ -1141,300 +657,20 @@
       else if (e.key === "ArrowUp") y -= step;
       else if (e.key === "ArrowDown") y += step;
       else return;
-      updatedrag(clamp(x, 0, window.innerWidth), clamp(y, 0, window.innerHeight));
+      O.updatedrag(clamp(x, 0, window.innerWidth), clamp(y, 0, window.innerHeight));
       e.preventDefault();
     }
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // back up / restore everything as a single json file. import merges (never wipes) - imported
-  // folders are added alongside whatever's already there, so a bad import can't cost you data
 
-  function exportdata() {
-    const data = {version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()};
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = el("a");
-    a.href = url;
-    a.download = "twitter-user-manager-" + new Date().toISOString().slice(0, 10) + ".json";
-    root.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("exported " + tum.folders.list().length + " folders");
-  }
-
-  function importdata() {
-    const input = el("input");
-    input.type = "file";
-    input.accept = "application/json,.json";
-    input.addEventListener("change", () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {applyimport(JSON.parse(reader.result))}
-        catch {toast("import failed - not valid json")}
-      };
-      reader.readAsText(file);
-    });
-    input.click();
-  }
-
-  function applyimport(data) {
-    const folders = Array.isArray(data && data.folders) ? data.folders : [];
-    const unsorted = Array.isArray(data && data.unsorted) ? data.unsorted : [];
-    let nf = 0, nu = 0;
-    for (const f of folders) {
-      if (!f || typeof f !== "object") continue;
-      // create() gives it a fresh id so a re-import can't clobber an existing folder
-      const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon, x: f.x, y: f.y});
-      for (const m of (Array.isArray(f.members) ? f.members : [])) if (m && m.handle) tum.folders.addmember(created.id, m);
-      nf++;
-    }
-    for (const u of unsorted) {
-      if (!u || !u.handle) continue;
-      tum.unsorted.add(u, u.x, u.y);
-      nu++;
-    }
-    state.open = true;
-    render();
-    toast("imported " + nf + " folders, " + nu + " loose users");
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  let modalcolor = "#1d9bf0", modalaction = null, modalicon = "";
-
-  function selectcolor(c) {
-    modalcolor = c;
-    for (const sw of els.modalcolors.children) sw.classList.toggle("tumselected", sw.dataset.color === c);
-  }
-  function selectaction(a) {
-    modalaction = a;
-    for (const b of els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
-    refreshiconbtn();
-  }
-  // a folder icon can be an svg-path id into the icon manifest, an "emoji:<codepoint>" ref
-  // (rendered as the twemoji svg from twitter's cdn, matching the picker), or - for legacy
-  // folders - a literal emoji char. otherwise fall back to the action icon or a plain default
-  function iconhtml(icon) {
-    if (!icon) return "";
-    if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
-    if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon);
-    return escapehtml(icon);
-  }
-  function refreshiconbtn() {
-    els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
-  }
-  function selecticon(id) {
-    modalicon = id;
-    refreshiconbtn();
-  }
-
-  function opencreatemodal() {
-    state.editing = null;
-    state.modalopen = true;
-    // the overlay stays open behind the popup - dismissing the popup returns you to the canvas
-    // instead of tearing the whole overlay down (a drag-into-"new folder" leaves state.open false)
-    state.open = true;
-    modalicon = "";
-    els.modalname.value = "";
-    els.modalsave.textContent = "create";
-    // no action pre-selected - dropping into a folder with none set just files the person,
-    // no follow/mute/block runs
-    selectaction(null);
-    selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
-    els.modalactionsrow.style.display = "";
-    showbackdrop();
-    els.modal.classList.add("tumshow");
-    els.modalname.focus();
-  }
-
-  function openeditmodal(f) {
-    state.editing = f.id;
-    state.modalopen = true;
-    modalicon = f.icon || "";
-    els.modalname.value = f.name;
-    els.modalsave.textContent = "save";
-    selectaction(f.action);
-    selectcolor(f.color);
-    // editing an existing folder keeps its action as-is (already applied to its members) - the
-    // auto-action picker is hidden entirely rather than shown backed-off, so it's not in the way
-    els.modalactionsrow.style.display = "none";
-    showbackdrop();
-    els.modal.classList.add("tumshow");
-  }
-
-  function closemodal() {
-    els.modal.classList.remove("tumshow");
-    tum.iconpicker.close();
-    // a pendingcreate drop that never got saved (dragged into "new folder" then dismissed without
-    // saving) was never filed - put their hidden page bits back and re-render
-    const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
-    state.pendingcreate = null;
-    state.editing = null;
-    state.modalopen = false;
-    hidebackdrop();
-    if (pendinghandle) {restorehidden(pendinghandle); render()}
-  }
-
-  function savemodal() {
-    const name = (els.modalname.value || "").trim() || "unnamed";
-    // purely cosmetic - swaps out the action icon shown on the folder header, the action
-    // itself (follow/mute/block) still runs exactly the same either way
-    const icon = modalicon;
-    let filed = false;
-    if (state.editing) {
-      tum.folders.update(state.editing, {name, icon, action: modalaction, color: modalcolor});
-    } else {
-      const folder = tum.folders.create({name, icon, action: modalaction, color: modalcolor});
-      if (state.pendingcreate) {
-        const {user, source} = state.pendingcreate;
-        removefromsource(source, user.handle);
-        tum.folders.addmember(folder.id, user);
-        // run the auto-action for anyone not already sitting in a folder (a page drag OR a loose
-        // unsorted chip re-picked-up) - only a folder->folder move is exempt, since it already ran
-        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
-        filed = true;
-      }
-    }
-    closemodal();
-    // filing someone off a drag fades the overlay out (unless keep-open); creating an empty folder
-    // by clicking "new folder" leaves it open to carry on
-    if (filed && !keepopen) closeoverlay();
-    state.open = true;
-    render();
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  let reasonaction = null;
-
-  function selectreasonaction(a) {
-    reasonaction = a;
-    for (const b of els.reasonactionbtns) b.classList.toggle("tumselected", b.dataset.action === a);
-  }
-
-  function setreasonmode(mode) {
-    state.reasonmode = mode;
-    els.reasonview.classList.toggle("tumshow", mode === "view");
-    els.reasonform.classList.toggle("tumshow", mode === "edit");
-    // an action picker only makes sense while filing someone fresh off a live drag - editing
-    // an existing member's note later shouldn't be able to re-trigger follow/mute/block
-    els.reasonactions.style.display = state.pendingcreate ? "" : "none";
-    if (mode === "edit") els.reasoninput.focus();
-  }
-
-  function openreasonedit() {
-    const {user} = state.pendingcreate;
-    state.reasonopen = true;
-    state.reasontarget = null;
-    els.reasontitle.textContent = "note for @" + user.handle;
-    els.reasoninput.value = user.reason || "";
-    selectreasonaction(null);
-    // this is filing someone off the canvas directly, not creating/editing a folder - the
-    // action picker here should never read as backed-off the way it does on an existing folder
-    els.reasonactionbtns.forEach(b => b.classList.remove("tumdimmed"));
-    els.reasonmodal.classList.add("tumshow");
-    setreasonmode("edit");
-  }
-
-  function openreasonview(source, m) {
-    state.reasonopen = true;
-    state.reasontarget = {source, handle: m.handle};
-    els.reasontitle.textContent = "note for @" + m.handle;
-    els.reasontext.innerHTML = linkify(m.reason || "");
-    if (m.sourceurl) {els.reasonsource.href = m.sourceurl; els.reasonsource.style.display = ""}
-    else els.reasonsource.style.display = "none";
-    els.reasoninput.value = m.reason || "";
-    els.reasonmodal.classList.add("tumshow");
-    setreasonmode("view");
-  }
-
-  function closereasonmodal() {
-    els.reasonmodal.classList.remove("tumshow");
-    // a pendingcreate drop that never got saved (drag into "custom reason" then dismissed
-    // without saving) still needs its original spot back - a full render() is the simplest way
-    // to make that person visible again, since nothing else re-renders on its own here
-    // dragged into "custom reason" then dismissed without saving - they were never filed, so put
-    // their hidden page bits back and re-render so nothing's left missing
-    const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
-    state.pendingcreate = null;
-    state.reasontarget = null;
-    state.reasonopen = false;
-    if (pendinghandle) {restorehidden(pendinghandle); render()}
-  }
-
-  function savereason() {
-    const text = (els.reasoninput.value || "").trim();
-    if (state.pendingcreate) {
-      const {user, source, x, y} = state.pendingcreate;
-      const withreason = Object.assign({}, user, {reason: text});
-      removefromsource(source, user.handle);
-      // noting someone straight off the page (never on the canvas) just saves the note - it doesn't
-      // drop a loose chip onto the canvas. a re-drag of someone already loose/filed keeps its spot
-      if (source.type === "page") {
-        withreason.placed = false;
-        tum.unsorted.add(withreason);
-        if (!user.skipaction) tum.actions.run(reasonaction, user);
-      } else {
-        const sx = x != null ? x : window.innerWidth / 2, sy = y != null ? y : window.innerHeight / 2;
-        const px = (sx - pan.x) / window.innerWidth * 100, py = (sy - pan.y) / window.innerHeight * 100;
-        tum.unsorted.add(withreason, px, py);
-      }
-    } else if (state.reasontarget) {
-      const {source, handle} = state.reasontarget;
-      if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, text);
-      else tum.unsorted.setreason(handle, text);
-    }
-    closereasonmodal();
-    state.open = true;
-    render();
-  }
-
-  // the sanctioned way to remove a noted user - dropping them on discard is deliberately blocked
-  // (see enddrag) so a note can't be lost by accident, only through this button
-  function deletenoteduser() {
-    if (state.reasontarget) removefromsource(state.reasontarget.source, state.reasontarget.handle);
-    closereasonmodal();
-    state.open = true;
-    render();
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  function confirmfolderdelete(folder) {
-    const members = Array.isArray(folder.members) ? folder.members : [];
-    if (members.length <= 1) {tum.folders.remove(folder.id); return}
-    state.confirmopen = true;
-    state.confirmtarget = folder.id;
-    els.confirmtitle.textContent = "Delete " + folder.name + "?";
-    els.confirmbody.textContent = `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active.`;
-    showbackdrop();
-    els.confirmsheet.classList.add("tumshow");
-  }
-
-  function closeconfirmsheet() {
-    els.confirmsheet.classList.remove("tumshow");
-    state.confirmopen = false;
-    state.confirmtarget = null;
-    hidebackdrop();
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
-  // opening the overlay focused on one folder (from clicking a user's in-page folder dot):
-  // fade the canvas in, then briefly pulse that folder so it's easy to spot
   function openandflash(folderid) {
     state.open = true;
     showbackdrop();
     render();
-    // render() has already put the node in the dom, so flash it right away - no rAF, which a
-    // backgrounded tab would throttle
     const n = els.freeform.querySelector('.tumfolder[data-id="' + folderid + '"]');
     if (!n) return;
-    void n.offsetWidth; // restart the animation if it's already mid-flash
+    void n.offsetWidth;
     n.classList.add("tumflash");
     setTimeout(() => n.classList.remove("tumflash"), 1200);
   }
@@ -1449,12 +685,26 @@
     toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), 1800);
   }
 
+  // expose the core state + helpers the drag (overlaydrag.js) and modals (overlaymodals.js) files
+  // read off the shared object. they load AFTER this file, so by the time their iifes run this is
+  // fully populated; els/root were already set in build/wiremarkup. keepopen is a live getter
+  Object.assign(O, {
+    state, pan, ICONS, el, escapehtml, linkify, iconhtml,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast,
+    keepopen: () => keepopen
+  });
+
+  // public api - the drag/modals functions live on O and load after this file, so wrap them lazily
+  // (an eager `O.enddrag` here would capture undefined)
   window.tum.overlay = {
     mount() {build()},
-    begindrag: (user, x, y) => begindrag(user, x, y, {type: "page"}),
-    updatedrag, enddrag, canceldrag, toast,
-    openreasonview, openandflash,
-    // the same markup the folder header uses for its icon - so an in-page dot can show it too
+    begindrag: (user, x, y) => O.begindrag(user, x, y, {type: "page"}),
+    updatedrag: (x, y) => O.updatedrag(x, y),
+    enddrag: (x, y) => O.enddrag(x, y),
+    canceldrag: () => O.canceldrag(),
+    toast,
+    openreasonview: (source, m) => O.openreasonview(source, m),
+    openandflash,
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder
   };
 })();

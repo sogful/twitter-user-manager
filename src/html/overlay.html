@@ -1,0 +1,80 @@
+<div class="tumbackdrop"></div>
+<div class="tumcanvas">
+  <div class="tumgridlayer"></div>
+  <div class="tumtools">
+    <button class="tumtool tumtoolclose" title="close the overlay"><svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+    <button class="tumtool tumtoolexport" title="export folders and notes as a json backup"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></button>
+    <button class="tumtool tumtoolimport" title="import folders from a json backup"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg></button>
+  </div>
+  <div class="tumtools tumtoolsright">
+    <button class="tumtool tumtoolgear" title="user manager settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+  <div class="tumfreeform"></div>
+  <div class="tumquickrow">
+    <div class="tumquick tumquickadd"><div class="tumquickicon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div><span>new folder</span></div>
+    <div class="tumquick tumquickdelete"><div class="tumquickicon"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></div><span>delete</span></div>
+    <div class="tumquick tumquickreason"><div class="tumquickicon"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg></div><span>custom reason</span></div>
+  </div>
+  <div class="tumactionbar">
+    <div class="tumactionbtn tumactionfollow" data-act="follow"><div class="tumquickicon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg></div><span>follow</span></div>
+    <div class="tumactionbtn tumactionmute" data-act="mute"><div class="tumquickicon"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .9-.4 1.8-1 2.5l-1 1.2c-.5.6 0 1.5.8 1.5h13.4c.8 0 1.3-.9.8-1.5l-1-1.2c-.6-.7-1-1.6-1-2.5V8a5 5 0 0 0-5-5z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg></div><span>mute</span></div>
+    <div class="tumactionbtn tumactionblock" data-act="block"><div class="tumquickicon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg></div><span>block</span></div>
+    <div class="tumactionbtn tumactiondestroy" data-act="destroy"><img class="tumdestroytext" data-tumtextpng alt="destroy"></div>
+  </div>
+</div>
+<div class="tumchip">
+  <img class="tumchipavatar">
+  <div class="tumchipinfo">
+    <div class="tumchipnamerow"><span class="tumchipname"></span><span class="tumchipbadges"></span><span class="tumreasonbadge tumchipreason"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg></span></div>
+    <span class="tumchiphandle"></span>
+  </div>
+  <button class="tumchipremove"><svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+</div>
+<div class="tummodal">
+  <div class="tummodalcard">
+    <div class="tummodalhead">
+      <button class="tummodaliconbtn"><svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
+      <input class="tummodalname" maxlength="40" placeholder="folder name">
+      <button class="tummodalclose"><svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+    </div>
+    <div class="tummodalactions">
+      <button data-action="follow" class="tummodalaction"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg><span>autofollow</span></button>
+      <button data-action="mute" class="tummodalaction"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .9-.4 1.8-1 2.5l-1 1.2c-.5.6 0 1.5.8 1.5h13.4c.8 0 1.3-.9.8-1.5l-1-1.2c-.6-.7-1-1.6-1-2.5V8a5 5 0 0 0-5-5z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg><span>automute</span></button>
+      <button data-action="block" class="tummodalaction"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg><span>autoblock</span></button>
+    </div>
+    <div class="tummodalcolors"></div>
+    <button class="tummodalsave">create</button>
+  </div>
+</div>
+<div class="tumreasonmodal">
+  <div class="tumreasoncard">
+    <div class="tumreasonhead">
+      <span class="tumreasontitle"></span>
+      <button class="tumreasonclose"><svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+    </div>
+    <div class="tumreasonview">
+      <div class="tumreasontext"></div>
+      <a class="tumreasonsource" target="_blank" rel="noopener">view attached post</a>
+      <button class="tumreasonedit">edit</button>
+      <button class="tumreasondelete">delete</button>
+    </div>
+    <div class="tumreasonform">
+      <div class="tumreasonactions">
+        <button data-action="follow" class="tummodalaction"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg><span>follow</span></button>
+        <button data-action="mute" class="tummodalaction"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .9-.4 1.8-1 2.5l-1 1.2c-.5.6 0 1.5.8 1.5h13.4c.8 0 1.3-.9.8-1.5l-1-1.2c-.6-.7-1-1.6-1-2.5V8a5 5 0 0 0-5-5z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg><span>mute</span></button>
+        <button data-action="block" class="tummodalaction"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg><span>block</span></button>
+      </div>
+      <textarea class="tumreasoninput" maxlength="500" placeholder="Add notes here.."></textarea>
+      <button class="tumreasonsave">save note</button>
+    </div>
+  </div>
+</div>
+<div class="tumconfirmsheet">
+  <div class="tumconfirmcard">
+    <div class="tumconfirmtitle"></div>
+    <div class="tumconfirmbody"></div>
+    <button class="tumconfirmok">Delete</button>
+    <button class="tumconfirmcancel">Cancel</button>
+  </div>
+</div>
+<div class="tumtoast"></div>
