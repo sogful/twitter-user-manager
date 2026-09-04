@@ -23,9 +23,26 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  // positions used to be viewport percentages, which shifted folders around on resize.
+  // one-time convert them to absolute px (using the current viewport as the reference)
+  function migratepositions() {
+    let changed = false;
+    const w = window.innerWidth || 1280, h = window.innerHeight || 800;
+    for (const f of list) {
+      if (f && f.pos !== "px") {
+        f.x = Math.round((typeof f.x === "number" ? f.x : 30) / 100 * w);
+        f.y = Math.round((typeof f.y === "number" ? f.y : 30) / 100 * h);
+        f.pos = "px";
+        changed = true;
+      }
+    }
+    if (changed) persist();
+  }
+
   async function load() {
     const v = await tum.storage.get();
     list = Array.isArray(v) ? v : [];
+    migratepositions();
     resolveready();
     emit();
   }
@@ -57,8 +74,10 @@
         icon: (partial.icon || "").slice(0, 64),
         sort: "added",
         collapsed: false,
-        x: typeof partial.x === "number" ? partial.x : 30 + (createcount % 6) * 8,
-        y: typeof partial.y === "number" ? partial.y : 30 + (createcount % 4) * 8,
+        cat: partial.cat || null,
+        pos: "px",
+        x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
+        y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
         members: []
       };
       list.push(folder);
@@ -66,12 +85,12 @@
       emit();
       return folder;
     },
-    update(id, patch) {
+    update(id, patch, silent) {
       const f = list.find(x => x.id === id);
       if (!f) return null;
       Object.assign(f, patch);
       persist();
-      emit();
+      if (!silent) emit();
       return f;
     },
     move(id, x, y) {

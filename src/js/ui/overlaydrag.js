@@ -12,6 +12,7 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
+      if (e.button !== undefined && e.button !== 0) return; // right-click opens the menu, never drags/folds
       if (e.target.closest(".tumfolderremove")) return;
       const rect = node.getBoundingClientRect();
       tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
@@ -25,20 +26,24 @@
         }
         const px = ev.clientX - tracking.offsetx - pan.x;
         const py = ev.clientY - tracking.offsety - pan.y;
-        node.style.left = (px / window.innerWidth * 100) + "%";
-        node.style.top = (py / window.innerHeight * 100) + "%";
+        node.style.left = px + "px";
+        node.style.top = py + "px";
+        O.categoryhover(px + node.offsetWidth / 2, py + node.offsetHeight / 2);
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         O.root.classList.remove("tumfolderdragging");
+        O.categoryhover(null);
         if (tracking && tracking.dragging) {
           const px = ev.clientX - tracking.offsetx - pan.x;
           const py = ev.clientY - tracking.offsety - pan.y;
-          tum.folders.move(f.id, px / window.innerWidth * 100, py / window.innerHeight * 100);
+          const w = node.offsetWidth, h = node.offsetHeight;
+          const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
+          tum.folders.move(f.id, c.x - w / 2, c.y - h / 2);
+          if (c.cat !== (f.cat || null)) tum.folders.update(f.id, {cat: c.cat}, true);
         } else if (tracking) {
-          // header click now folds/unfolds; edit lives in the right-click menu
-          tum.folders.update(f.id, {collapsed: !f.collapsed});
+          O.toggledcollapse(f.id); // header click folds/unfolds; edit lives in the right-click menu
         }
         tracking = null;
       };
@@ -251,6 +256,8 @@
     for (const b of O.els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
     O.els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
     O.els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
+    if (!target && !zone && !act) O.categoryhover(x - pan.x, y - pan.y);
+    else O.categoryhover(null);
   }
 
   function removefromsource(source, handle) {
@@ -261,6 +268,7 @@
 
   function enddrag(x, y) {
     stopedge();
+    O.categoryhover(null);
     if (!state.drag) return;
     const {user, source} = state.drag;
     const act = actionbtnunderpoint(x, y);
@@ -327,9 +335,10 @@
       O.openreasonedit();
       return;
     } else {
+      const prevcat = source.type === "unsorted" ? (tum.unsorted.get(user.handle) || {}).cat : null;
       removefromsource(source, user.handle);
-      const px = (x - pan.x) / window.innerWidth * 100, py = (y - pan.y) / window.innerHeight * 100;
-      tum.unsorted.add(user, px, py);
+      const c = O.categorydrop(prevcat, x - pan.x, y - pan.y, 150, 58);
+      tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();
       return;
@@ -341,6 +350,7 @@
 
   function canceldrag() {
     stopedge();
+    O.categoryhover(null);
     const d = state.drag;
     if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
     O.els.toolclose.classList.remove("tumdiscardover");

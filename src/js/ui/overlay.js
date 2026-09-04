@@ -20,6 +20,7 @@
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
     profile: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
+    category: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 3"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
 
@@ -123,7 +124,7 @@
 
   function updategrid() {
     if (!els.gridlayer) return;
-    const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.1)";
+    const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.16)";
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><path d='M${w - 0.5} 0V${h}M0 ${h - 0.5}H${w}' fill='none' stroke='${line}' stroke-width='1' stroke-dasharray='7 7'/></svg>`;
     els.gridlayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
   }
@@ -139,6 +140,8 @@
       // starts, even though the move cursor shows)
       e.preventDefault();
       try {bd.setPointerCapture(e.pointerId)} catch {}
+      const ctxwasdismissed = O._ctxdismiss; // this pointerdown just closed a context menu
+      O._ctxdismiss = false;
       const startx = e.clientX, starty = e.clientY;
       const panstart = {x: pan.x, y: pan.y};
       let panning = false;
@@ -159,7 +162,7 @@
         bd.removeEventListener("pointercancel", finish);
         try {bd.releasePointerCapture(e.pointerId)} catch {}
         root.classList.remove("tumpanning");
-        if (!panning && e.button === 0 && ev.type === "pointerup") closeoverlay();
+        if (!panning && !ctxwasdismissed && e.button === 0 && ev.type === "pointerup") closeoverlay();
       };
       bd.addEventListener("pointermove", move);
       bd.addEventListener("pointerup", finish);
@@ -179,6 +182,25 @@
     window.addEventListener("touchmove", block, {capture: true, passive: false});
   }
   const SCROLLKEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+
+  // holding an edge arrow pans the canvas that way (up arrow reveals content above, etc)
+  function wirearrows() {
+    const DIRS = {tumedgeup: [0, 1], tumedgedown: [0, -1], tumedgeleft: [1, 0], tumedgeright: [-1, 0]};
+    const SPEED = 15;
+    for (const arrow of root.querySelectorAll(".tumedgearrow")) {
+      const cls = Object.keys(DIRS).find(c => arrow.classList.contains(c));
+      if (!cls) continue;
+      const [sx, sy] = DIRS[cls];
+      arrow.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        let timer = setInterval(() => {pan.x += sx * SPEED; pan.y += sy * SPEED; applypan()}, 16);
+        const stop = () => {clearInterval(timer); document.removeEventListener("pointerup", stop); document.removeEventListener("pointercancel", stop)};
+        document.addEventListener("pointerup", stop);
+        document.addEventListener("pointercancel", stop);
+      });
+    }
+  }
 
   function buildmarkup() {
     root = el("div", "tumroot");
@@ -266,9 +288,13 @@
 
     attachpan();
     setupscrolllock();
+    wirearrows();
     root.addEventListener("contextmenu", O.oncontextmenu);
+    // dismissing an open context menu by clicking empty canvas should NOT also close the
+    // overlay - flag this gesture so attachpan's click-to-close skips it
     root.addEventListener("pointerdown", e => {
-      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) O.closectx();
+      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) {O.closectx(); O._ctxdismiss = true}
+      else O._ctxdismiss = false;
     }, true);
     els.modalclose.addEventListener("click", O.closemodal);
     els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
@@ -315,7 +341,8 @@
 
     tum.folders.subscribe(render);
     tum.unsorted.subscribe(render);
-    Promise.all([tum.folders.ready, tum.unsorted.ready]).then(render);
+    tum.categories.subscribe(render);
+    Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(render);
 
     applytheme();
     updategrid();
@@ -384,6 +411,7 @@
   function render() {
     if (!els.freeform) return;
     els.freeform.innerHTML = "";
+    for (const c of tum.categories.list()) els.freeform.appendChild(buildcategorynode(c)); // behind, appended first
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
     for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
@@ -441,14 +469,14 @@
     const fg = readablefg(f.color);
     node.style.setProperty("--tumheaderfg", fg);
     node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
-    node.style.left = f.x + "%";
-    node.style.top = f.y + "%";
+    node.style.left = (f.x || 0) + "px";
+    node.style.top = (f.y || 0) + "px";
     node.dataset.id = f.id;
     node.innerHTML = `
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
           <div class="tumfoldericoncol">
-            <span class="tumfolderactionicon">${iconhtml(f.icon) || ICONS[f.action] || ICONS.folder}</span>
+            ${f.icon ? `<span class="tumfolderactionicon">${iconhtml(f.icon)}</span>` : ""}
             <span class="tumfoldercount">${members.length}</span>
           </div>
           <div class="tumfoldertitlelines">
@@ -548,8 +576,8 @@
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
-    chip.style.left = u.x + "%";
-    chip.style.top = u.y + "%";
+    chip.style.left = (u.x || 0) + "px";
+    chip.style.top = (u.y || 0) + "px";
     chip.style.background = tum.theme.css();
     chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
@@ -590,6 +618,153 @@
         navigator.clipboard.writeText(text).then(() => toast("Copied " + text)).catch(() => {});
       });
     }
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  // fold/unfold one folder without a full re-render, so the other folders' lists
+  // don't all flash a scrollbar
+  function toggledcollapse(id) {
+    const f = tum.folders.get(id);
+    if (!f) return;
+    const now = !f.collapsed;
+    tum.folders.update(id, {collapsed: now}, true);
+    const node = els.freeform.querySelector('.tumfolder[data-id="' + id + '"]');
+    if (node) node.classList.toggle("tumcollapsed", now);
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  function membercatof(node) {
+    if (node.classList.contains("tumfolder")) {const f = tum.folders.get(node.dataset.id); return f && f.cat || null}
+    if (node.classList.contains("tumloosechip")) {const u = tum.unsorted.get(node.dataset.handle); return u && u.cat || null}
+    return null;
+  }
+
+  function buildcategorynode(c) {
+    const node = el("div", "tumcategory");
+    node.dataset.id = c.id;
+    node.style.left = (c.x || 0) + "px";
+    node.style.top = (c.y || 0) + "px";
+    node.style.width = (c.w || 480) + "px";
+    node.style.height = (c.h || 360) + "px";
+    node.innerHTML = `<div class="tumcategorytitle">${escapehtml(c.name || "Edit Me...")}</div>`;
+    attachcategorydrag(node, c);
+    wirecategoryrename(node, c);
+    return node;
+  }
+
+  function attachcategorydrag(node, c) {
+    node.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".tumcategorytitle")) return; // title = rename
+      if (e.target.closest(".tumfolder, .tumloosechip")) return; // items on top move themselves
+      e.preventDefault();
+      const startx = e.clientX, starty = e.clientY;
+      const ox = c.x || 0, oy = c.y || 0;
+      const members = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")]
+        .filter(n => membercatof(n) === c.id)
+        .map(n => ({n, left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0}));
+      let dragging = false;
+      const move = ev => {
+        const dx = ev.clientX - startx, dy = ev.clientY - starty;
+        if (!dragging) {if (Math.hypot(dx, dy) < 6) return; dragging = true}
+        node.style.left = (ox + dx) + "px";
+        node.style.top = (oy + dy) + "px";
+        for (const m of members) {m.n.style.left = (m.left + dx) + "px"; m.n.style.top = (m.top + dy) + "px"}
+      };
+      const up = ev => {
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        if (!dragging) return;
+        const dx = ev.clientX - startx, dy = ev.clientY - starty;
+        tum.categories.move(c.id, ox + dx, oy + dy);
+        for (const m of members) {
+          if (m.n.dataset.id) tum.folders.move(m.n.dataset.id, m.left + dx, m.top + dy);
+          else if (m.n.dataset.handle) tum.unsorted.move(m.n.dataset.handle, m.left + dx, m.top + dy);
+        }
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
+
+  function wirecategoryrename(node, c) {
+    const title = node.querySelector(".tumcategorytitle");
+    title.addEventListener("pointerdown", e => e.stopPropagation());
+    title.addEventListener("click", e => {e.stopPropagation(); startcategoryrename(node, c)});
+  }
+  function startcategoryrename(node, c) {
+    const title = node.querySelector(".tumcategorytitle");
+    if (title.isContentEditable) return;
+    title.contentEditable = "true";
+    title.classList.add("tumediting");
+    title.focus();
+    const sel = shadow.getSelection ? shadow.getSelection() : window.getSelection();
+    try {const r = document.createRange(); r.selectNodeContents(title); sel.removeAllRanges(); sel.addRange(r)} catch {}
+    const finish = () => {
+      title.contentEditable = "false";
+      title.classList.remove("tumediting");
+      const name = (title.textContent || "").trim() || "Edit Me...";
+      title.textContent = name;
+      tum.categories.update(c.id, {name}, true);
+    };
+    title.addEventListener("blur", finish, {once: true});
+    title.addEventListener("keydown", e => {
+      e.stopPropagation();
+      if (e.key === "Enter") {e.preventDefault(); title.blur()}
+      else if (e.key === "Escape") {title.textContent = c.name || "Edit Me..."; title.blur()}
+    });
+  }
+
+  function categoryhover(lx, ly) {
+    if (!els.freeform) return;
+    for (const n of els.freeform.querySelectorAll(".tumcategory")) {
+      let inside = false;
+      if (lx != null) {
+        const c = tum.categories.get(n.dataset.id);
+        inside = !!c && lx >= c.x && lx <= c.x + c.w && ly >= c.y && ly <= c.y + c.h;
+      }
+      n.classList.toggle("tumcategoryover", inside);
+    }
+  }
+
+  // cx,cy = item center in freeform-local px; returns the (possibly clamped) center + cat id
+  function categorydrop(currentcat, cx, cy, w, h) {
+    let cat = null;
+    for (const c of tum.categories.list()) {
+      if (cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) {cat = c; break}
+    }
+    // was in a category, dropped just outside it (< a full item beyond the edge) and not over a
+    // new one -> snap back in. only a full-item-distance drag past the edge actually releases it
+    if (currentcat && (!cat || cat.id !== currentcat)) {
+      const prev = tum.categories.get(currentcat);
+      if (prev && !cat) {
+        const farout = cx < prev.x - w || cx > prev.x + prev.w + w || cy < prev.y - h || cy > prev.y + prev.h + h;
+        if (!farout) cat = prev;
+      }
+    }
+    let x = cx, y = cy;
+    if (cat) {
+      x = clamp(cx, cat.x + w / 2, cat.x + cat.w - w / 2);
+      y = clamp(cy, cat.y + h / 2, cat.y + cat.h - h / 2);
+    }
+    return {x, y, cat: cat ? cat.id : null};
+  }
+
+  function newcategory(lx, ly) {
+    const w = 480, h = 360;
+    const x = typeof lx === "number" ? lx - pan.x - w / 2 : 120;
+    const y = typeof ly === "number" ? ly - pan.y - 40 : 120;
+    const c = tum.categories.create({x, y, w, h});
+    state.open = true;
+    render();
+    return c;
+  }
+  function renamecategory(id) {
+    const node = els.freeform.querySelector('.tumcategory[data-id="' + id + '"]');
+    const c = tum.categories.get(id);
+    if (node && c) startcategoryrename(node, c);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -649,6 +824,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory,
     keepopen: () => keepopen
   });
 

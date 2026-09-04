@@ -325,6 +325,15 @@
     });
   }
 
+  function confirmcategorydelete(c) {
+    openconfirm({
+      title: "Delete category?",
+      body: "This removes the \"" + (c.name || "Edit Me...") + "\" category outline. The folders and users inside stay exactly where they are.",
+      oklabel: "Delete",
+      onok: () => tum.categories.remove(c.id)
+    });
+  }
+
   function closeconfirmsheet() {
     O.els.confirmsheet.classList.remove("tumshow");
     state.confirmopen = false;
@@ -383,6 +392,7 @@
     const chip = e.target.closest(".tumloosechip");
     const memberrow = e.target.closest(".tumfoldermember");
     const foldernode = e.target.closest(".tumfolder");
+    const catnode = e.target.closest(".tumcategory");
     e.preventDefault();
     let items;
     if (chip || memberrow) {
@@ -396,15 +406,25 @@
       const f = tum.folders.get(foldernode.dataset.id);
       if (!f) {closectx(); return}
       items = [
-        {label: f.collapsed ? "Expand" : "Collapse", icon: ICONS.chevron, onclick: () => tum.folders.update(f.id, {collapsed: !f.collapsed})},
+        {label: f.collapsed ? "Expand" : "Collapse", icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: "Edit", icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
         {label: "New user", icon: ICONS.plus, onclick: () => newuser(f)}
       ];
+    } else if (catnode) {
+      const cid = catnode.dataset.id;
+      const c = tum.categories.get(cid);
+      if (!c) {closectx(); return}
+      items = [
+        {label: "Rename", icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
+        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)}
+      ];
     } else {
+      const {clientX, clientY} = e;
       items = [
         {label: "New user", icon: ICONS.plus, onclick: () => newuser(null)},
-        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()}
+        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()},
+        {label: "New category", icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
       ];
     }
     openctx(e.clientX, e.clientY, items);

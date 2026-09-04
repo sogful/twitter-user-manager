@@ -13,9 +13,23 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
 
+  // one-time viewport-% -> absolute px, same as folders (stops resize from shifting chips)
+  function migratepositions() {
+    let changed = false;
+    const w = window.innerWidth || 1280, h = window.innerHeight || 800;
+    for (const m of list) if (m && m.pos !== "px") {
+      m.x = Math.round((typeof m.x === "number" ? m.x : 50) / 100 * w);
+      m.y = Math.round((typeof m.y === "number" ? m.y : 50) / 100 * h);
+      m.pos = "px";
+      changed = true;
+    }
+    if (changed) persist();
+  }
+
   async function load() {
     const v = await store.get();
     list = Array.isArray(v) ? v : [];
+    migratepositions();
     resolveready();
     emit();
   }
@@ -42,8 +56,10 @@
         reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
         badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || [],
         placed,
-        x: typeof x === "number" ? x : (existing ? existing.x : 50),
-        y: typeof y === "number" ? y : (existing ? existing.y : 50)
+        cat: user.cat !== undefined ? user.cat : (existing && existing.cat) || null,
+        pos: "px",
+        x: typeof x === "number" ? x : (existing ? existing.x : 80),
+        y: typeof y === "number" ? y : (existing ? existing.y : 80)
       };
       list = list.filter(m => m.handle.toLowerCase() !== key);
       list.push(entry);

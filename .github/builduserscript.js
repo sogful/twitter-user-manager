@@ -53,6 +53,7 @@ const sandboxfiles = [
   "src/js/ui/iconpicker.js",
   "src/js/core/folders.js",
   "src/js/core/unsorted.js",
+  "src/js/core/categories.js",
   "src/js/page/actions.js",
   "src/js/page/dragdetect.js",
   "src/js/ui/overlay.js",
