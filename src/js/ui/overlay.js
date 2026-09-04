@@ -29,6 +29,7 @@
   const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
 
   const MEMBERCAP = 200; // render cap per folder list
+  const THRESHOLD = 6; // px before a pointerdown on the backdrop becomes a pan
   const URLRE = /(https?:\/\/[^\s<]+)/g;
 
   let shadow = null, root = null, host = null;
@@ -133,6 +134,11 @@
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
       if (e.button !== 0 && e.button !== 1) return;
+      // preventDefault + pointer capture so a touchscreen / pen doesn't hand the
+      // gesture to native scrolling (which fires pointercancel and the pan never
+      // starts, even though the move cursor shows)
+      e.preventDefault();
+      try {bd.setPointerCapture(e.pointerId)} catch {}
       const startx = e.clientX, starty = e.clientY;
       const panstart = {x: pan.x, y: pan.y};
       let panning = false;
@@ -147,14 +153,17 @@
         pan.y = panstart.y + dy;
         applypan();
       };
-      const up = ev => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
+      const finish = ev => {
+        bd.removeEventListener("pointermove", move);
+        bd.removeEventListener("pointerup", finish);
+        bd.removeEventListener("pointercancel", finish);
+        try {bd.releasePointerCapture(e.pointerId)} catch {}
         root.classList.remove("tumpanning");
-        if (!panning && e.button === 0 && ev.target === bd) closeoverlay();
+        if (!panning && e.button === 0 && ev.type === "pointerup") closeoverlay();
       };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
+      bd.addEventListener("pointermove", move);
+      bd.addEventListener("pointerup", finish);
+      bd.addEventListener("pointercancel", finish);
     });
   }
 

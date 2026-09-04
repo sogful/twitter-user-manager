@@ -5,7 +5,7 @@
 
   const FAKE = "/settings/usermanager";
   const NAVSEL = 'div[role="tablist"]';
-  const store = tum.storage.create("tum.settings");
+  const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {keepopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
   const SCHEMA = [

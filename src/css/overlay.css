@@ -45,7 +45,7 @@ img {-webkit-user-drag: none; user-drag: none}
   opacity: 0; visibility: hidden;
   transition: opacity .18s ease, visibility .18s ease;
   pointer-events: none;
-  overscroll-behavior: none
+  overscroll-behavior: none; touch-action: none
 }
 .tumroot.tumactive .tumbackdrop {
   opacity: 1; visibility: visible;
@@ -124,7 +124,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  padding: 10px 8px 10px 12px;
+  height: 42px; padding: 0 8px 0 12px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   cursor: grab; flex-shrink: 0
@@ -175,12 +175,9 @@ img {-webkit-user-drag: none; user-drag: none}
   gap: 6px; flex-shrink: 0
 }
 .tumfoldercount {
-  min-width: 20px; height: 18px;
-  padding: 0 6px; border-radius: 999px;
-  background: var(--tumheaderbtnbg,rgba(0,0,0,0.25)); color: var(--tumheaderfg,white);
-  font-size: 11px; font-weight: 700;
-  display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0
+  color: var(--tumheaderfg,white); opacity: 0.85;
+  font-size: 10px; font-weight: 400;
+  line-height: 1; flex-shrink: 0
 }
 .tumfoldercollapse, .tumfolderremove, .tumfolderexport {
   width: 20px; height: 20px;
@@ -217,14 +214,15 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldersearch:focus {outline: none; border-color: #1d9bf0}
 .tumfoldersort {
-  height: 24px; padding: 0 10px;
-  background: transparent; border: 1px solid var(--tuminputborder,#37434d);
+  width: 46px; height: 24px; padding: 0;
+  text-align: center; background: transparent;
+  border: 1px solid var(--tuminputborder,#37434d);
   border-radius: 999px; cursor: pointer;
   color: var(--tummuted,#71767b); font-size: 11px;
   font-weight: 700; letter-spacing: 0.03em;
   flex-shrink: 0
 }
-.tumfoldersort:hover {border-color: #1d9bf0; color: var(--tumtext,#e7e9ea)}
+.tumfoldersort:hover {border-color: var(--tummuted,#71767b); color: var(--tumtext,#e7e9ea)}
 
 .tumfolderlist {
   background: var(--tumelev,#16181c);
