@@ -80,6 +80,31 @@
     } catch {}
   }
 
+  // notifications hand us pfp+username for avatars that carry no handle in the dom
+  // (aggregated "A and 3 others" rows), so we harvest every user we can see and
+  // ship a pfp-url -> handle map to the content side for dragging
+  function scanusers(obj, out, budget) {
+    if (!obj || typeof obj !== "object" || budget.n <= 0) return;
+    budget.n--;
+    if (typeof obj.screen_name === "string" && (obj.profile_image_url_https || obj.profile_image_url)) {
+      out.push({handle: obj.screen_name, name: obj.name || obj.screen_name, avatar: obj.profile_image_url_https || obj.profile_image_url});
+    }
+    if (obj.core && typeof obj.core.screen_name === "string") {
+      const av = (obj.avatar && obj.avatar.image_url) || (obj.legacy && obj.legacy.profile_image_url_https);
+      if (av) out.push({handle: obj.core.screen_name, name: obj.core.name || obj.core.screen_name, avatar: av});
+    }
+    for (const k in obj) {const v = obj[k]; if (v && typeof v === "object") scanusers(v, out, budget)}
+  }
+  function relaynotifs(text) {
+    try {
+      const j = JSON.parse(text);
+      const out = [];
+      scanusers(j, out, {n: 40000});
+      if (out.length) window.postMessage({__tumavatars: 1, data: out}, location.origin);
+    } catch {}
+  }
+  const isnotifs = url => typeof url === "string" && /\/notifications\/|Notifications/.test(url);
+
   const origfetch = window.fetch;
   window.fetch = function (...args) {
     grabbearer(args[1]);
@@ -88,6 +113,7 @@
       try {
         const url = (args[0] && args[0].url) || args[0] || "";
         if (typeof url === "string" && url.indexOf("UserByScreenName") >= 0) res.clone().text().then(relay).catch(() => {});
+        else if (isnotifs(url)) res.clone().text().then(relaynotifs).catch(() => {});
       } catch {}
       return res;
     });
@@ -98,7 +124,10 @@
   XMLHttpRequest.prototype.send = function () {
     try {
       this.addEventListener("load", () => {
-        try {if (String(this.__tumurl).indexOf("UserByScreenName") >= 0) relay(this.responseText)} catch {}
+        try {
+          if (String(this.__tumurl).indexOf("UserByScreenName") >= 0) relay(this.responseText);
+          else if (isnotifs(String(this.__tumurl))) relaynotifs(this.responseText);
+        } catch {}
       });
     } catch {}
     return origsend.apply(this, arguments);

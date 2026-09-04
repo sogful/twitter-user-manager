@@ -19,6 +19,7 @@
     upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
+    profile: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
 
@@ -118,7 +119,6 @@
   function applypan() {
     if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
     if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
-    schedulemarquees();
   }
 
   function updategrid() {
@@ -265,7 +265,12 @@
 
     attachpan();
     setupscrolllock();
+    root.addEventListener("contextmenu", O.oncontextmenu);
+    root.addEventListener("pointerdown", e => {
+      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) O.closectx();
+    }, true);
     els.modalclose.addEventListener("click", O.closemodal);
+    els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
     els.modalsave.addEventListener("click", O.savemodal);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
     for (const b of els.modalactions) b.addEventListener("click", () => O.toggleaction(b.dataset.action));
@@ -335,6 +340,7 @@
   }
   function closeoverlay() {
     state.open = false;
+    if (O.closectx) O.closectx();
     O.closemodal();
     O.closereasonmodal();
     O.closeconfirmsheet();
@@ -396,20 +402,10 @@
   }
   function refreshmarquees() {
     if (!els.freeform) return;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfoldermembername, .tumloosechipname")) {
-      const r = outer.getBoundingClientRect();
-      let visible = r.width > 0 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
-      if (visible) {
-        const list = outer.closest(".tumfolderlist");
-        if (list) {const lr = list.getBoundingClientRect(); visible = r.bottom > lr.top + 1 && r.top < lr.bottom - 1}
-      }
-      if (visible) enablemarquee(outer);
-      else outer.classList.remove("tummarqueeon");
-    }
+    // just flag which names overflow, once per render - the scroll itself is a
+    // hover-only css animation now, so nothing runs while idle
+    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
   }
-  let mqraf = 0;
-  function schedulemarquees() {if (!mqraf) mqraf = setTimeout(() => {mqraf = 0; refreshmarquees()}, 80)}
 
   function isdragged(source, handle) {
     const d = state.drag;
@@ -459,8 +455,6 @@
           </div>
         </div>
         <div class="tumfolderheadbtns">
-          <div class="tumfolderexport" title="Export this folder"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M5 20h14"/></svg></div>
-          <div class="tumfoldercollapse">${ICONS.chevron}</div>
           <div class="tumfolderremove">${ICONS.close}</div>
         </div>
       </div>
@@ -471,7 +465,6 @@
       <div class="tumfolderlist"></div>
     `;
     const list = node.querySelector(".tumfolderlist");
-    list.addEventListener("scroll", schedulemarquees);
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", "drop users here"));
     } else {
@@ -482,14 +475,6 @@
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
       e.stopPropagation();
       O.confirmfolderdelete(f);
-    });
-    node.querySelector(".tumfolderexport").addEventListener("click", e => {
-      e.stopPropagation();
-      O.exportfolder(f);
-    });
-    node.querySelector(".tumfoldercollapse").addEventListener("click", e => {
-      e.stopPropagation();
-      tum.folders.update(f.id, {collapsed: !f.collapsed});
     });
     node.querySelector(".tumfoldersort").addEventListener("click", e => {
       e.stopPropagation();
@@ -610,7 +595,7 @@
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (!state.drag) {
-      if (e.key === "Escape") {closeoverlay(); return}
+      if (e.key === "Escape") {if (O.ctxopen && O.ctxopen()) {O.closectx(); return} closeoverlay(); return}
       const typing = shadow.activeElement && /^(INPUT|TEXTAREA)$/.test(shadow.activeElement.tagName);
       if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;
@@ -661,7 +646,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile,
     keepopen: () => keepopen
   });
 

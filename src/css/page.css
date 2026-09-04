@@ -152,12 +152,14 @@ a[href*="/header_photo"]:hover .tumhd,
   user-select: none
 }
 .tumsetrow:hover {background: rgba(120,120,120,0.08)}
+[data-testid="usermanagerLink"] {transition: background-color 0.2s ease}
+[data-testid="usermanagerLink"]:hover {background-color: rgba(120,120,120,0.1)}
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
 .tumsetsubhead {
-  padding: 16px 16px 4px; font-size: 13px;
-  font-weight: 700; letter-spacing: 0.02em}
+  padding: 18px 16px 4px; font-size: 20px;
+  font-weight: 700; line-height: 24px}
 .tumsetdescimg {
   image-rendering: pixelated; width: 50px; height: 50px;
   vertical-align: middle; margin-right: 8px}

@@ -157,7 +157,7 @@
     for (const section of SECTIONS) {
       const sh = document.createElement("div");
       sh.className = "tumsetsubhead";
-      sh.style.color = sec;
+      sh.style.color = primary;
       sh.textContent = section.title;
       pane.appendChild(sh);
       for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));

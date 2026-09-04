@@ -65,6 +65,8 @@
       if (!target.children.length && /^@[A-Za-z0-9_]+$/.test((target.textContent || "").trim())) return true;
     }
     if (target.closest('[data-testid^="dm-conversation-item-"]')) return true;
+    // notifications: bare avatar imgs with no handle in the dom, resolved via the map
+    if (/^\/notifications/.test(location.pathname) && target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "")) return true;
     return false;
   }
 
@@ -287,7 +289,13 @@
     const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...headerbullets(namebox, statuslink, article), ...badgeels(badgescope)];
     if (!namelink && !handlelink && namebox) {
       dimtargets.push(namebox);
-      if (!displayname) displayname = (namebox.textContent || "").trim().split("\n")[0] || null;
+      // qrt previews render name + @handle + date as adjacent link-less spans, so
+      // textContent is one blob ("nameusername·date") - cut it at the @handle
+      if (!displayname) {
+        const full = (namebox.textContent || "").trim();
+        const at = full.toLowerCase().indexOf("@" + handle.toLowerCase());
+        displayname = (at > 0 ? full.slice(0, at) : full.split("\n")[0]).replace(/[·•∙]\s*$/, "").trim() || null;
+      }
     }
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl, dimtargets: dimtargets.filter(Boolean), article, source: "live"};
   }
@@ -306,6 +314,32 @@
     return ownhandlecache;
   }
   function isself(handle) {const o = ownhandle(); return !!o && (handle || "").toLowerCase() === o}
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  // pfp-url -> {handle, name}, fed by notifications responses (usercapture), so
+  // avatars that carry no handle in the dom (aggregated rows) become draggable
+  const avatarmap = new Map();
+  function avatarkey(url) {
+    const m = /profile_images\/(\d+)\/([^/?#.]+)/.exec(url || "");
+    return m ? m[1] + "/" + m[2].replace(/_(normal|bigger|mini|x96|reasonably_small|\d+x\d+)$/i, "") : null;
+  }
+  window.addEventListener("message", e => {
+    if (!e.data || e.data.__tumavatars !== 1 || !Array.isArray(e.data.data)) return;
+    for (const u of e.data.data) {const k = avatarkey(u.avatar); if (k) avatarmap.set(k, {handle: u.handle, name: u.name})}
+  });
+  function nearestavatarimg(target) {
+    if (target.matches && target.matches("img")) return target;
+    const scope = target.closest('[data-testid^="UserAvatar-Container-"], a[href^="/"], [role="link"]') || target;
+    return scope.querySelector ? scope.querySelector("img") : null;
+  }
+  function extractfromavatarmap(target) {
+    const img = nearestavatarimg(target);
+    const hit = img && avatarmap.get(avatarkey(img.src));
+    if (!hit) return null;
+    const av = img.closest('[data-testid^="UserAvatar-Container-"]') || img.parentElement || img;
+    return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
+  }
 
   let tracking = null; // {startx, starty, user, dragging}
 
@@ -339,6 +373,7 @@
         else return;
       }
     }
+    if (!user) user = extractfromavatarmap(e.target);
     if (!user) return;
     if (isself(user.handle)) return;
     tracking = {startx: e.clientX, starty: e.clientY, user, dragging: false};

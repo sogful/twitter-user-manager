@@ -12,7 +12,7 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumfolderremove, .tumfoldercollapse, .tumfolderexport")) return;
+      if (e.target.closest(".tumfolderremove")) return;
       const rect = node.getBoundingClientRect();
       tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
       const move = ev => {
@@ -37,7 +37,8 @@
           const py = ev.clientY - tracking.offsety - pan.y;
           tum.folders.move(f.id, px / window.innerWidth * 100, py / window.innerHeight * 100);
         } else if (tracking) {
-          O.openeditmodal(f);
+          // header click now folds/unfolds; edit lives in the right-click menu
+          tum.folders.update(f.id, {collapsed: !f.collapsed});
         }
         tracking = null;
       };

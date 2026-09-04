@@ -2,7 +2,7 @@
   "use strict";
 
   const O = window.tum._ov;
-  const {el, linkify, iconhtml, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const {el, escapehtml, linkify, iconhtml, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
 
   function launchdestroyer(user) {
     const pal = tum.theme.palette();
@@ -331,7 +331,88 @@
     hidebackdrop();
   }
 
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  let ctxel = null;
+  function ensurectx() {
+    if (ctxel) return ctxel;
+    ctxel = el("div", "tumcontextmenu");
+    O.root.appendChild(ctxel);
+    return ctxel;
+  }
+  function ctxopen() {return !!(ctxel && ctxel.classList.contains("tumshow"))}
+  function closectx() {if (ctxel) ctxel.classList.remove("tumshow")}
+
+  function ctxrow(item) {
+    const r = el("button", "tumctxrow" + (item.danger ? " tumctxdanger" : ""));
+    r.innerHTML = `<span class="tumctxicon">${item.icon || ""}</span><span class="tumctxlabel">${escapehtml(item.label)}</span>`;
+    r.addEventListener("click", e => {e.stopPropagation(); closectx(); if (item.onclick) item.onclick()});
+    return r;
+  }
+  function openctx(x, y, items) {
+    const menu = ensurectx();
+    menu.innerHTML = "";
+    for (const it of items) menu.appendChild(ctxrow(it));
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    menu.classList.add("tumshow");
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + "px";
+    menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + "px";
+  }
+
+  function resolveuser(node) {
+    if (node.classList.contains("tumloosechip")) {
+      const u = tum.unsorted.list().find(x => x.handle === node.dataset.handle);
+      return u ? {source: {type: "unsorted"}, m: u} : null;
+    }
+    const fnode = node.closest(".tumfolder");
+    const f = fnode && tum.folders.get(fnode.dataset.id);
+    const m = f && (f.members || []).find(x => x.handle === node.dataset.handle);
+    return m ? {source: {type: "folder", id: f.id}, m} : null;
+  }
+
+  // the explore-picker "new user" flow is a separate, bigger job - stub for now
+  function newuser() {toast("Adding users from search is coming soon");}
+
+  function oncontextmenu(e) {
+    if (!O.root.classList.contains("tumactive") || state.drag) return;
+    if (e.target.closest("input, textarea")) return;
+    if (e.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
+    const chip = e.target.closest(".tumloosechip");
+    const memberrow = e.target.closest(".tumfoldermember");
+    const foldernode = e.target.closest(".tumfolder");
+    e.preventDefault();
+    let items;
+    if (chip || memberrow) {
+      const info = resolveuser(chip || memberrow);
+      if (!info) {closectx(); return}
+      items = [
+        {label: "Open profile", icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
+        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
+      ];
+    } else if (foldernode) {
+      const f = tum.folders.get(foldernode.dataset.id);
+      if (!f) {closectx(); return}
+      items = [
+        {label: f.collapsed ? "Expand" : "Collapse", icon: ICONS.chevron, onclick: () => tum.folders.update(f.id, {collapsed: !f.collapsed})},
+        {label: "Edit", icon: ICONS.pencil, onclick: () => openeditmodal(f)},
+        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser(f)}
+      ];
+    } else {
+      items = [
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser(null)},
+        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()}
+      ];
+    }
+    openctx(e.clientX, e.clientY, items);
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, openconfirm,
+    oncontextmenu, closectx, ctxopen, newuser,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, closeconfirmsheet});
