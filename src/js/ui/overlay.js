@@ -217,6 +217,7 @@
       chiphandle: root.querySelector(".tumchiphandle"),
       modal: root.querySelector(".tummodal"),
       modaliconbtn: root.querySelector(".tummodaliconbtn"),
+      modaliconclear: root.querySelector(".tummodaliconclear"),
       modalname: root.querySelector(".tummodalname"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
@@ -273,6 +274,7 @@
     els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
     els.modalsave.addEventListener("click", O.savemodal);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
+    els.modaliconclear.addEventListener("click", e => {e.stopPropagation(); O.selecticon("")});
     for (const b of els.modalactions) b.addEventListener("click", () => O.toggleaction(b.dataset.action));
     for (const b of els.reasonactionbtns) b.addEventListener("click", () => O.togglereasonaction(b.dataset.action));
     els.reasonclose.addEventListener("click", O.closereasonmodal);
@@ -646,7 +648,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
     keepopen: () => keepopen
   });
 

@@ -131,6 +131,7 @@
   function toggleaction(a) {selectaction(a === modalaction ? null : a)}
   function refreshiconbtn() {
     O.els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
+    if (O.els.modaliconclear) O.els.modaliconclear.classList.toggle("tumshow", !!modalicon);
   }
   function selecticon(id) {
     modalicon = id;

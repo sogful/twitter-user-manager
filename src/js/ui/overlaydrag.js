@@ -208,8 +208,35 @@
     return null;
   }
 
+  // dragging a user to a viewport edge auto-pans the canvas so far-off folders come into reach
+  const EDGE = 60; // px zone
+  const PANMAX = 16; // px per tick at the very edge
+  let edgetimer = 0, edgevx = 0, edgevy = 0, edgexy = null;
+  function edgevel(x, y) {
+    const w = window.innerWidth, h = window.innerHeight;
+    let vx = 0, vy = 0;
+    if (x < EDGE) vx = (EDGE - x) / EDGE;
+    else if (x > w - EDGE) vx = -(x - (w - EDGE)) / EDGE;
+    if (y < EDGE) vy = (EDGE - y) / EDGE;
+    else if (y > h - EDGE) vy = -(y - (h - EDGE)) / EDGE;
+    edgevx = vx * PANMAX; edgevy = vy * PANMAX;
+  }
+  function startedge() {
+    if (edgetimer) return;
+    edgetimer = setInterval(() => {
+      if (!state.drag || (!edgevx && !edgevy)) return;
+      pan.x += edgevx; pan.y += edgevy;
+      O.applypan();
+      if (edgexy) updatedrag(edgexy.x, edgexy.y); // re-hit-test as content scrolls under the chip
+    }, 16);
+  }
+  function stopedge() {clearInterval(edgetimer); edgetimer = 0; edgevx = edgevy = 0; edgexy = null}
+
   function updatedrag(x, y) {
-    if (!state.drag) return;
+    if (!state.drag) {stopedge(); return}
+    edgexy = {x, y};
+    edgevel(x, y);
+    if (edgevx || edgevy) startedge();
     movechip(x, y);
     const target = foldertargetunderpoint(x, y);
     for (const n of O.els.freeform.querySelectorAll(".tumfolder")) {
@@ -233,6 +260,7 @@
   }
 
   function enddrag(x, y) {
+    stopedge();
     if (!state.drag) return;
     const {user, source} = state.drag;
     const act = actionbtnunderpoint(x, y);
@@ -312,6 +340,7 @@
   }
 
   function canceldrag() {
+    stopedge();
     const d = state.drag;
     if (d && d.source && d.source.type === "page") restorehidden(d.user.handle);
     O.els.toolclose.classList.remove("tumdiscardover");

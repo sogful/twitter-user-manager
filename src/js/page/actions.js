@@ -276,13 +276,14 @@
 
   let bar = null;
   function ensurebar() {
-    if (bar && document.body.contains(bar)) return bar;
+    if (bar && document.documentElement.contains(bar)) return bar;
     bar = document.createElement("div");
     bar.className = "tumbatchbar";
     bar.innerHTML = '<div class="tumbatchfill"></div>' +
       '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">Cancel</button></div>';
     bar.querySelector(".tumbatchcancel").addEventListener("click", cancelbatch);
-    (document.body || document.documentElement).appendChild(bar);
+    // sit on documentElement after #tum-host so it paints over the open overlay
+    document.documentElement.appendChild(bar);
     return bar;
   }
   function renderbar(st) {

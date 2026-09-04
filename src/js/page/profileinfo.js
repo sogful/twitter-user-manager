@@ -88,11 +88,6 @@
   }
   function fmtnum(n) {return typeof n === "number" ? n.toLocaleString("en-US") : n}
   function parsetwdate(s) {const d = new Date(s); return isNaN(d) ? null : d}
-  function agestr(d) {
-    let months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.4375);
-    const y = Math.floor(months / 12), m = Math.floor(months % 12);
-    return (y ? y + "y " : "") + m + "m";
-  }
   function perday(u) {
     const d = parsetwdate(u.createdAt);
     if (!d || typeof u.tweets !== "number") return null;
@@ -105,17 +100,17 @@
     const d = parsetwdate(u.createdAt);
     if (!d) return;
     const join = items.querySelector('[data-testid="UserJoinDate"]');
-    if (!join) return;
-    if (join.tagName === "A") {
-      join.removeAttribute("href");
-      join.removeAttribute("role");
-      join.style.cursor = "default";
-      join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
-    }
+    if (!join || join.dataset.tumjoin) return;
+    join.dataset.tumjoin = "1";
+    // it's just a date - kill the hovercard/overlay and clicks, no age
+    if (join.tagName === "A") {join.removeAttribute("href"); join.removeAttribute("role")}
+    join.style.cursor = "default";
+    join.style.pointerEvents = "none";
+    join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
     const leaf = [...join.querySelectorAll("span")].filter(s => s.children.length === 0).find(s => /joined/i.test(s.textContent || ""));
-    if (!leaf || leaf.textContent.indexOf("·") >= 0) return;
+    if (!leaf) return;
     const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
-    leaf.textContent = "Joined " + date + " · " + agestr(d) + " old";
+    leaf.textContent = "Joined " + date;
   }
 
   function applycounts(handle, u) {

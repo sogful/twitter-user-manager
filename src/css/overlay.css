@@ -529,6 +529,21 @@ img {-webkit-user-drag: none; user-drag: none}
   border: 1px solid var(--tuminputborder,#37434d);
   padding: 8px 14px; font-size: 14px
 }
+.tummodaliconwrap {position: relative; flex-shrink: 0; display: flex}
+.tummodaliconclear {
+  position: absolute; top: -3px; right: -3px;
+  width: 16px; height: 16px; padding: 0;
+  border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--tumelev,#16181c);
+  background: var(--tummuted,#71767b);
+  display: none; align-items: center; justify-content: center
+}
+.tummodaliconclear.tumshow {display: flex}
+.tummodaliconclear svg {
+  width: 8px; height: 8px;
+  stroke: var(--tumelev,#16181c); fill: none;
+  stroke-width: 3; stroke-linecap: round
+}
 .tummodaliconbtn {
   width: 40px; height: 40px; flex-shrink: 0;
   background: var(--tuminput,#000); color: var(--tumtext,#e7e9ea);

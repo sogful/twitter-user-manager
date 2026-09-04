@@ -136,7 +136,10 @@
     if (!handle) return null;
     const badges = capturebadges(namelink);
     const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
-    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction: true, source: "live"};
+    // only skip the folder action when dragging off the blocked/muted lists (already actioned);
+    // on following/followers/search etc the autoaction SHOULD run (alreadydone() guards dupes)
+    const skipaction = /^\/settings\/(blocked|muted)/.test(location.pathname);
+    return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction, source: "live"};
   }
 
   function extractfromnamebox(namebox) {
