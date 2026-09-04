@@ -139,6 +139,7 @@ a[href*="/header_photo"]:hover .tumhd,
   transition: background 0.15s ease
 }
 .tumsetcheckwrap:hover {background: rgba(29,155,240,0.1)}
+.tumsetcheckwrap {user-select: none}
 .tumsetcheck {
   width: 20px; height: 20px; border-radius: 5px;
   flex: 0 0 auto; box-sizing: border-box;
@@ -149,11 +150,14 @@ a[href*="/header_photo"]:hover .tumhd,
 .tumsetrow {
   display: flex; align-items: center;
   gap: 16px; padding: 12px 16px;
-  user-select: none
+  user-select: text
 }
-.tumsetrow:hover {background: rgba(120,120,120,0.08)}
 [data-testid="usermanagerLink"] {transition: background-color 0.2s ease}
-[data-testid="usermanagerLink"]:hover {background-color: rgba(120,120,120,0.1)}
+[data-testid="usermanagerLink"]:hover, [data-testid="usermanagerLink"]:focus {background-color: #16181c}
+[data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {
+  border-right-color: rgb(29,155,240);
+  border-right-width: 2px; border-right-style: solid
+}
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
@@ -170,7 +174,7 @@ a[href*="/header_photo"]:hover .tumhd,
   padding: 18px 16px 2px; font-size: 20px;
   font-weight: 800; line-height: 1.3
 }
-.tumsetpanesub {padding: 2px 16px 16px; font-size: 13px}
+.tumsetpanesub {padding: 2px 16px 0; font-size: 13px}
 
 /*//////////////////////////////////////////////////////////////////////*/
 

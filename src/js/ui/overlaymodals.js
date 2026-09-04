@@ -144,6 +144,7 @@
     state.open = true;
     modalicon = "";
     O.els.modalname.value = "";
+    O.els.modaldesc.value = "";
     O.els.modalsave.textContent = "Create";
     selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
@@ -158,6 +159,7 @@
     state.modalopen = true;
     modalicon = f.icon || "";
     O.els.modalname.value = f.name;
+    O.els.modaldesc.value = f.description || "";
     O.els.modalsave.textContent = "Save";
     selectaction(f.action);
     selectcolor(f.color);
@@ -179,6 +181,7 @@
 
   function savemodal() {
     const name = (O.els.modalname.value || "").trim() || "unnamed";
+    const description = (O.els.modaldesc.value || "").trim();
     const icon = modalicon, action = modalaction, color = modalcolor;
     let filed = false;
     if (state.editing) {
@@ -186,7 +189,7 @@
       const f = tum.folders.get(fid);
       const prevaction = f ? f.action : null;
       const members = f && Array.isArray(f.members) ? f.members.slice() : [];
-      const apply = () => tum.folders.update(fid, {name, icon, action, color});
+      const apply = () => tum.folders.update(fid, {name, description, icon, action, color});
       const changed = action && action !== prevaction;
       // a meaningful batch gets a warning first; a few members just runs quietly
       if (changed && members.length > 3) {
@@ -203,7 +206,7 @@
       apply();
       if (changed && members.length) tum.actions.enqueue(action, members.map(m => m.handle));
     } else {
-      const folder = tum.folders.create({name, icon, action, color});
+      const folder = tum.folders.create({name, description, icon, action, color});
       if (state.pendingcreate) {
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
@@ -319,7 +322,7 @@
     const id = folder.id;
     openconfirm({
       title: "Delete " + folder.name + "?",
-      body: `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active.`,
+      body: `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active!`,
       oklabel: "Delete",
       onok: () => tum.folders.remove(id)
     });
@@ -328,7 +331,7 @@
   function confirmcategorydelete(c) {
     openconfirm({
       title: "Delete category?",
-      body: "This removes the \"" + (c.name || "Edit Me...") + "\" category outline. The folders and users inside stay exactly where they are.",
+      body: "This removes the \"" + (c.name || "Edit Me...") + "\" category outline. The folders and users will stay where they were.",
       oklabel: "Delete",
       onok: () => tum.categories.remove(c.id)
     });
@@ -400,6 +403,7 @@
       if (!info) {closectx(); return}
       items = [
         {label: "Open profile", icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
+        {label: "Custom note", icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
     } else if (foldernode) {

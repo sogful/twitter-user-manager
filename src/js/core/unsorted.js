@@ -79,6 +79,10 @@
       persist();
       if (!silent) emit();
     },
+    bulkmove(moves) {
+      for (const mv of moves) {const m = list.find(x => x.handle.toLowerCase() === (mv.handle || "").toLowerCase()); if (m) {m.x = mv.x; m.y = mv.y}}
+      persist();
+    },
     setreason(handle, reason, sourceurl) {
       const m = list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
       if (!m) return;

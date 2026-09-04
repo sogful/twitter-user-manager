@@ -16,9 +16,30 @@
     return !!target.closest(PROFILEAVATARSEL);
   }
 
+  // twitter renders emoji in names as twemoji <img>s. those are part of the NAME, not
+  // verification badges - grabbing them as badges piled them up in a non-scrolling row
+  function isemojiimg(el) {
+    if (!el || el.tagName !== "IMG") return false;
+    const src = el.getAttribute("src") || "", alt = el.getAttribute("alt") || "";
+    return /\/emoji\//.test(src) || (!!alt && /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u.test(alt));
+  }
+  // rebuild a name link's text WITH its emoji inline (as the plain emoji char), so they
+  // scroll and clip along with the rest of the name
+  function nametext(el) {
+    if (!el) return "";
+    let s = "";
+    for (const n of el.childNodes) {
+      if (n.nodeType === 3) s += n.nodeValue;
+      else if (n.nodeType === 1) {
+        if (n.tagName === "IMG") s += n.getAttribute("alt") || "";
+        else s += nametext(n);
+      }
+    }
+    return s.trim();
+  }
   function capturebadges(root) {
     if (!root) return [];
-    return [...root.querySelectorAll("img, svg")].map(b => {
+    return [...root.querySelectorAll("img, svg")].filter(b => !isemojiimg(b)).map(b => {
       const clone = b.cloneNode(true);
       try {
         const cs = getComputedStyle(b);
@@ -108,7 +129,7 @@
     if (!heading) return null;
     const avatarlink = document.querySelector(PROFILEAVATARSEL);
     const avatarimg = avatarlink && avatarlink.querySelector("img");
-    const displayname = heading.textContent || handle;
+    const displayname = nametext(heading) || handle;
     const badges = capturebadges(heading);
     const usernameblock = document.querySelector('[data-testid="UserName"]');
     const avatarcontainer = avatarlink && avatarlink.closest('[data-testid^="UserAvatar-Container-"]');
@@ -131,7 +152,7 @@
       if (!handle || href.toLowerCase() !== handle.toLowerCase()) continue;
       const t = (a.textContent || "").trim();
       if (t.startsWith("@")) handlelink = handlelink || a;
-      else if (t && !namelink) {displayname = t; namelink = a}
+      else if (t && !namelink) {displayname = nametext(a); namelink = a}
     }
     if (!handle) return null;
     const badges = capturebadges(namelink);
@@ -155,7 +176,7 @@
     if (!handle) return null;
     namelink = links[0];
     handlelink = links[1];
-    if (namelink) displayname = namelink.textContent || null;
+    if (namelink) displayname = nametext(namelink) || null;
     let scope = namebox, avatar = null;
     for (let i = 0; i < 5 && scope && !avatar; i++) {avatar = scope.querySelector('[data-testid^="UserAvatar-Container-"]'); scope = scope.parentElement}
     const avatarimg = avatar && avatar.querySelector("img");
@@ -175,7 +196,7 @@
         if (href.toLowerCase() !== handle.toLowerCase()) continue;
         const t = (a.textContent || "").trim();
         if (t.startsWith("@")) handlelink = handlelink || a;
-        else if (t && !namelink) {displayname = t; namelink = a}
+        else if (t && !namelink) {displayname = nametext(a); namelink = a}
       }
       if (namelink || handlelink) break;
       scope = scope.parentElement;
@@ -203,7 +224,7 @@
         if (!hh || hh.toLowerCase() !== handle.toLowerCase()) continue;
         const t = (a.textContent || "").trim();
         if (t.startsWith("@")) handlelink = handlelink || a;
-        else if (t && !namelink) {displayname = t; namelink = a}
+        else if (t && !namelink) {displayname = nametext(a); namelink = a}
       }
       if (!avatar) avatar = scope.querySelector('[data-testid="UserAvatar-Container-' + handle + '"]');
       if (namelink || handlelink) break;
@@ -283,7 +304,7 @@
       if (href.toLowerCase() !== handle.toLowerCase()) continue;
       const t = (a.textContent || "").trim();
       if (t.startsWith("@")) handlelink = handlelink || a;
-      else if (t && !namelink) {displayname = t; namelink = a}
+      else if (t && !namelink) {displayname = nametext(a); namelink = a}
     }
     const badges = capturebadges(namelink);
     const statuslink = article.querySelector('a[href*="/status/"]');

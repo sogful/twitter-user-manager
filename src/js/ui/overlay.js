@@ -42,6 +42,11 @@
   function applysetting(v) {keepopen = v && "keepopen" in v ? !!v.keepopen : true}
   settings.get().then(applysetting);
   settings.subscribe(applysetting);
+
+  // camera position survives reloads (per-account, debounced write)
+  const campos = tum.storage.create("tum.campos");
+  let campostimer = 0;
+  function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
   let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -62,7 +67,9 @@
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
   function badgeshtml(badges) {
-    return Array.isArray(badges) && badges.length ? `<span class="tumbadges">${badges.join("")}</span>` : "";
+    // drop emoji imgs that older captures stored as badges (they belong in the name, not piled beside it)
+    const b = (Array.isArray(badges) ? badges : []).filter(h => !/\/emoji\//.test(h));
+    return b.length ? `<span class="tumbadges">${b.join("")}</span>` : "";
   }
   function readablefg(hex) {
     const n = parseInt(hex.replace("#", ""), 16);
@@ -120,6 +127,7 @@
   function applypan() {
     if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
     if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+    savecampos();
   }
 
   function updategrid() {
@@ -243,6 +251,7 @@
       modaliconbtn: root.querySelector(".tummodaliconbtn"),
       modaliconclear: root.querySelector(".tummodaliconclear"),
       modalname: root.querySelector(".tummodalname"),
+      modaldesc: root.querySelector(".tummodaldesc"),
       modalclose: root.querySelector(".tummodalclose"),
       modalactions: root.querySelectorAll(".tummodalaction"),
       modalactionsrow: root.querySelector(".tummodalactions"),
@@ -352,6 +361,7 @@
     applytheme();
     updategrid();
     pinhost();
+    campos.get().then(v => {if (v && typeof v.x === "number") {pan.x = v.x; pan.y = v.y; applypan()}});
   }
 
   function applytheme() {
@@ -439,7 +449,7 @@
     if (!els.freeform) return;
     // just flag which names overflow, once per render - the scroll itself is a
     // hover-only css animation now, so nothing runs while idle
-    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
+    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
   }
 
   function isdragged(source, handle) {
@@ -485,8 +495,11 @@
             <span class="tumfoldercount">${members.length}</span>
           </div>
           <div class="tumfoldertitlelines">
-            <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
-            ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
+            <div class="tumfoldertoprow">
+              <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
+              ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
+            </div>
+            ${f.description ? `<div class="tumfolderdesc"><span class="tummqinner">${escapehtml(f.description)}</span></div>` : ""}
           </div>
         </div>
         <div class="tumfolderheadbtns">
@@ -689,12 +702,15 @@
         root.classList.remove("tumfolderdragging");
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        // silent updates + keep the live DOM positions: no re-render, so no flash/lag on release
+        // one persist per store (bulkmove) so no half-updated onChanged render flashes a member's old spot
         tum.categories.update(c.id, {x: ox + dx, y: oy + dy}, true);
+        const fmoves = [], umoves = [];
         for (const m of members) {
-          if (m.n.dataset.id) tum.folders.update(m.n.dataset.id, {x: m.left + dx, y: m.top + dy}, true);
-          else if (m.n.dataset.handle) tum.unsorted.move(m.n.dataset.handle, m.left + dx, m.top + dy, true);
+          if (m.n.dataset.id) fmoves.push({id: m.n.dataset.id, x: m.left + dx, y: m.top + dy});
+          else if (m.n.dataset.handle) umoves.push({handle: m.n.dataset.handle, x: m.left + dx, y: m.top + dy});
         }
+        if (fmoves.length) tum.folders.bulkmove(fmoves);
+        if (umoves.length) tum.unsorted.bulkmove(umoves);
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
@@ -768,27 +784,30 @@
     }
   }
 
+  // how far past its pinned edge an item must be dragged to pop out of its category
+  const CATOUT = 48;
+  const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + w / 2, c.x + c.w - w / 2), y: clamp(cy, c.y + h / 2, c.y + c.h - h / 2), cat: c.id});
+  const catunder = (cx, cy, skip) => {
+    for (const c of tum.categories.list()) if (c.id !== skip && cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) return c;
+    return null;
+  };
   // cx,cy = item center in freeform-local px; returns the (possibly clamped) center + cat id
   function categorydrop(currentcat, cx, cy, w, h) {
-    let cat = null;
-    for (const c of tum.categories.list()) {
-      if (cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) {cat = c; break}
+    const prev = currentcat && tum.categories.get(currentcat);
+    if (prev) {
+      // a member stays clamped inside until the center is dragged CATOUT past where it pins
+      // (checked vs the pin box, NOT the outer bounds - a big category's center can be far
+      // inside the bounds yet already well past the pinned edge)
+      const lox = prev.x + w / 2, hix = prev.x + prev.w - w / 2;
+      const loy = prev.y + h / 2, hiy = prev.y + prev.h - h / 2;
+      const dx = cx < lox ? lox - cx : cx > hix ? cx - hix : 0;
+      const dy = cy < loy ? loy - cy : cy > hiy ? cy - hiy : 0;
+      if (Math.max(dx, dy) <= CATOUT) return {x: clamp(cx, lox, hix), y: clamp(cy, loy, hiy), cat: currentcat};
+      const other = catunder(cx, cy, currentcat);
+      return other ? catclamp(other, cx, cy, w, h) : {x: cx, y: cy, cat: null};
     }
-    // was in a category, dropped just outside it (< a full item beyond the edge) and not over a
-    // new one -> snap back in. only a full-item-distance drag past the edge actually releases it
-    if (currentcat && (!cat || cat.id !== currentcat)) {
-      const prev = tum.categories.get(currentcat);
-      if (prev && !cat) {
-        const farout = cx < prev.x - w || cx > prev.x + prev.w + w || cy < prev.y - h || cy > prev.y + prev.h + h;
-        if (!farout) cat = prev;
-      }
-    }
-    let x = cx, y = cy;
-    if (cat) {
-      x = clamp(cx, cat.x + w / 2, cat.x + cat.w - w / 2);
-      y = clamp(cy, cat.y + h / 2, cat.y + cat.h - h / 2);
-    }
-    return {x, y, cat: cat ? cat.id : null};
+    const cat = catunder(cx, cy, null);
+    return cat ? catclamp(cat, cx, cy, w, h) : {x: cx, y: cy, cat: null};
   }
 
   function newcategory(lx, ly) {

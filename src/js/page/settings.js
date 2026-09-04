@@ -84,8 +84,7 @@
     const ref = document.querySelector('a[role="tab"] [data-testid="test-LTRtext"]') ||
       document.querySelector('a[role="tab"] span') || document.querySelector('a[role="tab"]') || document.body;
     const primary = getComputedStyle(ref).color || "rgb(15,20,25)";
-    const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(primary);
-    const sec = m ? "rgba(" + m[1] + "," + m[2] + "," + m[3] + ",0.55)" : "rgb(113,118,123)";
+    const sec = "#71767b"; // twitter's gray, used for descriptions + the sub-line
     return {primary, sec};
   }
 

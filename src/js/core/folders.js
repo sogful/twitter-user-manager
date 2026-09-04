@@ -75,6 +75,7 @@
         sort: "added",
         collapsed: false,
         cat: partial.cat || null,
+        description: (partial.description || "").slice(0, 200),
         pos: "px",
         x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
         y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
@@ -99,6 +100,12 @@
       f.x = x; f.y = y;
       persist();
       emit();
+    },
+    // apply many position updates in ONE persist (avoids per-item storage writes each
+    // firing an onChanged -> render with a half-updated list, which flashed old positions)
+    bulkmove(moves) {
+      for (const m of moves) {const f = list.find(x => x.id === m.id); if (f) {f.x = m.x; f.y = m.y}}
+      persist();
     },
     remove(id) {
       list = list.filter(f => f.id !== id);
