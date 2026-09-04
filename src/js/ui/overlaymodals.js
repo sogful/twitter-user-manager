@@ -396,8 +396,11 @@
     return m ? {source: {type: "folder", id: f.id}, m} : null;
   }
 
-  // the explore-picker "new user" flow is a separate, bigger job - stub for now
-  function newuser() {toast("Adding users from search is coming soon");}
+  // launch the /explore search picker; adds the picked user to `target` (folder/category/canvas)
+  function newuser(target) {
+    if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
+    else toast("Adding users from search is coming soon");
+  }
 
   function oncontextmenu(e) {
     if (!O.root.classList.contains("tumactive") || state.drag) return;
@@ -424,7 +427,7 @@
         {label: f.collapsed ? "Expand" : "Collapse", icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: "Edit", icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser(f)}
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})}
       ];
     } else if (catnode) {
       const cid = catnode.dataset.id;
@@ -434,13 +437,13 @@
       items = [
         {label: "Rename", icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser(null)},
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: clientX - O.pan.x, cy: clientY - O.pan.y})},
         {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: clientX - O.pan.x, cy: clientY - O.pan.y})}
       ];
     } else {
       const {clientX, clientY} = e;
       items = [
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser(null)},
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: clientX - O.pan.x, cy: clientY - O.pan.y})},
         {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()},
         {label: "New category", icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
       ];

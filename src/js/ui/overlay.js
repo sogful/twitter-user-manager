@@ -883,9 +883,35 @@
     if (fmoves.length) tum.folders.bulkmove(fmoves);
     if (umoves.length) tum.unsorted.bulkmove(umoves);
   }
-  function resolveoverlaphandle(handle) {
+  // solid collision: when dragging/dropping, keep the MOVED node from overlapping others by
+  // sliding it out (the others don't move - that's only for the unavoidable expand case)
+  function nooverlapadjust(node, left, top) {
+    if (!node || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
+    const w = node.offsetWidth, h = node.offsetHeight, GAP = 8;
+    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(n => n !== node).map(rectof);
+    let l = left, t = top;
+    for (let pass = 0; pass < 10; pass++) {
+      let hit = false;
+      for (const o of others) {
+        const ox = Math.min(l + w, o.left + o.w) - Math.max(l, o.left);
+        const oy = Math.min(t + h, o.top + o.h) - Math.max(t, o.top);
+        if (ox <= 0 || oy <= 0) continue;
+        hit = true;
+        if (ox < oy) l += (l + w / 2 >= o.left + o.w / 2 ? 1 : -1) * (ox + GAP);
+        else t += (t + h / 2 >= o.top + o.h / 2 ? 1 : -1) * (oy + GAP);
+      }
+      if (!hit) break;
+    }
+    return {left: l, top: t};
+  }
+  function nooverlapadjusthandle(handle) {
+    if (!(tum.settings && tum.settings.get("nooverlap"))) return;
     const n = [...els.freeform.querySelectorAll(".tumloosechip")].find(x => x.dataset.handle === handle);
-    if (n) resolveoverlap(n);
+    if (!n) return;
+    const a = nooverlapadjust(n, parseFloat(n.style.left) || 0, parseFloat(n.style.top) || 0);
+    n.style.left = a.left + "px";
+    n.style.top = a.top + "px";
+    tum.unsorted.move(handle, a.left, a.top, true);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -947,7 +973,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, resolveoverlaphandle,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjusthandle,
     keepopen: () => keepopen
   });
 

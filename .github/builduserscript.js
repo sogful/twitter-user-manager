@@ -56,6 +56,7 @@ const sandboxfiles = [
   "src/js/core/categories.js",
   "src/js/page/actions.js",
   "src/js/page/dragdetect.js",
+  "src/js/page/newuser.js",
   "src/js/ui/overlay.js",
   "src/js/ui/overlaydrag.js",
   "src/js/ui/overlaymodals.js",

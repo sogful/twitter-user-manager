@@ -29,8 +29,9 @@
         const w = node.offsetWidth, h = node.offsetHeight;
         // live-clamp inside the folder's category until dragged a full item beyond its edge
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-        node.style.left = (c.x - w / 2) + "px";
-        node.style.top = (c.y - h / 2) + "px";
+        const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2); // solid: slide out of others
+        node.style.left = a.left + "px";
+        node.style.top = a.top + "px";
         O.categoryhover(c.x, c.y);
       };
       const up = ev => {
@@ -43,11 +44,11 @@
           const py = ev.clientY - tracking.offsety - pan.y;
           const w = node.offsetWidth, h = node.offsetHeight;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-          node.style.left = (c.x - w / 2) + "px";
-          node.style.top = (c.y - h / 2) + "px";
+          const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
+          node.style.left = a.left + "px";
+          node.style.top = a.top + "px";
           // silent + keep the live DOM position -> no re-render flash
-          tum.folders.update(f.id, {x: c.x - w / 2, y: c.y - h / 2, cat: c.cat}, true);
-          O.resolveoverlap(node);
+          tum.folders.update(f.id, {x: a.left, y: a.top, cat: c.cat}, true);
         } else if (tracking) {
           O.toggledcollapse(f.id); // header click folds/unfolds; edit lives in the right-click menu
         }
@@ -347,7 +348,7 @@
       tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();
-      O.resolveoverlaphandle(user.handle);
+      O.nooverlapadjusthandle(user.handle); // solid: slide the dropped chip out of any overlap
       return;
     }
     state.open = true;

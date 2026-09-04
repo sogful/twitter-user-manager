@@ -152,13 +152,10 @@ a[href*="/header_photo"]:hover .tumhd,
   gap: 16px; padding: 12px 16px;
   user-select: text
 }
-/* reserve the 2px border always (transparent) so focus only recolors it - no arrow shift */
-[data-testid="usermanagerLink"] {
-  transition: background-color 0.2s ease;
-  border-right: 2px solid transparent
-}
+/* indicator via an inset shadow (no layout box, so the tab's arrow never shifts) */
+[data-testid="usermanagerLink"] {transition: background-color 0.2s ease}
 [data-testid="usermanagerLink"]:hover, [data-testid="usermanagerLink"]:focus {background-color: #16181c}
-[data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {border-right-color: rgb(29,155,240)}
+[data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {box-shadow: inset -2px 0 0 rgb(29,155,240)}
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
@@ -176,6 +173,35 @@ a[href*="/header_photo"]:hover .tumhd,
   font-weight: 800; line-height: 1.3
 }
 .tumsetpanesub {padding: 2px 16px 0; font-size: 13px}
+
+/*//////////////////////////////////////////////////////////////////////*/
+/* "new user" picker mode: dim the surrounding columns (not an overlay - stacking contexts make
+   raising the nested search impossible), hide trends/recents, keep the search header live */
+
+html.tumpickuser header[role="banner"],
+html.tumpickuser [data-testid="sidebarColumn"],
+html.tumpickuser [data-testid="settingsAppBar"],
+html.tumpickuser [data-testid="primaryColumn"] [role="tablist"] {opacity: 0.25 !important; pointer-events: none !important}
+html.tumpickuser [data-testid="primaryColumn"] [aria-label^="Timeline"],
+html.tumpickuser [data-testid="trend"],
+html.tumpickuser [data-testid="typeaheadRecentSearchesHeader"],
+html.tumpickuser [data-testid="typeaheadRecentSearchesItem"] {display: none !important}
+.tumpickbanner {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 2147483000; padding: 12px 16px;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  background: #1d9bf0; color: white;
+  font-weight: 700; font-size: 14px;
+  font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif
+}
+.tumpickcancel {
+  flex-shrink: 0; padding: 4px 14px;
+  background: rgba(255,255,255,0.2); color: white;
+  border: 1px solid rgba(255,255,255,0.6); border-radius: 999px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
+  font-family: inherit
+}
+.tumpickcancel:hover {background: rgba(255,255,255,0.32)}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
