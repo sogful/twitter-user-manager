@@ -73,7 +73,7 @@
         color: partial.color || nextcolor(),
         icon: (partial.icon || "").slice(0, 64),
         sort: "added",
-        collapsed: false,
+        collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
         cat: partial.cat || null,
         description: (partial.description || "").slice(0, 200),
         pos: "px",

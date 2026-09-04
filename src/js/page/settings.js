@@ -7,10 +7,13 @@
   const NAVSEL = 'div[role="tablist"]';
   const store = tum.storage.create("tum.settings", {global: true});
 
-  const DEFAULTS = {keepopen: true, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
+  const DEFAULTS = {keepopen: true, nooverlap: false, startcollapsed: false, autoopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, confirmdelete: false, destroyoption: true};
   const SECTIONS = [
     {title: "Overlay", items: [
-      {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after moving someone into a folder instead of fading it out."}
+      {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after moving someone into a folder instead of fading it out."},
+      {key: "nooverlap", title: "Prevent overlap", desc: "Stop folders/users from covering each otherby pushing them away."},
+      {key: "startcollapsed", title: "Start folders collapsed", desc: "New folders begin minimized to just their title bar."},
+      {key: "autoopen", title: "Open on page load", desc: "Fade the overlay in when the page finishes loading."}
     ]},
     {title: "On the page", items: [
       {key: "pagepencils", title: "Note pencils on the page", desc: "Show a small pencil next to people you've saved a note on, in tweets and on profiles. It's clickable!"},
@@ -18,7 +21,8 @@
       {key: "extrainfo", title: "Extended profile info", desc: "Add the account id, email, exact age, location and breach lookups on profiles."}
     ]},
     {title: "Actions", items: [
-      {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."}
+      {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."},
+      {key: "confirmdelete", title: "Always confirm delete", desc: "Ask before deleting any folder, even empty or single member ones."}
     ]},
     {title: "Extras", items: [
       {key: "destroyoption", title: "Fun", desc: "Yeah...", img: "assets/images/yeah.png"}

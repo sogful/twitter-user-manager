@@ -47,6 +47,7 @@
           node.style.top = (c.y - h / 2) + "px";
           // silent + keep the live DOM position -> no re-render flash
           tum.folders.update(f.id, {x: c.x - w / 2, y: c.y - h / 2, cat: c.cat}, true);
+          O.resolveoverlap(node);
         } else if (tracking) {
           O.toggledcollapse(f.id); // header click folds/unfolds; edit lives in the right-click menu
         }
@@ -346,6 +347,7 @@
       tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();
+      O.resolveoverlaphandle(user.handle);
       return;
     }
     state.open = true;

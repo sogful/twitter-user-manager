@@ -327,11 +327,13 @@
 
   function confirmfolderdelete(folder) {
     const members = Array.isArray(folder.members) ? folder.members : [];
-    if (members.length <= 1) {tum.folders.remove(folder.id); return}
+    const always = !!(tum.settings && tum.settings.get("confirmdelete"));
+    if (members.length <= 1 && !always) {tum.folders.remove(folder.id); return}
     const id = folder.id;
+    const memtext = members.length ? " and its " + members.length + " member" + (members.length > 1 ? "s" : "") : "";
     openconfirm({
       title: "Delete " + folder.name + "?",
-      body: `This removes the folder and its ${members.length} members, this cannot be undone. Note that actions done to users will stay active!`,
+      body: `This removes the folder${memtext}, this cannot be undone.` + (members.length ? " Note that actions done to users will stay active!" : ""),
       oklabel: "Delete",
       onok: () => tum.folders.remove(id)
     });

@@ -356,7 +356,11 @@
     tum.folders.subscribe(render);
     tum.unsorted.subscribe(render);
     tum.categories.subscribe(render);
-    Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(render);
+    Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(() => {
+      render();
+      // open on load if the setting says so (small delay lets the settings store finish loading)
+      setTimeout(() => {if (!state.open && tum.settings && tum.settings.get("autoopen")) openoverlay()}, 350);
+    });
 
     applytheme();
     updategrid();
@@ -657,7 +661,10 @@
     const now = !f.collapsed;
     tum.folders.update(id, {collapsed: now}, true);
     const node = els.freeform.querySelector('.tumfolder[data-id="' + id + '"]');
-    if (node) node.classList.toggle("tumcollapsed", now);
+    if (node) {
+      node.classList.toggle("tumcollapsed", now);
+      if (!now) resolveoverlap(node); // expanding grew it - push neighbors away
+    }
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -836,6 +843,53 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  function rectof(n) {
+    return {left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0, w: n.offsetWidth, h: n.offsetHeight};
+  }
+  // "prevent overlap" setting: push any folders/chips overlapping `active` out of the way,
+  // cascading to whatever those pushes then collide with, then persist the lot in one write
+  function resolveoverlap(active) {
+    if (!active || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
+    const GAP = 10;
+    const all = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")];
+    const queue = [active];
+    const movedset = new Set();
+    let guard = 0;
+    while (queue.length && guard++ < 400) {
+      const a = queue.shift();
+      const ar = rectof(a);
+      for (const b of all) {
+        if (b === a) continue;
+        const br = rectof(b);
+        const ox = Math.min(ar.left + ar.w, br.left + br.w) - Math.max(ar.left, br.left);
+        const oy = Math.min(ar.top + ar.h, br.top + br.h) - Math.max(ar.top, br.top);
+        if (ox <= 0 || oy <= 0) continue;
+        let nl = br.left, nt = br.top;
+        if (ox < oy) nl += (br.left + br.w / 2 >= ar.left + ar.w / 2 ? 1 : -1) * (ox + GAP);
+        else nt += (br.top + br.h / 2 >= ar.top + ar.h / 2 ? 1 : -1) * (oy + GAP);
+        b.style.left = nl + "px";
+        b.style.top = nt + "px";
+        movedset.add(b);
+        queue.push(b);
+      }
+    }
+    if (!movedset.size) return;
+    const fmoves = [], umoves = [];
+    for (const n of movedset) {
+      const l = parseFloat(n.style.left) || 0, t = parseFloat(n.style.top) || 0;
+      if (n.dataset.id) fmoves.push({id: n.dataset.id, x: l, y: t});
+      else if (n.dataset.handle) umoves.push({handle: n.dataset.handle, x: l, y: t});
+    }
+    if (fmoves.length) tum.folders.bulkmove(fmoves);
+    if (umoves.length) tum.unsorted.bulkmove(umoves);
+  }
+  function resolveoverlaphandle(handle) {
+    const n = [...els.freeform.querySelectorAll(".tumloosechip")].find(x => x.dataset.handle === handle);
+    if (n) resolveoverlap(n);
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     // let a category title edit swallow its own keys (Enter/Escape) instead of closing the overlay
@@ -893,7 +947,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, resolveoverlaphandle,
     keepopen: () => keepopen
   });
 
