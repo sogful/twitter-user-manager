@@ -7,14 +7,22 @@
   const NAVSEL = 'div[role="tablist"]';
   const store = tum.storage.create("tum.settings", {global: true});
 
-  const DEFAULTS = {keepopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
-  const SCHEMA = [
-    {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after moving someone into a folder instead of fading it out."},
-    {key: "pagepencils", title: "Note pencils on the page", desc: "Show a small pencil next to people you've saved a note on, in tweets and on profiles. It's clickable!"},
-    {key: "avatardots", title: "Folder tags on avatars", desc: "Mark the avatar of anyone you've filed with their folder's colour and icon."},
-    {key: "extrainfo", title: "Extended profile info", desc: "Add the account id, email, exact age, location and breach lookups on profiles."},
-    {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."},
-    {key: "destroyoption", title: "Fun", desc: "Yeah...", img: "assets/images/yeah.png"}
+  const DEFAULTS = {keepopen: true, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, destroyoption: true};
+  const SECTIONS = [
+    {title: "Overlay", items: [
+      {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after moving someone into a folder instead of fading it out."}
+    ]},
+    {title: "On the page", items: [
+      {key: "pagepencils", title: "Note pencils on the page", desc: "Show a small pencil next to people you've saved a note on, in tweets and on profiles. It's clickable!"},
+      {key: "avatardots", title: "Folder tags on avatars", desc: "Mark the avatar of anyone you've filed with their folder's colour and icon."},
+      {key: "extrainfo", title: "Extended profile info", desc: "Add the account id, email, exact age, location and breach lookups on profiles."}
+    ]},
+    {title: "Actions", items: [
+      {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."}
+    ]},
+    {title: "Extras", items: [
+      {key: "destroyoption", title: "Fun", desc: "Yeah...", img: "assets/images/yeah.png"}
+    ]}
   ];
   let vals = {...DEFAULTS};
   const listeners = new Set();
@@ -146,7 +154,14 @@
     sub.style.color = sec;
     sub.textContent = "Preferences for the extension.";
     pane.appendChild(sub);
-    for (const item of SCHEMA) pane.appendChild(buildrow(item, primary, sec));
+    for (const section of SECTIONS) {
+      const sh = document.createElement("div");
+      sh.className = "tumsetsubhead";
+      sh.style.color = sec;
+      sh.textContent = section.title;
+      pane.appendChild(sh);
+      for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));
+    }
     return pane;
   }
 

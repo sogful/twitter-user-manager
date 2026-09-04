@@ -155,9 +155,12 @@ a[href*="/header_photo"]:hover .tumhd,
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
+.tumsetsubhead {
+  padding: 16px 16px 4px; font-size: 13px;
+  font-weight: 700; letter-spacing: 0.02em}
 .tumsetdescimg {
-  image-rendering: pixelated; height: 16px;
-  width: auto; vertical-align: -3px; margin-right: 6px}
+  image-rendering: pixelated; width: 50px; height: 50px;
+  vertical-align: middle; margin-right: 8px}
 
 .tumsettingspane {
   font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}

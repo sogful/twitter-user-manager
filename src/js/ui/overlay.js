@@ -35,9 +35,9 @@
   let shadow = null, root = null, host = null;
   let els = {};
 
-  const settings = tum.storage.create("tum.settings");
-  let keepopen = false;
-  function applysetting(v) {keepopen = !!(v && v.keepopen)}
+  const settings = tum.storage.create("tum.settings", {global: true});
+  let keepopen = true; // on by default
+  function applysetting(v) {keepopen = v && "keepopen" in v ? !!v.keepopen : true}
   settings.get().then(applysetting);
   settings.subscribe(applysetting);
   let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
