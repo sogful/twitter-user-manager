@@ -138,10 +138,11 @@
     refreshiconbtn();
   }
 
-  function opencreatemodal() {
+  function opencreatemodal(opts) {
     state.editing = null;
     state.modalopen = true;
     state.open = true;
+    state.pendingfoldercat = opts && opts.cat ? {catid: opts.cat, cx: opts.cx, cy: opts.cy} : null;
     modalicon = "";
     O.els.modalname.value = "";
     O.els.modaldesc.value = "";
@@ -173,6 +174,7 @@
     tum.iconpicker.close();
     const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
     state.pendingcreate = null;
+    state.pendingfoldercat = null;
     state.editing = null;
     state.modalopen = false;
     hidebackdrop();
@@ -206,7 +208,14 @@
       apply();
       if (changed && members.length) tum.actions.enqueue(action, members.map(m => m.handle));
     } else {
-      const folder = tum.folders.create({name, description, icon, action, color});
+      // a folder made from a category's right-click lands inside that category, at the click
+      let fx, fy, fcat = null;
+      if (state.pendingfoldercat) {
+        const pc = O.categorydrop(null, state.pendingfoldercat.cx, state.pendingfoldercat.cy, 200, 288);
+        fx = pc.x - 100; fy = pc.y - 144; fcat = pc.cat;
+        state.pendingfoldercat = null;
+      }
+      const folder = tum.folders.create({name, description, icon, action, color, x: fx, y: fy, cat: fcat});
       if (state.pendingcreate) {
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
@@ -403,7 +412,7 @@
       if (!info) {closectx(); return}
       items = [
         {label: "Open profile", icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
-        {label: "Custom note", icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
+        {label: info.m.reason ? "Edit note" : "Custom note", icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
     } else if (foldernode) {
@@ -419,9 +428,12 @@
       const cid = catnode.dataset.id;
       const c = tum.categories.get(cid);
       if (!c) {closectx(); return}
+      const {clientX, clientY} = e;
       items = [
         {label: "Rename", icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
-        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)}
+        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser(null)},
+        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: clientX - O.pan.x, cy: clientY - O.pan.y})}
       ];
     } else {
       const {clientX, clientY} = e;

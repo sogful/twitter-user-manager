@@ -541,8 +541,17 @@
   }
 
   function openprofile(source, m) {
-    const url = "https://x.com/" + encodeURIComponent(m.handle);
-    const go = () => {try {window.open(url, "_blank", "noopener")} catch {}};
+    // fade the overlay out then route to the profile in-page (x.com's SPA responds to
+    // pushState + popstate, same trick settings.js uses) - no full reload
+    const go = () => {
+      closeoverlay();
+      setTimeout(() => {
+        try {
+          history.pushState({}, "", "/" + encodeURIComponent(m.handle));
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        } catch {}
+      }, 200);
+    };
     const folder = source && source.type === "folder" ? tum.folders.get(source.id) : null;
     if (folder && folder.action === "block") {
       O.openconfirm({

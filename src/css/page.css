@@ -152,12 +152,13 @@ a[href*="/header_photo"]:hover .tumhd,
   gap: 16px; padding: 12px 16px;
   user-select: text
 }
-[data-testid="usermanagerLink"] {transition: background-color 0.2s ease}
-[data-testid="usermanagerLink"]:hover, [data-testid="usermanagerLink"]:focus {background-color: #16181c}
-[data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {
-  border-right-color: rgb(29,155,240);
-  border-right-width: 2px; border-right-style: solid
+/* reserve the 2px border always (transparent) so focus only recolors it - no arrow shift */
+[data-testid="usermanagerLink"] {
+  transition: background-color 0.2s ease;
+  border-right: 2px solid transparent
 }
+[data-testid="usermanagerLink"]:hover, [data-testid="usermanagerLink"]:focus {background-color: #16181c}
+[data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {border-right-color: rgb(29,155,240)}
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
