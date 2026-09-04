@@ -185,7 +185,9 @@ html.tumpickuser [data-testid="primaryColumn"] [role="tablist"] {opacity: 0.25 !
 html.tumpickuser [data-testid="primaryColumn"] [aria-label^="Timeline"],
 html.tumpickuser [data-testid="trend"],
 html.tumpickuser [data-testid="typeaheadRecentSearchesHeader"],
-html.tumpickuser [data-testid="typeaheadRecentSearchesItem"] {display: none !important}
+html.tumpickuser [data-testid="typeaheadRecentSearchesItem"],
+/* search-TERM suggestions have no avatar img; only keep the actual user rows */
+html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !important}
 .tumpickbanner {
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 2147483000; padding: 12px 16px;

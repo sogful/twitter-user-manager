@@ -850,7 +850,7 @@
   // cascading to whatever those pushes then collide with, then persist the lot in one write
   function resolveoverlap(active) {
     if (!active || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
-    const GAP = 10;
+    const GAP = 0;
     const all = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")];
     const queue = [active];
     const movedset = new Set();
@@ -887,7 +887,7 @@
   // sliding it out (the others don't move - that's only for the unavoidable expand case)
   function nooverlapadjust(node, left, top) {
     if (!node || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
-    const w = node.offsetWidth, h = node.offsetHeight, GAP = 8;
+    const w = node.offsetWidth, h = node.offsetHeight, GAP = 0;
     const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(n => n !== node).map(rectof);
     let l = left, t = top;
     for (let pass = 0; pass < 10; pass++) {
@@ -984,6 +984,7 @@
     enddrag: (x, y) => O.enddrag(x, y),
     canceldrag: () => O.canceldrag(),
     toast,
+    open: () => openoverlay(),
     openreasonview: (source, m) => O.openreasonview(source, m),
     openandflash,
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder

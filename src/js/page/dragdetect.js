@@ -365,6 +365,23 @@
     return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
   }
 
+  // on an aggregated notification ("A and 99 others liked...") each avatar carries its own
+  // UserAvatar-Container-<handle>; grabbing one should drag THAT user, not the article's first.
+  // scoped to /notifications so normal tweets (author + a quoted author) aren't affected.
+  function aggregatednotifavatar(target, article) {
+    if (!/^\/notifications/.test(location.pathname)) return null;
+    const av = target.closest('[data-testid^="UserAvatar-Container-"]');
+    if (!av) return null;
+    const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+    if (!m || m[1] === "unknown") return null;
+    const handles = new Set();
+    for (const v of article.querySelectorAll('[data-testid^="UserAvatar-Container-"]')) {
+      const mm = /UserAvatar-Container-(.+)$/.exec(v.getAttribute("data-testid") || "");
+      if (mm && mm[1] !== "unknown") handles.add(mm[1].toLowerCase());
+    }
+    return handles.size > 1 ? av : null;
+  }
+
   let tracking = null; // {startx, starty, user, dragging}
 
   function onpointerdown(e) {
@@ -379,7 +396,13 @@
       const article = e.target.closest(ARTICLESEL);
       const quoted = e.target.closest('div[role="link"][tabindex]');
 
+      const aggav = article ? aggregatednotifavatar(e.target, article) : null;
       if (cell) user = extractusercell(cell);
+      else if (aggav) {
+        user = extractnearavatar(aggav); // has the handle from the avatar's testid
+        const mapped = extractfromavatarmap(aggav); // real display name from the harvested notif data
+        if (user && mapped && mapped.displayname && mapped.displayname !== user.handle) user.displayname = mapped.displayname;
+      }
       else if (quoted && article && article.contains(quoted) && quoted.querySelector('[data-testid^="UserAvatar-Container-"]')) user = extractuser(quoted);
       else if (article) user = extractuser(article);
       else {

@@ -14,6 +14,7 @@
   let active = false;
   let obs = null;
   let banner = null;
+  let returnurl = null, returnscroll = 0;
 
   function targetlabel() {
     if (target && target.type === "folder") {const f = tum.folders.get(target.id); return f ? '"' + f.name + '"' : "a folder"}
@@ -79,16 +80,15 @@
 
   function onclick(e) {
     if (!active) return;
-    if (e.target.closest(".tumpickdim")) return; // the dim's own handler exits
     if (e.target.closest(SEARCHINPUT) || e.target.closest(".tumpickbanner")) return;
     const result = e.target.closest(RESULTSEL);
-    if (!result) return;
-    const user = extractresult(result);
-    if (!user) return;
-    e.preventDefault();
-    e.stopPropagation();
-    addtotarget(user);
-    exit();
+    if (result) {
+      const user = extractresult(result);
+      if (user) {e.preventDefault(); e.stopPropagation(); addtotarget(user); exit(); return}
+    }
+    // a search-TERM suggestion (or anything else in the dropdown) would navigate away and escape
+    // the picker - swallow it
+    if (e.target.closest('[data-testid="typeaheadResult"]')) {e.preventDefault(); e.stopPropagation()}
   }
   function onkey(e) {
     if (!active) return;
@@ -99,6 +99,8 @@
   function start(t) {
     target = t || {type: "canvas"};
     active = true;
+    returnurl = location.pathname + location.search; // where to send them back after
+    returnscroll = window.scrollY || 0;
     try {history.pushState({}, "", "/explore"); window.dispatchEvent(new PopStateEvent("popstate"))} catch {}
     // keep the chrome on as x.com re-renders the explore route
     if (!obs) {obs = new MutationObserver(() => {if (active && !document.documentElement.classList.contains("tumpickuser")) showchrome()}); obs.observe(document.body, {childList: true, subtree: true})}
@@ -114,6 +116,11 @@
     active = false;
     target = null;
     removechrome();
+    // return them to the page (and scroll) they were on, then fade the overlay back in
+    try {history.pushState({}, "", returnurl || "/home"); window.dispatchEvent(new PopStateEvent("popstate"))} catch {}
+    let n = 0;
+    const iv = setInterval(() => {window.scrollTo(0, returnscroll); if (++n > 14) clearInterval(iv)}, 90);
+    setTimeout(() => {try {tum.overlay.open()} catch {}}, 450);
   }
 
   window.tum.newuser = {
