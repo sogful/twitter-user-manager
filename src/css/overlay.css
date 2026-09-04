@@ -74,7 +74,7 @@ img {-webkit-user-drag: none; user-drag: none}
 /* faint pan-direction hints on the viewport edges, behind everything, gone mid-drag */
 .tumedgearrows {
   position: absolute; inset: 0;
-  pointer-events: none;
+  pointer-events: none; z-index: 2;
   transition: opacity .18s ease
 }
 .tumroot.tumdragging .tumedgearrows, .tumroot.tumpanning .tumedgearrows {opacity: 0}
@@ -132,7 +132,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcategory {
   position: absolute;
   background: rgba(0,0,0,0.28);
-  border: 2px dashed var(--tummuted,#71767b);
+  border: 2px solid var(--tummuted,#71767b);
   border-radius: 12px; pointer-events: auto
 }
 .tumcategory.tumcategoryover {
@@ -151,6 +151,19 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcategorytitle.tumediting {
   overflow: visible; text-overflow: clip;
   user-select: text; -webkit-user-select: text
+}
+.tumcatresize {position: absolute; pointer-events: auto}
+.tumcatresizer {
+  top: 8px; bottom: 8px; right: -4px;
+  width: 8px; cursor: ew-resize
+}
+.tumcatresizeb {
+  left: 8px; right: 8px; bottom: -4px;
+  height: 8px; cursor: ns-resize
+}
+.tumcatresizebr {
+  right: -5px; bottom: -5px;
+  width: 16px; height: 16px; cursor: nwse-resize
 }
 
 /*//////////////////////////////////////////////////////////////////////*/

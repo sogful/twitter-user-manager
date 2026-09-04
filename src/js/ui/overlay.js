@@ -180,6 +180,8 @@
     const block = ev => {if (root && root.classList.contains("tumactive") && !allow(ev)) ev.preventDefault()};
     window.addEventListener("wheel", block, {capture: true, passive: false});
     window.addEventListener("touchmove", block, {capture: true, passive: false});
+    // middle-button starts x.com's native autoscroll on the page behind - kill it while open
+    window.addEventListener("mousedown", ev => {if (ev.button === 1 && root && root.classList.contains("tumactive")) ev.preventDefault()}, {capture: true});
   }
   const SCROLLKEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
@@ -293,8 +295,11 @@
     // dismissing an open context menu by clicking empty canvas should NOT also close the
     // overlay - flag this gesture so attachpan's click-to-close skips it
     root.addEventListener("pointerdown", e => {
-      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) {O.closectx(); O._ctxdismiss = true}
-      else O._ctxdismiss = false;
+      let dismiss = false;
+      const editing = root.querySelector(".tumcategorytitle.tumediting");
+      if (editing && !e.target.closest(".tumcategorytitle")) {editing.blur(); dismiss = true}
+      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) {O.closectx(); dismiss = true}
+      O._ctxdismiss = dismiss;
     }, true);
     els.modalclose.addEventListener("click", O.closemodal);
     els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
@@ -648,17 +653,22 @@
     node.style.top = (c.y || 0) + "px";
     node.style.width = (c.w || 480) + "px";
     node.style.height = (c.h || 360) + "px";
-    node.innerHTML = `<div class="tumcategorytitle">${escapehtml(c.name || "Edit Me...")}</div>`;
+    node.innerHTML =
+      `<div class="tumcategorytitle">${escapehtml(c.name || "Edit Me...")}</div>` +
+      `<div class="tumcatresize tumcatresizer"></div>` +
+      `<div class="tumcatresize tumcatresizeb"></div>` +
+      `<div class="tumcatresize tumcatresizebr"></div>`;
     attachcategorydrag(node, c);
-    wirecategoryrename(node, c);
+    attachcategoryresize(node, c);
     return node;
   }
 
   function attachcategorydrag(node, c) {
     node.addEventListener("pointerdown", e => {
       if (e.button !== 0) return;
-      if (e.target.closest(".tumcategorytitle")) return; // title = rename
-      if (e.target.closest(".tumfolder, .tumloosechip")) return; // items on top move themselves
+      if (e.target.closest(".tumcategorytitle.tumediting")) return; // editing text, don't drag
+      if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
+      const ontitle = !!e.target.closest(".tumcategorytitle"); // click = rename, drag = move
       e.preventDefault();
       const startx = e.clientX, starty = e.clientY;
       const ox = c.x || 0, oy = c.y || 0;
@@ -668,7 +678,7 @@
       let dragging = false;
       const move = ev => {
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        if (!dragging) {if (Math.hypot(dx, dy) < 6) return; dragging = true}
+        if (!dragging) {if (Math.hypot(dx, dy) < 6) return; dragging = true; root.classList.add("tumfolderdragging")}
         node.style.left = (ox + dx) + "px";
         node.style.top = (oy + dy) + "px";
         for (const m of members) {m.n.style.left = (m.left + dx) + "px"; m.n.style.top = (m.top + dy) + "px"}
@@ -676,12 +686,14 @@
       const up = ev => {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
-        if (!dragging) return;
+        root.classList.remove("tumfolderdragging");
+        if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        tum.categories.move(c.id, ox + dx, oy + dy);
+        // silent updates + keep the live DOM positions: no re-render, so no flash/lag on release
+        tum.categories.update(c.id, {x: ox + dx, y: oy + dy}, true);
         for (const m of members) {
-          if (m.n.dataset.id) tum.folders.move(m.n.dataset.id, m.left + dx, m.top + dy);
-          else if (m.n.dataset.handle) tum.unsorted.move(m.n.dataset.handle, m.left + dx, m.top + dy);
+          if (m.n.dataset.id) tum.folders.update(m.n.dataset.id, {x: m.left + dx, y: m.top + dy}, true);
+          else if (m.n.dataset.handle) tum.unsorted.move(m.n.dataset.handle, m.left + dx, m.top + dy, true);
         }
       };
       document.addEventListener("pointermove", move);
@@ -689,11 +701,38 @@
     });
   }
 
-  function wirecategoryrename(node, c) {
-    const title = node.querySelector(".tumcategorytitle");
-    title.addEventListener("pointerdown", e => e.stopPropagation());
-    title.addEventListener("click", e => {e.stopPropagation(); startcategoryrename(node, c)});
+  function attachcategoryresize(node, c) {
+    for (const handle of node.querySelectorAll(".tumcatresize")) {
+      const right = handle.classList.contains("tumcatresizer") || handle.classList.contains("tumcatresizebr");
+      const bottom = handle.classList.contains("tumcatresizeb") || handle.classList.contains("tumcatresizebr");
+      handle.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const startx = e.clientX, starty = e.clientY;
+        const ow = c.w || 480, oh = c.h || 360;
+        let sizing = false;
+        const sizeit = ev => {
+          const w = right ? Math.max(160, ow + (ev.clientX - startx)) : ow;
+          const h = bottom ? Math.max(120, oh + (ev.clientY - starty)) : oh;
+          node.style.width = w + "px";
+          node.style.height = h + "px";
+          return {w, h};
+        };
+        const move = ev => {sizing = true; sizeit(ev)};
+        const up = ev => {
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", up);
+          if (!sizing) return;
+          const s = sizeit(ev);
+          tum.categories.update(c.id, {w: s.w, h: s.h}, true); // silent - DOM already sized
+        };
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+      });
+    }
   }
+
   function startcategoryrename(node, c) {
     const title = node.querySelector(".tumcategorytitle");
     if (title.isContentEditable) return;
@@ -771,6 +810,8 @@
 
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
+    // let a category title edit swallow its own keys (Enter/Escape) instead of closing the overlay
+    if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
     if (!state.drag) {
       if (e.key === "Escape") {if (O.ctxopen && O.ctxopen()) {O.closectx(); return} closeoverlay(); return}
       const typing = shadow.activeElement && /^(INPUT|TEXTAREA)$/.test(shadow.activeElement.tagName);

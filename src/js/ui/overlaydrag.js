@@ -26,9 +26,12 @@
         }
         const px = ev.clientX - tracking.offsetx - pan.x;
         const py = ev.clientY - tracking.offsety - pan.y;
-        node.style.left = px + "px";
-        node.style.top = py + "px";
-        O.categoryhover(px + node.offsetWidth / 2, py + node.offsetHeight / 2);
+        const w = node.offsetWidth, h = node.offsetHeight;
+        // live-clamp inside the folder's category until dragged a full item beyond its edge
+        const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
+        node.style.left = (c.x - w / 2) + "px";
+        node.style.top = (c.y - h / 2) + "px";
+        O.categoryhover(c.x, c.y);
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
@@ -40,8 +43,10 @@
           const py = ev.clientY - tracking.offsety - pan.y;
           const w = node.offsetWidth, h = node.offsetHeight;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-          tum.folders.move(f.id, c.x - w / 2, c.y - h / 2);
-          if (c.cat !== (f.cat || null)) tum.folders.update(f.id, {cat: c.cat}, true);
+          node.style.left = (c.x - w / 2) + "px";
+          node.style.top = (c.y - h / 2) + "px";
+          // silent + keep the live DOM position -> no re-render flash
+          tum.folders.update(f.id, {x: c.x - w / 2, y: c.y - h / 2, cat: c.cat}, true);
         } else if (tracking) {
           O.toggledcollapse(f.id); // header click folds/unfolds; edit lives in the right-click menu
         }

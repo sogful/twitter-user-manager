@@ -72,12 +72,12 @@
       persist();
       emit();
     },
-    move(handle, x, y) {
+    move(handle, x, y, silent) {
       const m = list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
       if (!m) return;
       m.x = x; m.y = y;
       persist();
-      emit();
+      if (!silent) emit();
     },
     setreason(handle, reason, sourceurl) {
       const m = list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase());
