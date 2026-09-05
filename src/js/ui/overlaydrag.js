@@ -161,10 +161,10 @@
     hidesource(user.dimtargets);
     recordhidden(user.handle, user.dimtargets);
 
-    O.els.chipavatar.onerror = () => {O.els.chipavatar.style.visibility = "hidden"};
-    O.els.chipavatar.onload = () => {O.els.chipavatar.style.visibility = "visible"};
-    O.els.chipavatar.style.visibility = user.avatarurl ? "visible" : "hidden";
-    O.els.chipavatar.src = user.avatarurl || "";
+    const DEFAULT_AVATAR = "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
+    O.els.chipavatar.onerror = () => {if (O.els.chipavatar.src !== DEFAULT_AVATAR) O.els.chipavatar.src = DEFAULT_AVATAR};
+    O.els.chipavatar.style.visibility = "visible";
+    O.els.chipavatar.src = user.avatarurl || DEFAULT_AVATAR;
     O.els.chipname.textContent = user.displayname || user.handle;
     O.els.chiphandle.textContent = "@" + user.handle;
     O.els.chipbadges.innerHTML = (user.badges || []).join("");
@@ -183,6 +183,8 @@
   function movechip(x, y) {
     O.els.chip.style.left = x + "px";
     O.els.chip.style.top = y + "px";
+    // match the canvas zoom so the dragged chip is the same size it'll be once dropped
+    O.els.chip.style.transform = "translate(-50%,-50%) scale(" + O.zoom() + ")";
     if (state.drag) {state.drag.lastx = x; state.drag.lasty = y}
   }
 
@@ -353,8 +355,8 @@
       // measure the drag chip (mirrors the resting loose chip) so a wide name doesn't poke past the category edge
       const cr = O.els.chip.getBoundingClientRect();
       const z = O.zoom();
-      // chip is a fixed (unscaled) element, so its size is already canvas-space; only the point needs /zoom
-      const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, cr.width || 150, cr.height || 58);
+      // the chip is now zoom-scaled, so divide its measured size back to canvas space, like the point
+      const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, (cr.width || 150) / z, (cr.height || 58) / z);
       tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();

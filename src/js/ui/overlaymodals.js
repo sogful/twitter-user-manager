@@ -32,7 +32,15 @@
     document.body.appendChild(box);
   }
 
-  const safename = s => (s || "folder").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "folder";
+  // keep the name as-is but swap Windows-illegal filename chars for their fullwidth unicode twins
+  const FWMAP = {"<": "＜", ">": "＞", ":": "：", "\"": "＂", "/": "／", "\\": "＼", "|": "｜", "?": "？", "*": "＊"};
+  const fnsafe = s => {let o = ""; for (const ch of (s || "")) o += (FWMAP[ch] || ch); return o.replace(/[. ]+$/, "").trim() || "folder"};
+  function ownhandle() {
+    const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
+    let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+    if (!h) {const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'); const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || ""); if (m) h = m[1]}
+    return h || "account";
+  }
   function downloadjson(data, name) {
     const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
     const url = URL.createObjectURL(blob);
@@ -63,7 +71,7 @@
   const stamp = () => new Date().toISOString().slice(0, 10);
 
   function exportdata() {
-    downloadjson({version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()}, "twitter-user-manager-" + stamp() + ".json");
+    downloadjson({version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()}, "＠" + ownhandle() + ".json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
@@ -93,7 +101,7 @@
 
   function exportfolder(f) {
     downloadjson({version: 1, folder: {name: f.name, action: f.action, color: f.color, icon: f.icon, members: f.members || []}},
-      "folder-" + safename(f.name) + "-" + stamp() + ".json");
+      fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
   // import ADDS members into an existing folder, skipping handles it already has (unlike the top-bar

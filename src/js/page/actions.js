@@ -23,11 +23,7 @@
   };
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
 
-  const SUCCESSMSG = {
-    follow: h => "You followed @" + h, unfollow: h => "You unfollowed @" + h,
-    mute: h => "@" + h + " has been muted.", unmute: h => "@" + h + " has been unmuted.",
-    block: h => "@" + h + " has been blocked.", unblock: h => "@" + h + " has been unblocked."
-  };
+  const successmsg = (action, h) => T("action.success." + action, h);
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -61,7 +57,7 @@
     for (const art of document.querySelectorAll('article[data-tumhidden="' + h + '"]')) {art.style.display = ""; delete art.dataset.tumhidden}
   }
   function notify(action, handle) {
-    try {tum.overlay.toast(SUCCESSMSG[action] ? SUCCESSMSG[action](handle) : action + " @" + handle)} catch {}
+    try {tum.overlay.toast(successmsg(action, handle))} catch {}
     const hide = !tum.settings || tum.settings.get("hideposts");
     if (hide && (action === "mute" || action === "block")) hideposts(handle);
     else if (action === "unmute" || action === "unblock") showposts(handle);

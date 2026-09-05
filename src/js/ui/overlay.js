@@ -4,6 +4,7 @@
   window.tum = window.tum || {};
   const O = window.tum._ov = {};
   const T = (...a) => tum.strings.t(...a);
+  const DEFAULT_AVATAR = "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
 
   const ICONS = {
     follow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
@@ -692,8 +693,12 @@
     return chip;
   }
 
+  // broken/missing avatars fall back to twitter's default egg instead of flashing the browser's broken-image icon
   function hidebrokenavatar(container) {
-    for (const img of container.querySelectorAll("img")) img.addEventListener("error", () => {img.style.visibility = "hidden"}, {once: true});
+    for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
+      if (!img.getAttribute("src")) img.src = DEFAULT_AVATAR;
+      img.addEventListener("error", () => {if (img.src !== DEFAULT_AVATAR) img.src = DEFAULT_AVATAR}, {once: true});
+    }
   }
   function wirecopy(container) {
     for (const t of container.querySelectorAll(".tumcopy")) {

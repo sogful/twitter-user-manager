@@ -10,7 +10,8 @@ if neither work, then the firefox versions you're installing are too gated and y
 <h5>shortcuts:</h5>
 <ul>
   <li><code>Ctrl + `</code> opens/closes the overlay from anywhere</li>
-  <li>hold <code>Ctrl</code> to hide all elements from the extension (mostly just for clean screenshots) </li>
+  <li>hold <code>Ctrl</code> to hide all elements from the extension</li>
+  <sup>(so in case of ctrl+prtsc press the keys at the same time for a screenshot with additional info, and hold ctrl first for a clean one! neat? isn't it? no? ok sorry)</sup>
   <li>while dragging someone: <code>1</code>-<code>9</code> to quick drop into that folder,  <code>Esc</code> to cancel</li>
   <li>right click a folder, user, category or empty canvas for its menu</li>
   

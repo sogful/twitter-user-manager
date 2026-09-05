@@ -10,24 +10,19 @@
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {keepopen: true, nooverlap: false, startcollapsed: false, autoopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, confirmdelete: false, destroyoption: true};
+  // titles/descs are strings.json keys, resolved with T() at render time (strings load after this module)
   const SECTIONS = [
-    {title: "Overlay", items: [
-      {key: "keepopen", title: "Keep open on folder drop", desc: "Leave the overlay open after moving someone into a folder instead of fading it out."},
-      {key: "nooverlap", title: "Prevent overlap", desc: "Stop folders/users from covering each otherby pushing them away."},
-      {key: "startcollapsed", title: "Start folders collapsed", desc: "New folders begin minimized to just their title bar."},
-      {key: "autoopen", title: "Open on page load", desc: "Fade the overlay in when the page finishes loading."}
+    {title: "settings.section.overlay", items: [
+      {key: "keepopen"}, {key: "nooverlap"}, {key: "startcollapsed"}, {key: "autoopen"}
     ]},
-    {title: "On the page", items: [
-      {key: "pagepencils", title: "Note pencils on the page", desc: "Show a small pencil next to people you've saved a note on, in tweets and on profiles. It's clickable!"},
-      {key: "avatardots", title: "Folder tags on avatars", desc: "Mark the avatar of anyone you've filed with their folder's colour and icon."},
-      {key: "extrainfo", title: "Extended profile info", desc: "Add the account id, email, exact age, location and breach lookups on profiles."}
+    {title: "settings.section.onpage", items: [
+      {key: "pagepencils"}, {key: "avatardots"}, {key: "extrainfo"}
     ]},
-    {title: "Actions", items: [
-      {key: "hideposts", title: "Hide posts on mute / block", desc: "When you mute or block from the overlay, also hide that person's posts already on the page."},
-      {key: "confirmdelete", title: "Always confirm delete", desc: "Ask before deleting any folder, even empty or single member ones."}
+    {title: "settings.section.actions", items: [
+      {key: "hideposts"}, {key: "confirmdelete"}
     ]},
-    {title: "Extras", items: [
-      {key: "destroyoption", title: "Fun", desc: "Yeah...", img: "assets/images/yeah.png"}
+    {title: "settings.section.extras", items: [
+      {key: "destroyoption", img: "assets/images/yeah.png"}
     ]}
   ];
   let vals = {...DEFAULTS};
@@ -131,7 +126,7 @@
     const t1 = document.createElement("div");
     t1.className = "tumsettitle";
     t1.style.color = primary;
-    t1.textContent = item.title;
+    t1.textContent = T("settings." + item.key + ".title");
     const t2 = document.createElement("div");
     t2.className = "tumsetdesc";
     t2.style.color = sec;
@@ -141,7 +136,7 @@
       try {im.src = chrome.runtime.getURL(item.img)} catch {im.src = "../../" + item.img}
       t2.appendChild(im);
     }
-    t2.appendChild(document.createTextNode(item.desc));
+    t2.appendChild(document.createTextNode(T("settings." + item.key + ".desc")));
     txt.appendChild(t1);
     txt.appendChild(t2);
     row.appendChild(txt);
@@ -167,7 +162,7 @@
       const sh = document.createElement("div");
       sh.className = "tumsetsubhead";
       sh.style.color = primary;
-      sh.textContent = section.title;
+      sh.textContent = T(section.title);
       pane.appendChild(sh);
       for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));
     }

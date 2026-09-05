@@ -59,5 +59,37 @@
   
   "settings.pane.title": "User Manager",
   "settings.pane.sub": "Preferences for the extension.",
-  "settings.tab": "User Manager"
+  "settings.tab": "User Manager",
+
+  "settings.section.overlay": "Overlay",
+  "settings.section.onpage": "On the page",
+  "settings.section.actions": "Actions",
+  "settings.section.extras": "Extras",
+  "settings.keepopen.title": "Keep open on folder drop",
+  "settings.keepopen.desc": "Leave the overlay open after moving someone into a folder instead of fading it out.",
+  "settings.nooverlap.title": "Prevent overlap",
+  "settings.nooverlap.desc": "Stop folders/users from covering each other by pushing them away.",
+  "settings.startcollapsed.title": "Start folders collapsed",
+  "settings.startcollapsed.desc": "New folders begin minimized to just their title bar.",
+  "settings.autoopen.title": "Open on page load",
+  "settings.autoopen.desc": "Fade the overlay in when the page finishes loading.",
+  "settings.pagepencils.title": "Note pencils on the page",
+  "settings.pagepencils.desc": "Show a small pencil next to people you've saved a note on, in tweets and on profiles. It's clickable!",
+  "settings.avatardots.title": "Folder tags on avatars",
+  "settings.avatardots.desc": "Mark the avatar of anyone you've filed with their folder's colour and icon.",
+  "settings.extrainfo.title": "Extended profile info",
+  "settings.extrainfo.desc": "Add the account id, email, exact age, location and breach lookups on profiles.",
+  "settings.hideposts.title": "Hide posts on mute / block",
+  "settings.hideposts.desc": "When you mute or block from the overlay, also hide that person's posts already on the page.",
+  "settings.confirmdelete.title": "Always confirm delete",
+  "settings.confirmdelete.desc": "Ask before deleting any folder, even empty or single member ones.",
+  "settings.destroyoption.title": "Fun",
+  "settings.destroyoption.desc": "Yeah...",
+
+  "action.success.follow": "You followed @%s",
+  "action.success.unfollow": "You unfollowed @%s",
+  "action.success.mute": "@%s has been muted.",
+  "action.success.unmute": "@%s has been unmuted.",
+  "action.success.block": "@%s has been blocked.",
+  "action.success.unblock": "@%s has been unblocked."
 }
