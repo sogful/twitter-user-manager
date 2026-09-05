@@ -444,13 +444,13 @@
       items = [
         {label: "Rename", icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
         {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: clientX - O.pan.x, cy: clientY - O.pan.y})},
-        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: clientX - O.pan.x, cy: clientY - O.pan.y})}
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
+        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})}
       ];
     } else {
       const {clientX, clientY} = e;
       items = [
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: clientX - O.pan.x, cy: clientY - O.pan.y})},
+        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
         {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()},
         {label: "New category", icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
       ];

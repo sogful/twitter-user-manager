@@ -123,10 +123,44 @@
   window.addEventListener("resize", schedulepin);
 
   let pan = {x: 0, y: 0};
+  let zoom = 1;
+  const ZMIN = 0.35, ZMAX = 2.5;
   function applypan() {
-    if (els.freeform) els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px)`;
-    if (els.gridlayer) els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+    if (els.freeform) {
+      els.freeform.style.transformOrigin = "0 0";
+      els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
+    }
+    if (els.gridlayer) {
+      els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+      els.gridlayer.style.backgroundSize = `${window.innerWidth * zoom}px ${window.innerHeight * zoom}px`;
+    }
     savecampos();
+  }
+  // scroll-wheel zoom, kept centered on the cursor so the point under it stays put
+  function zoomat(sx, sy, factor) {
+    const old = zoom;
+    zoom = Math.max(ZMIN, Math.min(ZMAX, zoom * factor));
+    if (zoom === old) return;
+    const cx = (sx - pan.x) / old, cy = (sy - pan.y) / old;
+    pan.x = sx - cx * zoom;
+    pan.y = sy - cy * zoom;
+    applypan();
+  }
+  function onwheel(e) {
+    if (!state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
+    e.preventDefault();
+    zoomat(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  }
+  // start a camera pan from anywhere (used by middle-click on folders/categories/backdrop)
+  function startcamerapan(e) {
+    e.preventDefault();
+    const startx = e.clientX, starty = e.clientY;
+    const ps = {x: pan.x, y: pan.y};
+    const move = ev => {pan.x = ps.x + (ev.clientX - startx); pan.y = ps.y + (ev.clientY - starty); applypan()};
+    const up = () => {document.removeEventListener("pointermove", move, true); document.removeEventListener("pointerup", up, true); root.classList.remove("tumpanning")};
+    root.classList.add("tumpanning");
+    document.addEventListener("pointermove", move, true);
+    document.addEventListener("pointerup", up, true);
   }
 
   function updategrid() {
@@ -139,6 +173,10 @@
 
   function attachpan() {
     const bd = els.backdrop;
+    root.addEventListener("wheel", onwheel, {passive: false});
+    // middle-click anywhere in the overlay pans the camera, even over folders/categories (capture
+    // phase + stopPropagation so their own drag handlers never see it)
+    root.addEventListener("pointerdown", e => {if (e.button === 1) {e.preventDefault(); e.stopPropagation(); startcamerapan(e)}}, true);
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
       if (e.button !== 0 && e.button !== 1) return;
@@ -687,6 +725,7 @@
 
   function attachcategorydrag(node, c) {
     node.addEventListener("pointerdown", e => {
+      if (e.button === 1) {startcamerapan(e); return}
       if (e.button !== 0) return;
       if (e.target.closest(".tumcategorytitle.tumediting")) return;
       if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
@@ -699,8 +738,8 @@
         .map(n => ({n, left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0}));
       let dragging = false;
       const move = ev => {
-        const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        if (!dragging) {if (Math.hypot(dx, dy) < 6) return; dragging = true; root.classList.add("tumfolderdragging")}
+        const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
+        if (!dragging) {if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < 6) return; dragging = true; root.classList.add("tumfolderdragging")}
         node.style.left = (ox + dx) + "px";
         node.style.top = (oy + dy) + "px";
         for (const m of members) {m.n.style.left = (m.left + dx) + "px"; m.n.style.top = (m.top + dy) + "px"}
@@ -711,7 +750,7 @@
         root.classList.remove("tumfolderdragging");
 
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
-        const dx = ev.clientX - startx, dy = ev.clientY - starty;
+        const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
 
         tum.categories.update(c.id, {x: ox + dx, y: oy + dy}, true);
         const fmoves = [], umoves = [];
@@ -739,8 +778,8 @@
         const ow = c.w || 480, oh = c.h || 360;
         let sizing = false;
         const sizeit = ev => {
-          const w = right ? Math.max(160, ow + (ev.clientX - startx)) : ow;
-          const h = bottom ? Math.max(120, oh + (ev.clientY - starty)) : oh;
+          const w = right ? Math.max(160, ow + (ev.clientX - startx) / zoom) : ow;
+          const h = bottom ? Math.max(120, oh + (ev.clientY - starty) / zoom) : oh;
           node.style.width = w + "px";
           node.style.height = h + "px";
           return {w, h};
@@ -818,8 +857,8 @@
 
   function newcategory(lx, ly) {
     const w = 480, h = 360;
-    const x = typeof lx === "number" ? lx - pan.x - w / 2 : 120;
-    const y = typeof ly === "number" ? ly - pan.y - 40 : 120;
+    const x = typeof lx === "number" ? (lx - pan.x) / zoom - w / 2 : 120;
+    const y = typeof ly === "number" ? (ly - pan.y) / zoom - 40 : 120;
     const c = tum.categories.create({x, y, w, h});
     state.open = true;
     render();
@@ -959,6 +998,7 @@
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjusthandle,
+    zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });
 
@@ -971,8 +1011,9 @@
     toast,
     open: () => openoverlay(),
     // center of the currently-panned view in canvas coords (a node placed here lands mid-screen)
-    canvascenter: () => ({x: Math.round(window.innerWidth / 2 - pan.x), y: Math.round(window.innerHeight / 2 - pan.y)}),
+    canvascenter: () => ({x: Math.round((window.innerWidth / 2 - pan.x) / zoom), y: Math.round((window.innerHeight / 2 - pan.y) / zoom)}),
     opencreatemodal: opts => O.opencreatemodal(opts),
+    confirm: opts => O.openconfirm(opts),
     openreasonview: (source, m) => O.openreasonview(source, m),
     openandflash,
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder

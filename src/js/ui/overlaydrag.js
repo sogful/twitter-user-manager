@@ -12,9 +12,11 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
+      if (e.button === 1) {O.startcamerapan(e); return}
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfolderremove")) return;
       const rect = node.getBoundingClientRect();
+      const z = O.zoom();
       tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
       const move = ev => {
         if (!tracking) return;
@@ -24,8 +26,8 @@
           tracking.dragging = true;
           O.root.classList.add("tumfolderdragging");
         }
-        const px = ev.clientX - tracking.offsetx - pan.x;
-        const py = ev.clientY - tracking.offsety - pan.y;
+        const px = (ev.clientX - tracking.offsetx - pan.x) / z;
+        const py = (ev.clientY - tracking.offsety - pan.y) / z;
         const w = node.offsetWidth, h = node.offsetHeight;
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
         const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
@@ -40,8 +42,8 @@
         O.root.classList.remove("tumfolderdragging");
         O.categoryhover(null);
         if (tracking && tracking.dragging) {
-          const px = ev.clientX - tracking.offsetx - pan.x;
-          const py = ev.clientY - tracking.offsety - pan.y;
+          const px = (ev.clientX - tracking.offsetx - pan.x) / z;
+          const py = (ev.clientY - tracking.offsety - pan.y) / z;
           const w = node.offsetWidth, h = node.offsetHeight;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
           const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
@@ -221,7 +223,7 @@
     return null;
   }
 
-  const EDGE = 60; // px zone
+  const EDGE = 38; // px zone - must be fairly close to an edge before the camera starts panning
   const PANMAX = 16; // px per tick at the very edge
   let edgetimer = 0, edgevx = 0, edgevy = 0, edgexy = null;
   function edgevel(x, y) {
@@ -246,9 +248,6 @@
 
   function updatedrag(x, y) {
     if (!state.drag) {stopedge(); return}
-    edgexy = {x, y};
-    edgevel(x, y);
-    if (edgevx || edgevy) startedge();
     movechip(x, y);
     const target = foldertargetunderpoint(x, y);
     for (const n of O.els.freeform.querySelectorAll(".tumfolder")) {
@@ -263,7 +262,13 @@
     for (const b of O.els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
     O.els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
     O.els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
-    if (!target && !zone && !act) O.categoryhover(x - pan.x, y - pan.y);
+    // edge-pan ONLY when not hovering a drop target/action, so nudging toward discard/settings/new
+    // folder/delete/note near the screen edge doesn't awkwardly scroll the camera
+    const overtarget = !!target || !!zone || !!act;
+    edgexy = {x, y};
+    if (overtarget) {stopedge()}
+    else {edgevel(x, y); if (edgevx || edgevy) startedge()}
+    if (!overtarget) {const z = O.zoom(); O.categoryhover((x - pan.x) / z, (y - pan.y) / z)}
     else O.categoryhover(null);
   }
 
@@ -346,7 +351,9 @@
       removefromsource(source, user.handle);
       // measure the drag chip (mirrors the resting loose chip) so a wide name doesn't poke past the category edge
       const cr = O.els.chip.getBoundingClientRect();
-      const c = O.categorydrop(prevcat, x - pan.x, y - pan.y, cr.width || 150, cr.height || 58);
+      const z = O.zoom();
+      // chip is a fixed (unscaled) element, so its size is already canvas-space; only the point needs /zoom
+      const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, cr.width || 150, cr.height || 58);
       tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();
