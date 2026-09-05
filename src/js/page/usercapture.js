@@ -101,8 +101,6 @@
     } catch {}
   }
   const isnotifs = url => typeof url === "string" && /\/notifications\/|Notifications/.test(url);
-  // explore's "Today's News" story-preview avatars have no handle in the DOM; harvest their
-  // pfp->handle mapping from the ExplorePage response so they become draggable
   const isexplore = url => typeof url === "string" && url.indexOf("ExplorePage") >= 0;
 
   const origfetch = window.fetch;

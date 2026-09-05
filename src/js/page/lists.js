@@ -6,13 +6,11 @@
   const T = (...a) => tum.strings.t(...a);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  // https://news.ycombinator.com/item?id=35549764
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
-  // shared feature flags (identical across ListMembers/Followers/Following/Retweeters); a stale/removed
-  // one 400s - refresh from a live request if imports break. community slices send no features.
   const FEATURES = '{"rweb_video_screen_enabled":false,"rweb_cashtags_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"rweb_cashtags_composer_attachment_enabled":true,"responsive_web_jetfuel_frame":true,"responsive_web_grok_share_attachment_enabled":true,"responsive_web_grok_annotations_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"rweb_conversational_replies_downvote_enabled":false,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"content_disclosure_indicator_enabled":true,"content_disclosure_ai_generated_indicator_enabled":true,"responsive_web_grok_show_grok_translated_post":true,"responsive_web_grok_analysis_button_from_backend":true,"post_ctas_fetch_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":false,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_grok_imagine_annotation_enabled":true,"responsive_web_grok_community_note_auto_translation_is_enabled":true,"responsive_web_enhance_cards_enabled":false}';
   const CQFEATURES = '{"c9s_list_members_action_api_enabled":false,"c9s_superc9s_indication_enabled":false}';
 
-  // graphql endpoints that page a user list by bottom cursor. feat=null sends no features param.
   const EP = {
     list: {qid: "8rYmkvWQe9jRRZdy_-vkGA", op: "ListMembers", feat: FEATURES, vars: (x, c) => ({listId: x.id, count: 100, cursor: c || undefined})},
     followers: {qid: "JNyQdTISpzCkj_1fqxDvFg", op: "Followers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
@@ -22,13 +20,11 @@
     members: {qid: "woAp_YdzAdqnWDrqLTNpAw", op: "membersSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, cursor: c || null})},
     moderators: {qid: "0oYT9GRiWUhrz5xoqFE9uw", op: "moderatorsSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, count: 100, cursor: c || null})}
   };
-  const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery, for the community's name
+  const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery
 
   const hdrs = ct0 => ({authorization: BEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes", "x-twitter-client-language": "en"});
   const ct0 = () => (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
 
-  // profile visits fetch UserByScreenName (page-sourced) which usercapture relays as __tumuser with the
-  // rest_id; cache handle->id so follows/followers/verified can use graphql (needs userId)
   const useridmap = new Map();
   window.addEventListener("message", e => {
     if (!e.data || e.data.__tumuser !== 1 || !e.data.data) return;
@@ -57,7 +53,6 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function parseabbrev(text) {
-    // no gap between the number and its K/M, else the "M" in "Members" gets read as millions
     const m = /([\d,.]+)([KM])?/.exec(text || "");
     if (!m) return 0;
     let n = parseFloat(m[1].replace(/,/g, ""));
@@ -176,9 +171,8 @@
     return {ok, status: r.status, users: parsed.users, cursor: parsed.cursor};
   }
 
-  // generic pager: pull pages from pagefn(cursor) into the folder; on a broken first page use fallback
   async function runimport(folder, name, expected, pagefn, fallback) {
-    const token = ++runtoken; // a newer import supersedes this one
+    const token = ++runtoken;
     importing = true; cancel = false; ensureicons();
     const seen = new Set(), built = [];
     let cursor = null, saved = 0;
@@ -207,8 +201,6 @@
       await sleep(350);
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
-    // graphql returned nothing usable (empty/private timeline, rotated qid we didn't catch) but the
-    // page itself shows a user list -> fall back to scraping it
     if (built.length === 0 && !cancel && fallback) {importing = false; fallback(folder, name, expected); return}
     finishimport(folder, built, name);
   }
@@ -251,14 +243,13 @@
       built.push(mkmember(u));
     }
   }
-  // tweet authors, for quotes/replies. skips promoted tweets and the "Discover more" section below.
   function harvestarticles(seen, built) {
     const col = document.querySelector('[data-testid="primaryColumn"]');
     if (!col) return;
     let boundary = null;
     for (const h of col.querySelectorAll('h2, [role="heading"]')) {if (/discover more/i.test(h.textContent || "")) {boundary = h; break}}
     for (const art of col.querySelectorAll("article")) {
-      if (boundary && (art.compareDocumentPosition(boundary) & Node.DOCUMENT_POSITION_PRECEDING)) continue; // article sits below "Discover more"
+      if (boundary && (art.compareDocumentPosition(boundary) & Node.DOCUMENT_POSITION_PRECEDING)) continue; // "Discover more"
       if (art.closest('[data-testid="placementTracking"]')) continue; // promoted
       if ([...art.querySelectorAll("span")].some(s => !s.children.length && /^(Ad|Promoted)$/.test((s.textContent || "").trim()))) continue;
       const av = art.querySelector('[data-testid^="UserAvatar-Container-"]');
@@ -275,7 +266,6 @@
       built.push(mkmember({handle, displayname: nm, avatarurl: img ? img.src : null}));
     }
   }
-  // scrape the user list already on the page, auto-scrolling in place (rotation-proof fallback / quotes+replies)
   async function scrapeimport(folder, expected, name, mode) {
     const token = ++runtoken;
     importing = true; cancel = false; ensureicons();
@@ -294,20 +284,18 @@
       const scope = memberscope();
       if (scope) {const sc = scrollcontainer(scope); if (sc) sc.scrollTop = sc.scrollHeight; else {const cs = scope.querySelectorAll('[data-testid="UserCell"]'); if (cs.length) cs[cs.length - 1].scrollIntoView()}}
       else window.scrollTo(0, document.documentElement.scrollHeight);
-      // a backgrounded tab throttles timers and loads rows slowly - wait longer + tolerate more
-      // stagnation so it doesn't conclude "done" early (the #1 cause of imports ending abruptly)
+
       await sleep(document.hidden ? 1300 : 650);
       harvest(seen, built);
       renderbar(built.length, expected);
       if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
-      // only count "no new users" toward stopping while the tab is VISIBLE - a backgrounded tab stops
-      // loading rows entirely, so we must NOT conclude "done" there; we pause and resume on refocus
+
       if (built.length === last) {if (!document.hidden) stagnant++} else stagnant = 0;
       last = built.length;
       if (expected && built.length >= expected) break;
       if (!document.hidden && built.length > 0 && stagnant >= 6) break;
       if (!document.hidden && stagnant >= 12) break;
-      if (++iters > 9000) break; // absolute safety so a forever-hidden scrape can't spin indefinitely
+      if (++iters > 9000) break;
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
     finishimport(folder, built, name);
@@ -315,8 +303,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // list members graphql only fills its modal on a full navigation, so its fallback reloads to /members
-  // and resumes the scrape there. (other surfaces show their list inline, so they just scrape in place.)
   const pendingstore = tum.storage.create("tum.listpendingimport");
   function startscrapefallback(listid, folderid, name, expected) {
     try {pendingstore.set({listid, folderid, name, expected, ts: Date.now()})} catch {}
@@ -345,7 +331,6 @@
     setTimeout(() => {try {tum.overlay.open()} catch {}}, 400);
     ensureicons();
   }
-  // if the folder was created with an auto-action, run it on every imported member (big warning past 200)
   function autoaction(folder, built) {
     const f = tum.folders.get(folder.id);
     if (!f || !f.action || !built.length || cancel) return;
@@ -368,18 +353,14 @@
   const RESERVED = /^(i|home|explore|search|notifications|messages|settings|compose|hashtag)$/i;
   const FOLLOWLABEL = {followers: "Followers", following: "Following", verified_followers: "Verified followers"};
 
-  // icon anchors: rightmost of the primary-column header (back button is leftmost), or a dialog title bar
   function headerrow() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
     const back = col && col.querySelector('[data-testid="app-bar-back"]');
     const row = back && back.parentElement && back.parentElement.parentElement;
     if (!row || row.children.length < 2) return null;
     const last = row.lastElementChild;
-    // a real actions cluster (share/more) -> sit just LEFT of it (list pages)
     if (last.querySelector('[data-testid$="-button"], [aria-label="More"], [aria-label="Share post"], button')) return {parent: row, before: last};
-    // a trailing empty reserved slot (community members tab) -> fill it so there's no floating gap
     if (last.tagName === "DIV" && !last.children.length && !(last.textContent || "").trim() && last.getBoundingClientRect().width < 90) return {parent: last, before: null};
-    // otherwise (followers/verified/moderators) append at the rightmost
     return {parent: row, before: null};
   }
   function dialogrow() {
@@ -389,7 +370,6 @@
     const row = close && close.parentElement;
     return row ? {parent: row, before: null} : null;
   }
-  // slightly to the right of the reply sort ("Relevant"), leaving "View quotes" on the right edge
   function replyfilterrow() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
     if (!col) return null;
@@ -434,8 +414,6 @@
       key: "community",
       match: () => {const m = /^\/i\/communities\/(\d+)\/(members|moderators)$/.exec(location.pathname); return m ? {id: m[1], kind: m[2]} : null},
       anchor: headerrow,
-      // the members graphql only returns a bounded 17-user "slice" with no cursor, so scrape the
-      // inline (infinitely-scrolling) member list instead
       meta: async ctx => {const nm = await communityname(ctx.id); return {name: (nm || "Community") + " " + cap(ctx.kind), description: "(" + ctx.id + ")"}},
       start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "usercells")
     },

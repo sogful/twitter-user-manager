@@ -9,7 +9,7 @@
   let ready = null;
 
   const svgcache = new Map();   // id -> resolved svg text
-  const svgpending = new Map(); // id -> in-flight promise
+  const svgpending = new Map(); // id -> inflight promise
   const loadlisteners = new Set();
 
   /*//////////////////////////////////////////////////////////////////////*/

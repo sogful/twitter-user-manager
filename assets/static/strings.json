@@ -17,7 +17,7 @@
   "action.confirm.ok": "%s all",
   
   "folder.empty": "Drop users here",
-  "folder.more": "+%s more, click to load",
+  "folder.more": "+%s more (click for more)",
   "folder.search": "Search",
 
   "toast.copied": "Copied %s",
@@ -48,15 +48,15 @@
   "menu.import": "Import",
 
   "confirm.import.title": "Import and %s all?",
-  "confirm.import.body": "This folder is set to %s its members. Importing will %s all %s users in it, in the background. You can cancel while it runs.",
+  "confirm.import.body": "This folder is set to %s its members. Importing will %s all %s users in it! You can cancel while it runs.",
   
-  "pick.instr": "Search and pick a user to add to %s   ·   Esc to cancel",
+  "pick.instr": "Search and pick a user to add to %s...",
   "pick.cancel": "Cancel",
   "pick.target.folder": "\"%s\"",
   "pick.target.afolder": "a folder",
   "pick.target.category": "the category",
   "pick.target.canvas": "the canvas",
-  
+
   "settings.pane.title": "User Manager",
   "settings.pane.sub": "Preferences for the extension.",
   "settings.tab": "User Manager",

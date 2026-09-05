@@ -10,7 +10,7 @@
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {keepopen: true, nooverlap: false, startcollapsed: false, autoopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, confirmdelete: false, destroyoption: true};
-  // titles/descs are strings.json keys, resolved with T() at render time (strings load after this module)
+
   const SECTIONS = [
     {title: "settings.section.overlay", items: [
       {key: "keepopen"}, {key: "nooverlap"}, {key: "startcollapsed"}, {key: "autoopen"}
@@ -25,7 +25,11 @@
       {key: "destroyoption", img: "assets/images/yeah.png"}
     ]}
   ];
+
   let vals = {...DEFAULTS};
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   const listeners = new Set();
   function emitchange() {for (const cb of listeners) try {cb(vals)} catch (e) {}}
   store.get().then(v => {vals = {...DEFAULTS, ...(v || {})}; syncswitches(); emitchange()});
@@ -176,7 +180,6 @@
 
   function ensurepane() {
     if (!onus()) {const p = document.querySelector(".tumsettingspane"); if (p) p.remove(); return}
-    // match whatever branding the page currently shows (" / X", or " / Twitter" from a reverter)
     const wanted = "User Manager" + brandsuffix;
     if (document.title !== wanted) document.title = wanted;
     markselected();
@@ -190,12 +193,10 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // remember the site's title suffix so our page reads "User Manager / X" (or "/ Twitter" when a
-  // branding-reverter script is installed), tracked off whatever other pages currently show
   let brandsuffix = " / X";
   function tracktitle() {
     const t = document.title || "";
-    if (t.indexOf("User Manager") === 0) return; // our own title, don't read it back
+    if (t.indexOf("User Manager") === 0) return;
     const m = / \/ (X|Twitter)$/.exec(t);
     if (m) brandsuffix = m[0];
   }

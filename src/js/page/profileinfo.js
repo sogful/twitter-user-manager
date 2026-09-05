@@ -69,7 +69,7 @@
   const memcache = new Map();    // handle -> {id, names} | null (requested/none)
   const aboutdata = new Map();   // handle -> AboutAccountQuery fields | null
   const breachcache = new Map(); // handle -> {results} | {skipped} | {discarded} | null
-  const memfallback = new Set(); // handles a by-handle memory.lol fallback has been scheduled for
+  const memfallback = new Set(); // handles a memory.lol fallback
 
   function requestmemory(key, arg) {
     memcache.set(key, null);

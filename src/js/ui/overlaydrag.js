@@ -34,8 +34,6 @@
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
         const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
 
-        // snap to whole px: a fractional position inside the scaled freeform gives the rounded/clipped
-        // folder edges anti-aliasing seams (very visible - a white folder on the dark scrim in light mode)
         node.style.left = Math.round(a.left) + "px";
         node.style.top = Math.round(a.top) + "px";
         O.categoryhover(c.x, c.y);
@@ -230,7 +228,7 @@
     return null;
   }
 
-  const EDGE = 38; // px zone - must be fairly close to an edge before the camera starts panning
+  const EDGE = 38; // px zone
   const PANMAX = 16; // px per tick at the very edge
   let edgetimer = 0, edgevx = 0, edgevy = 0, edgexy = null;
   function edgevel(x, y) {
@@ -269,8 +267,7 @@
     for (const b of O.els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
     O.els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
     O.els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
-    // edge-pan ONLY when not hovering a drop target/action, so nudging toward discard/settings/new
-    // folder/delete/note near the screen edge doesn't awkwardly scroll the camera
+
     const overtarget = !!target || !!zone || !!act;
     edgexy = {x, y};
     if (overtarget) {stopedge()}
@@ -289,10 +286,13 @@
     stopedge();
     O.categoryhover(null);
     if (!state.drag) return;
+
     const {user, source} = state.drag;
     const act = actionbtnunderpoint(x, y);
     const target = act ? null : foldertargetunderpoint(x, y);
     const zone = act ? null : quickzone(x, y);
+
+    const dragchiprect = O.els.chip.getBoundingClientRect();
     O.root.classList.remove("tumdragging");
     state.drag = null;
 
@@ -356,15 +356,16 @@
     } else {
       const prevcat = source.type === "unsorted" ? (tum.unsorted.get(user.handle) || {}).cat : null;
       removefromsource(source, user.handle);
-      // measure the drag chip (mirrors the resting loose chip) so a wide name doesn't poke past the category edge
-      const cr = O.els.chip.getBoundingClientRect();
+
+      const cr = dragchiprect;
       const z = O.zoom();
-      // the chip is now zoom-scaled, so divide its measured size back to canvas space, like the point
-      const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, (cr.width || 150) / z, (cr.height || 58) / z);
-      tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
+      const cw = (cr.width || 150) / z, ch = (cr.height || 58) / z;
+      const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, cw, ch);
+      const adj = O.nooverlapadjustbox(c.x - cw / 2, c.y - ch / 2, cw, ch, null);
+      
+      tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), adj.left + cw / 2, adj.top + ch / 2);
       state.open = true;
       render();
-      O.nooverlapadjusthandle(user.handle);
       return;
     }
     state.open = true;

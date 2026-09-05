@@ -32,7 +32,7 @@
   const SORTMODES = ["az", "za", "new", "old"];
   const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
 
-  const MEMBERCAP = 200; // render cap per folder list; "+N more" bumps it per-folder for the session
+  const MEMBERCAP = 200; // render cap per folder list
   const showncap = new Map();
   const THRESHOLD = 6;
   const URLRE = /(https?:\/\/[^\s<]+)/g;
@@ -78,7 +78,6 @@
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 150 ? "#000" : "white";
   }
-  // keep the folder count column a fixed size: a 4+ digit count splits across two lines (48255 -> 482 / 55)
   function splitcount(n) {
     const s = String(n);
     if (s.length < 4) return s;
@@ -146,7 +145,6 @@
     }
     savecampos();
   }
-  // scroll-wheel zoom, kept centered on the cursor so the point under it stays put
   function zoomat(sx, sy, factor) {
     const old = zoom;
     zoom = Math.max(ZMIN, Math.min(ZMAX, zoom * factor));
@@ -157,12 +155,11 @@
     applypan();
   }
   function onwheel(e) {
-    if (!e.ctrlKey) return; // ctrl+wheel zooms; plain wheel stays free for scrolling folder lists
+    if (!e.ctrlKey) return;
     if (!state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     e.preventDefault();
     zoomat(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
   }
-  // start a camera pan from anywhere (used by middle-click on folders/categories/backdrop)
   function startcamerapan(e) {
     e.preventDefault();
     const startx = e.clientX, starty = e.clientY;
@@ -185,8 +182,6 @@
   function attachpan() {
     const bd = els.backdrop;
     root.addEventListener("wheel", onwheel, {passive: false});
-    // middle-click anywhere in the overlay pans the camera, even over folders/categories (capture
-    // phase + stopPropagation so their own drag handlers never see it)
     root.addEventListener("pointerdown", e => {if (e.button === 1) {e.preventDefault(); e.stopPropagation(); startcamerapan(e)}}, true);
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
@@ -362,6 +357,8 @@
     els.modalclose.addEventListener("click", O.closemodal);
     els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
     els.modalsave.addEventListener("click", O.savemodal);
+    els.modalname.addEventListener("input", O.editfields);
+    els.modaldesc.addEventListener("input", O.editfields);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
     els.modaliconclear.addEventListener("click", e => {e.stopPropagation(); O.selecticon("")});
 
@@ -576,8 +573,6 @@
       list.appendChild(el("div", "tumfolderempty", T("folder.empty")));
     } else {
       const src = {type: "folder", id: f.id};
-      // append rows [0,cap); "load more" appends the NEXT batch in place (no full render) so the
-      // folder's scroll position is preserved
       const fill = shown => {
         for (const m of members.slice(shown - MEMBERCAP < 0 ? 0 : shown - MEMBERCAP, shown)) list.appendChild(buildmemberrow(src, m));
         if (members.length > shown) {
@@ -587,7 +582,6 @@
         }
       };
       const cap = showncap.get(f.id) || MEMBERCAP;
-      // initial render of everything up to the stored cap, in one pass
       for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow(src, m));
       if (members.length > cap) {
         const more = el("div", "tumfoldermore", T("folder.more", members.length - cap));
@@ -708,7 +702,6 @@
     return chip;
   }
 
-  // broken/missing avatars fall back to twitter's default egg instead of flashing the browser's broken-image icon
   function hidebrokenavatar(container) {
     for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
       if (!img.getAttribute("src")) img.src = DEFAULT_AVATAR;
@@ -875,7 +868,7 @@
   }
 
   const CATOUT = 48;
-  const CATBORDER = 2; // .tumcategory outline width; inset members so they neighbor it (0 gap) instead of covering it
+  const CATBORDER = 2;
   const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + CATBORDER + w / 2, c.x + c.w - CATBORDER - w / 2), y: clamp(cy, c.y + CATBORDER + h / 2, c.y + c.h - CATBORDER - h / 2), cat: c.id});
   const catunder = (cx, cy, skip) => {
     for (const c of tum.categories.list()) if (c.id !== skip && cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) return c;
@@ -913,22 +906,19 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // loose chips are anchored by their CENTER (translate(-50%,-50%)), folders by their top-left.
-  // rectof always returns a true top-left bounding box so overlap math is consistent across both.
   function rectof(n) {
     const w = n.offsetWidth, h = n.offsetHeight;
     let left = parseFloat(n.style.left) || 0, top = parseFloat(n.style.top) || 0;
     if (n.classList.contains("tumloosechip")) {left -= w / 2; top -= h / 2}
     return {left, top, w, h};
   }
-  // write a true top-left back onto a node, re-centering it if it's a chip
+
   function setrect(n, left, top) {
     if (n.classList.contains("tumloosechip")) {left += n.offsetWidth / 2; top += n.offsetHeight / 2}
     n.style.left = left + "px";
     n.style.top = top + "px";
   }
-  // nearest spot to (x,y) that doesn't overlap an existing folder - used so imports/new folders never
-  // land on top of each other, regardless of the "prevent overlap" setting
+  
   function findfreespot(x, y, w, h) {
     if (!els.freeform) return {x, y};
     const others = [...els.freeform.querySelectorAll(".tumfolder")].map(rectof);
@@ -938,7 +928,7 @@
     const sx = w + GAP, sy = h + GAP;
     for (let ring = 1; ring < 60; ring++) {
       for (let dx = -ring; dx <= ring; dx++) for (let dy = -ring; dy <= ring; dy++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue; // ring perimeter only
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
         const nx = Math.round(x + dx * sx), ny = Math.round(y + dy * sy);
         if (!overlaps(nx, ny)) return {x: nx, y: ny};
       }
@@ -946,7 +936,6 @@
     return {x, y};
   }
   /*//////////////////////////////////////////////////////////////////////*/
-  // finding folders again: fit-all button, jump-to list, and a corner minimap
 
   function contentbbox() {
     const nodes = [...els.freeform.querySelectorAll(".tumfolder, .tumcategory, .tumloosechip")];
@@ -965,7 +954,7 @@
     if (!bb) {pan.x = 0; pan.y = 0; zoom = 1; applypan(); return}
     const vw = window.innerWidth, vh = window.innerHeight, pad = 80;
     const bw = (bb.maxx - bb.minx) + pad * 2, bh = (bb.maxy - bb.miny) + pad * 2;
-    zoom = Math.max(ZMIN, Math.min(1, Math.min(vw / bw, vh / bh))); // never zoom IN past 1
+    zoom = Math.max(ZMIN, Math.min(1, Math.min(vw / bw, vh / bh)));
     centeron((bb.minx + bb.maxx) / 2, (bb.miny + bb.maxy) / 2);
   }
   function jumpto(f) {
@@ -1001,36 +990,26 @@
     if (!has || !state.open) return;
     const cv = els.minimapcanvas, ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
-    const bb = contentbbox();
-    if (!bb) return;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const vminx = -pan.x / zoom, vminy = -pan.y / zoom, vmaxx = (vw - pan.x) / zoom, vmaxy = (vh - pan.y) / zoom;
-    const minx = Math.min(bb.minx, vminx), miny = Math.min(bb.miny, vminy), maxx = Math.max(bb.maxx, vmaxx), maxy = Math.max(bb.maxy, vmaxy);
-    // pad in viewport-widths so the framing scales with how far you're zoomed, not a fixed canvas gap
-    const pad = (vmaxx - vminx) * 0.35, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
-    const s = Math.min(W / cw, H / ch);
-    const ox = (W - cw * s) / 2 - (minx - pad) * s, oy = (H - ch * s) / 2 - (miny - pad) * s;
+
+    const nodes = [...els.freeform.querySelectorAll(".tumfolder")];
+    if (!nodes.length) return;
+    const rects = nodes.map(n => ({r: rectof(n), col: n.style.getPropertyValue("--tumcolor") || "#1d9bf0"}));
+    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    for (const {r} of rects) {minx = Math.min(minx, r.left); miny = Math.min(miny, r.top); maxx = Math.max(maxx, r.left + r.w); maxy = Math.max(maxy, r.top + r.h)}
+
+    const pad = Math.max(maxx - minx, maxy - miny) * 0.05 + 20;
+    const s = Math.min(W / (maxx - minx + pad * 2), H / (maxy - miny + pad * 2));
+    const ccx = (window.innerWidth / 2 - pan.x) / zoom, ccy = (window.innerHeight / 2 - pan.y) / zoom;
+    const ox = W / 2 - ccx * s, oy = H / 2 - ccy * s;
+
     cv._map = {s, ox, oy};
-    const X = v => ox + v * s, Y = v => oy + v * s;
-    // folders as rounded rects in their colour
-    for (const n of els.freeform.querySelectorAll(".tumfolder")) {
-      const r = rectof(n);
-      ctx.fillStyle = n.style.getPropertyValue("--tumcolor") || "#1d9bf0";
-      const x = X(r.left), y = Y(r.top), w = Math.max(3, r.w * s), h = Math.max(3, r.h * s);
+    for (const {r, col} of rects) {
+      ctx.fillStyle = col;
+      const x = ox + r.left * s, y = oy + r.top * s, w = Math.max(3, r.w * s), h = Math.max(3, r.h * s);
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(x, y, w, h, 1.5); else ctx.rect(x, y, w, h);
       ctx.fill();
     }
-    // show the visible region by dimming everything OUTSIDE it - no white outline needed
-    const vx = X(vminx), vy = Y(vminy), vX = X(vmaxx), vY = Y(vmaxy);
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0, 0, W, vy);
-    ctx.fillRect(0, vY, W, H - vY);
-    ctx.fillRect(0, vy, vx, vY - vy);
-    ctx.fillRect(vX, vy, W - vX, vY - vy);
-    ctx.strokeStyle = "rgba(29,155,240,0.9)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(vx + 0.5, vy + 0.5, (vX - vx) - 1, (vY - vy) - 1);
   }
   function onminimapclick(e) {
     const map = els.minimapcanvas._map;
@@ -1073,10 +1052,12 @@
     if (fmoves.length) tum.folders.bulkmove(fmoves);
     if (umoves.length) tum.unsorted.bulkmove(umoves);
   }
-  function nooverlapadjust(node, left, top) {
-    if (!node || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
-    const w = node.offsetWidth, h = node.offsetHeight, GAP = 0;
-    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(n => n !== node).map(rectof);
+  // core: slide a w*h top-left box out of every existing folder/chip (except `exclude` node). used both
+  // by node drags and by chip drops (where the node doesn't exist yet, so we pass dims directly).
+  function nooverlapadjustbox(left, top, w, h, exclude) {
+    if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
+    const GAP = 0;
+    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(n => n !== exclude).map(rectof);
     let l = left, t = top;
     for (let pass = 0; pass < 10; pass++) {
       let hit = false;
@@ -1091,6 +1072,10 @@
       if (!hit) break;
     }
     return {left: l, top: t};
+  }
+  function nooverlapadjust(node, left, top) {
+    if (!node) return {left, top};
+    return nooverlapadjustbox(left, top, node.offsetWidth, node.offsetHeight, node);
   }
   function nooverlapadjusthandle(handle) {
     if (!(tum.settings && tum.settings.get("nooverlap"))) return;
@@ -1161,7 +1146,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjusthandle, findfreespot,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });
@@ -1174,7 +1159,6 @@
     canceldrag: () => O.canceldrag(),
     toast,
     open: () => openoverlay(),
-    // center of the currently-panned view in canvas coords (a node placed here lands mid-screen)
     canvascenter: () => ({x: Math.round((window.innerWidth / 2 - pan.x) / zoom), y: Math.round((window.innerHeight / 2 - pan.y) / zoom)}),
     opencreatemodal: opts => O.opencreatemodal(opts),
     confirm: opts => O.openconfirm(opts),
@@ -1182,4 +1166,5 @@
     openandflash,
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder
   };
+  
 })();

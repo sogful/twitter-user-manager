@@ -32,7 +32,7 @@
     document.body.appendChild(box);
   }
 
-  // keep the name as-is but swap Windows-illegal filename chars for their fullwidth unicode twins
+  // ytdlp-style
   const FWMAP = {"<": "＜", ">": "＞", ":": "：", "\"": "＂", "/": "／", "\\": "＼", "|": "｜", "?": "？", "*": "＊"};
   const fnsafe = s => {let o = ""; for (const ch of (s || "")) o += (FWMAP[ch] || ch); return o.replace(/[. ]+$/, "").trim() || "folder"};
   function ownhandle() {
@@ -104,8 +104,6 @@
       fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
-  // import ADDS members into an existing folder, skipping handles it already has (unlike the top-bar
-  // import which creates a whole new folder)
   function importintofolder(folder) {
     pickjson(data => {
       let members = [];
@@ -153,17 +151,56 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   let modalcolor = "#1d9bf0", modalaction = null, modalicon = "";
+  let suppressautosave = false;
+
+  function autosave(patch) {
+    if (!state.editing || suppressautosave) return;
+    tum.folders.update(state.editing, patch);
+  }
+  function editfields() {
+    const name = (O.els.modalname.value || "").trim();
+    const description = (O.els.modaldesc.value || "").trim();
+    const patch = {description};
+    if (name) patch.name = name;
+    autosave(patch);
+  }
 
   function selectcolor(c) {
     modalcolor = c;
     for (const sw of O.els.modalcolors.children) sw.classList.toggle("tumselected", sw.dataset.color === c);
+    autosave({color: c});
   }
   function selectaction(a) {
     modalaction = a;
     for (const b of O.els.modalactions) b.classList.toggle("tumselected", b.dataset.action === a);
     refreshiconbtn();
   }
-  function toggleaction(a) {selectaction(a === modalaction ? null : a)}
+  function toggleaction(a) {
+    const next = a === modalaction ? null : a;
+    selectaction(next);
+    if (state.editing) applyeditaction(next);
+  }
+  
+  function applyeditaction(action) {
+    const fid = state.editing;
+    const f = tum.folders.get(fid);
+    if (!f) return;
+    const prevaction = f.action;
+    const members = Array.isArray(f.members) ? f.members.slice() : [];
+    tum.folders.update(fid, {action});
+    if (!action || action === prevaction) return;
+    const cap = action.charAt(0).toUpperCase() + action.slice(1);
+    if (members.length > 3) {
+      openconfirm({
+        title: cap + " " + members.length + " members?",
+        body: "Setting this folder's action to " + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
+        oklabel: cap + " all",
+        onok: () => {tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
+      });
+    } else if (members.length) {
+      tum.actions.enqueue(action, members.map(m => m.handle));
+    }
+  }
   function refreshiconbtn() {
     O.els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
     if (O.els.modaliconclear) O.els.modaliconclear.classList.toggle("tumshow", !!modalicon);
@@ -171,6 +208,7 @@
   function selecticon(id) {
     modalicon = id;
     refreshiconbtn();
+    autosave({icon: id});
   }
 
   function opencreatemodal(opts) {
@@ -178,32 +216,45 @@
     state.editing = null;
     state.modalopen = true;
     state.open = true;
+
     state.pendingfoldercat = opts.cat ? {catid: opts.cat, cx: opts.cx, cy: opts.cy} : null;
-    // prefill + optional fixed position / post-create callback (used by "import as folder")
     state.pendingpos = (typeof opts.x === "number" && typeof opts.y === "number") ? {x: opts.x, y: opts.y} : null;
     state.pendingoncreate = typeof opts.oncreate === "function" ? opts.oncreate : null;
+   
+    suppressautosave = true;
     modalicon = "";
+
     O.els.modalname.value = opts.name || "";
     O.els.modaldesc.value = opts.description || "";
     O.els.modalsave.textContent = "Create";
+    O.els.modalsave.hidden = false;
+
     selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
+
     O.els.modalactionsrow.style.display = "";
+    suppressautosave = false;
+
     showbackdrop();
     O.els.modal.classList.add("tumshow");
     O.els.modalname.focus();
   }
 
   function openeditmodal(f) {
+    suppressautosave = true;
     state.editing = f.id;
     state.modalopen = true;
     modalicon = f.icon || "";
     O.els.modalname.value = f.name;
     O.els.modaldesc.value = f.description || "";
-    O.els.modalsave.textContent = "Save";
+    O.els.modalsave.hidden = true;
+
     selectaction(f.action);
     selectcolor(f.color);
+
     O.els.modalactionsrow.style.display = "";
+    suppressautosave = false;
+
     showbackdrop();
     O.els.modal.classList.add("tumshow");
   }
@@ -211,6 +262,7 @@
   function closemodal() {
     O.els.modal.classList.remove("tumshow");
     tum.iconpicker.close();
+
     const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
     state.pendingcreate = null;
     state.pendingfoldercat = null;
@@ -218,6 +270,7 @@
     state.pendingoncreate = null;
     state.editing = null;
     state.modalopen = false;
+    
     hidebackdrop();
     if (pendinghandle) {restorehidden(pendinghandle); render()}
   }
@@ -228,26 +281,8 @@
     const icon = modalicon, action = modalaction, color = modalcolor;
     let filed = false;
     if (state.editing) {
-      const fid = state.editing;
-      const f = tum.folders.get(fid);
-      const prevaction = f ? f.action : null;
-      const members = f && Array.isArray(f.members) ? f.members.slice() : [];
-      const apply = () => tum.folders.update(fid, {name, description, icon, action, color});
-      const changed = action && action !== prevaction;
-
-      if (changed && members.length > 3) {
-        const cap = action.charAt(0).toUpperCase() + action.slice(1);
-        closemodal();
-        openconfirm({
-          title: action.charAt(0).toUpperCase() + action.slice(1) + " " + members.length + " members?",
-          body: "Setting this folder's action to " + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
-          oklabel: cap + " all",
-          onok: () => {apply(); tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
-        });
-        return;
-      }
-      apply();
-      if (changed && members.length) tum.actions.enqueue(action, members.map(m => m.handle));
+      closemodal();
+      return;
     } else {
       let fx, fy, fcat = null;
       if (state.pendingfoldercat) {
@@ -255,8 +290,6 @@
         fx = pc.x - 100; fy = pc.y - 144; fcat = pc.cat;
         state.pendingfoldercat = null;
       } else {
-        // imports carry a pendingpos; a plain "New folder" starts at the camera center. either way,
-        // snap to the nearest free spot so it never stacks on an existing folder
         let bx, by;
         if (state.pendingpos) {bx = state.pendingpos.x; by = state.pendingpos.y}
         else {let cc = null; try {cc = tum.overlay.canvascenter()} catch {} if (cc) {bx = cc.x - 100; by = cc.y - 144}}
@@ -453,14 +486,16 @@
     if (!O.root.classList.contains("tumactive") || state.drag) return;
     if (e.target.closest("input, textarea")) return;
     if (e.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
-    // let the real browser menu through on the misc chrome (toolbar buttons, settings, minimap, jump panel)
     if (e.target.closest(".tumtools, .tumtoolsright, .tumminimap, .tumjumplist")) return;
+
     const chip = e.target.closest(".tumloosechip");
     const memberrow = e.target.closest(".tumfoldermember");
     const foldernode = e.target.closest(".tumfolder");
     const catnode = e.target.closest(".tumcategory");
+
     e.preventDefault();
     let items;
+
     if (chip || memberrow) {
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
@@ -506,7 +541,7 @@
 
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, openconfirm,
     oncontextmenu, closectx, ctxopen, newuser,
-    opencreatemodal, openeditmodal, closemodal, savemodal,
+    opencreatemodal, openeditmodal, closemodal, savemodal, editfields,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, closeconfirmsheet});
 })();

@@ -72,9 +72,10 @@
   function isdraghandle(target) {
     if (target.closest(AVATARSEL)) return true;
     if (inprofileheader(target)) return true;
-    // the expanded profile header's name/handle block is NOT a drag handle - only the pfp is
+
     if (target.closest('[data-testid="UserName"]')) return false;
     if (usercellhandle(target)) return true;
+
     const namebox = target.closest(NAMEBOXSEL);
     if (namebox && target.closest('a[role="link"]') && !target.closest('button, [role="button"]')) return true;
     if (!target.closest(ARTICLESEL)) {
@@ -85,7 +86,6 @@
     }
     if (target.closest('[data-testid^="dm-conversation-item-"]')) return true;
     if (/^\/notifications/.test(location.pathname) && target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "")) return true;
-    // a bare profile-image (e.g. explore "Today's News" preview) whose handle we know from the avatar map
     if (target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "") && avatarmap.has(avatarkey(target.src))) return true;
     return false;
   }
@@ -367,8 +367,6 @@
     const av = img.closest('[data-testid^="UserAvatar-Container-"]') || img.parentElement || img;
     return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
   }
-  // explore "Today's News" avatars are handle-less imgs buried in nested divs, so a real pointerdown
-  // lands on a wrapper/text node, not the img. find the resolvable avatar actually under the cursor.
   function avatarmapatpoint(x, y) {
     let best = null, bestd = Infinity;
     for (const img of document.querySelectorAll("img")) {
@@ -402,7 +400,6 @@
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest && e.target.closest(".tumpagefolderdot, .tumpagereasonbadge")) return;
-    // resolvable avatar (e.g. Today's News preview) under the cursor even when the target is a wrapper
     let mapav = null;
     if (!isdraghandle(e.target)) {
       mapav = avatarmapatpoint(e.clientX, e.clientY);

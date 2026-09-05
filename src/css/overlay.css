@@ -129,11 +129,11 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumminimap {
   position: absolute; left: 16px; bottom: 16px;
   z-index: 3; pointer-events: auto;
-  padding: 6px; border-radius: 10px;
+  padding: 0; border-radius: 10px; overflow: hidden;
   background: var(--tumelev,#16181c);
   border: 1px solid var(--tumborder,#2f3336);
 }
-.tumminimapcanvas {display: block; cursor: pointer; border-radius: 6px}
+.tumminimapcanvas {display: block; cursor: pointer}
 
 .tumjumplist[hidden] {display: none}
 .tumjumplist {
