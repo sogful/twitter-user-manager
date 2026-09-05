@@ -3,6 +3,7 @@
 
   const O = window.tum._ov;
   const {state, pan, ICONS, render, showbackdrop, hidebackdrop, closeoverlay, toast} = O;
+  const T = (...a) => tum.strings.t(...a);
 
   const THRESHOLD = 6;
 
@@ -325,7 +326,7 @@
       return;
     } else if (zone === "delete" || zone === "discard") {
       if (user.reason) {
-        toast("This user has a note, delete them from the note instead");
+        toast(T("toast.note.deletefrom"));
         restorehidden(user.handle);
         state.open = true;
         render();

@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
 
+  const T = (...a) => tum.strings.t(...a);
   const FAKE = "/settings/usermanager";
   const NAVSEL = 'div[role="tablist"]';
 
@@ -76,7 +77,7 @@
     a.setAttribute("data-testid", "usermanagerLink");
     a.setAttribute("aria-selected", "false");
     const leaf = [...a.querySelectorAll("span")].find(s => !s.children.length);
-    if (leaf) leaf.textContent = "User Manager";
+    if (leaf) leaf.textContent = T("settings.tab");
     const help = list.querySelector('[data-testid="helpCenterLink"]');
     if (help) list.insertBefore(a, help);
     else list.appendChild(a);
@@ -155,12 +156,12 @@
     const head = document.createElement("div");
     head.className = "tumsetpanehead";
     head.style.color = primary;
-    head.textContent = "User Manager";
+    head.textContent = T("settings.pane.title");
     pane.appendChild(head);
     const sub = document.createElement("div");
     sub.className = "tumsetpanesub";
     sub.style.color = sec;
-    sub.textContent = "Preferences for the extension.";
+    sub.textContent = T("settings.pane.sub");
     pane.appendChild(sub);
     for (const section of SECTIONS) {
       const sh = document.createElement("div");

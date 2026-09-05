@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
 
+  const T = (...a) => tum.strings.t(...a);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
@@ -127,7 +128,7 @@
     bar = document.createElement("div");
     bar.className = "tumbatchbar";
     bar.innerHTML = '<div class="tumbatchfill"></div>' +
-      '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">Stop</button></div>';
+      '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + '</button></div>';
     bar.querySelector(".tumbatchcancel").addEventListener("click", () => {cancel = true});
     try {tum.theme.paint(bar)} catch {}
     document.documentElement.appendChild(bar);
@@ -137,7 +138,7 @@
     const b = ensurebar();
     const pct = expected ? Math.min(100, Math.round(count / expected * 100)) : 0;
     b.querySelector(".tumbatchfill").style.width = pct + "%";
-    b.querySelector(".tumbatchlabel").textContent = note || ("Importing " + count + (expected ? " / " + expected : "") + " users");
+    b.querySelector(".tumbatchlabel").textContent = note || (expected ? T("import.progress.total", count, expected) : T("import.progress", count));
   }
   function removebar() {if (bar) {bar.remove(); bar = null}}
 
@@ -186,7 +187,7 @@
       let page;
       try {page = await pagefn(cursor)} catch (e) {break}
       if (page.status === 429 || page.status === 420) {
-        renderbar(built.length, expected, "Rate limited, waiting a minute...");
+        renderbar(built.length, expected, T("import.ratelimited"));
         await sleep(60000);
         continue;
       }
@@ -320,7 +321,7 @@
   function startscrapefallback(listid, folderid, name, expected) {
     try {pendingstore.set({listid, folderid, name, expected, ts: Date.now()})} catch {}
     removebar();
-    try {tum.overlay.toast("Import endpoint changed - falling back to the members page...")} catch {}
+    try {tum.overlay.toast(T("import.fallback"))} catch {}
     location.href = "/i/lists/" + listid + "/members";
   }
   async function resumescrape() {
@@ -340,7 +341,7 @@
     removebar();
     importing = false;
     autoaction(folder, built);
-    try {tum.overlay.toast((cancel ? "Stopped - imported " : "Imported ") + built.length + " into \"" + name + "\"")} catch {}
+    try {tum.overlay.toast(cancel ? T("import.stopped", built.length, name) : T("import.done", built.length, name))} catch {}
     setTimeout(() => {try {tum.overlay.open()} catch {}}, 400);
     ensureicons();
   }
@@ -353,9 +354,9 @@
     if (built.length > 200) {
       try {
         tum.overlay.confirm({
-          title: cap(f.action) + " " + built.length + " people?",
-          body: "This will " + f.action + " all " + built.length + " imported users in the background. Doing this to this many accounts at once can hit rate limits and temporarily break follows/blocks on your account. You can Stop it while it runs.",
-          oklabel: cap(f.action) + " all",
+          title: T("action.confirm.title", cap(f.action), built.length),
+          body: T("action.confirm.body", f.action, built.length),
+          oklabel: T("action.confirm.ok", cap(f.action)),
           onok: run
         });
       } catch {run()}
@@ -484,8 +485,8 @@
     const b = document.createElement("button");
     b.className = "tumimportfolder" + (surface.variant ? " " + surface.variant : "");
     b.type = "button";
-    b.title = "Import as folder";
-    b.setAttribute("aria-label", "Import as folder");
+    b.title = T("import.btn");
+    b.setAttribute("aria-label", T("import.btn"));
     b.innerHTML = FOLDERSVG;
     b.addEventListener("click", e => {e.preventDefault(); e.stopPropagation(); beginimport(surface)});
     return b;

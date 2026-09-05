@@ -3,6 +3,7 @@
 
   const O = window.tum._ov;
   const {el, escapehtml, linkify, iconhtml, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const T = (...a) => tum.strings.t(...a);
 
   function launchdestroyer(user) {
     const pal = tum.theme.palette();
@@ -53,7 +54,7 @@
       const reader = new FileReader();
       reader.onload = () => {
         try {cb(JSON.parse(reader.result))}
-        catch {toast("Import failed - not valid JSON")}
+        catch {toast(T("toast.import.failed"))}
       };
       reader.readAsText(file);
     });
@@ -63,7 +64,7 @@
 
   function exportdata() {
     downloadjson({version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()}, "twitter-user-manager-" + stamp() + ".json");
-    toast("Exported " + tum.folders.list().length + " folders");
+    toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
 
@@ -85,7 +86,7 @@
     }
     state.open = true;
     render();
-    toast("Imported " + nf + " folders, " + nu + " loose users");
+    toast(T("toast.imported.all", nf, nu));
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -93,7 +94,33 @@
   function exportfolder(f) {
     downloadjson({version: 1, folder: {name: f.name, action: f.action, color: f.color, icon: f.icon, members: f.members || []}},
       "folder-" + safename(f.name) + "-" + stamp() + ".json");
-    toast("Exported folder " + f.name);
+    toast(T("toast.exported.folder", f.name));
+  }
+  // import ADDS members into an existing folder, skipping handles it already has (unlike the top-bar
+  // import which creates a whole new folder)
+  function importintofolder(folder) {
+    pickjson(data => {
+      let members = [];
+      if (data && data.folder && Array.isArray(data.folder.members)) members = data.folder.members;
+      else if (Array.isArray(data && data.members)) members = data.members;
+      else if (Array.isArray(data)) members = data;
+      members = members.filter(m => m && m.handle);
+      if (!members.length) {toast(T("folder.import.empty")); return}
+      const cur = tum.folders.get(folder.id);
+      const have = new Set((cur && cur.members || []).map(m => (m.handle || "").toLowerCase()));
+      let added = 0;
+      for (const m of members) {
+        const k = (m.handle || "").toLowerCase();
+        if (have.has(k)) continue;
+        have.add(k);
+        tum.folders.addmember(folder.id, m);
+        added++;
+      }
+      state.open = true;
+      render();
+      const dupes = members.length - added;
+      toast(dupes ? T("folder.import.added.dupes", added, folder.name, dupes) : T("folder.import.added", added, folder.name));
+    });
   }
   function finishfolderimport(f) {
     const members = (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle);
@@ -102,14 +129,14 @@
       for (const m of members) tum.folders.addmember(created.id, m);
       state.open = true;
       render();
-      toast("Imported folder " + created.name + " (" + members.length + " users)");
+      toast(T("toast.imported.folder", created.name, members.length));
     };
     if (f.action && members.length) {
       const cap = f.action.charAt(0).toUpperCase() + f.action.slice(1);
       openconfirm({
-        title: "Import and " + f.action + " all?",
-        body: "This folder is set to " + f.action + " its members. Importing will " + f.action + " all " + members.length + " users in it, in the background. You can cancel while it runs.",
-        oklabel: cap + " all",
+        title: T("confirm.import.title", f.action),
+        body: T("confirm.import.body", f.action, f.action, members.length),
+        oklabel: T("action.confirm.ok", cap),
         onok: () => {doimport(); tum.actions.enqueue(f.action, members.map(m => m.handle))}
       });
     } else doimport();
@@ -423,18 +450,20 @@
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
       items = [
-        {label: "Open profile", icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
-        {label: info.m.reason ? "Edit note" : "Custom note", icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
-        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
+        {label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
+        {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
+        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
     } else if (foldernode) {
       const f = tum.folders.get(foldernode.dataset.id);
       if (!f) {closectx(); return}
       items = [
-        {label: f.collapsed ? "Expand" : "Collapse", icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
-        {label: "Edit", icon: ICONS.pencil, onclick: () => openeditmodal(f)},
-        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})}
+        {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
+        {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
+        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
+        {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
+        {label: T("menu.import"), icon: ICONS.upload, onclick: () => importintofolder(f)},
+        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)}
       ];
     } else if (catnode) {
       const cid = catnode.dataset.id;
@@ -442,17 +471,17 @@
       if (!c) {closectx(); return}
       const {clientX, clientY} = e;
       items = [
-        {label: "Rename", icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
-        {label: "Delete", icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
-        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})}
+        {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
+        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
+        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
+        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})}
       ];
     } else {
       const {clientX, clientY} = e;
       items = [
-        {label: "New user", icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
-        {label: "New folder", icon: ICONS.folder, onclick: () => opencreatemodal()},
-        {label: "New category", icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
+        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
+        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal()},
+        {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
       ];
     }
     openctx(e.clientX, e.clientY, items);

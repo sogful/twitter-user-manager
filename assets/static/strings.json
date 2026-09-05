@@ -1,0 +1,63 @@
+{
+  "import.progress": "Importing %s users",
+  "import.progress.total": "Importing %s / %s users",
+  "import.ratelimited": "Rate limited, waiting a minute...",
+  "import.done": "Imported %s into \"%s\"",
+  "import.stopped": "Stopped - imported %s into \"%s\"",
+  "import.fallback": "Import endpoint changed - falling back to the members page...",
+  "import.stop": "Stop",
+  "import.btn": "Import as folder",
+
+  "folder.import.added": "Added %s to \"%s\"",
+  "folder.import.added.dupes": "Added %s to \"%s\" (%s already in)",
+  "folder.import.empty": "No users found in that file",
+
+  "action.confirm.title": "%s %s people?",
+  "action.confirm.body": "This will %s all %s imported users in the background. Doing this to this many accounts at once can hit rate limits and temporarily break follows/blocks on your account. You can Stop it while it runs.",
+  "action.confirm.ok": "%s all",
+  
+  "folder.empty": "Drop users here",
+  "folder.more": "+%s more, click to load",
+  "folder.search": "Search",
+
+  "toast.copied": "Copied %s",
+  "toast.added": "Added @%s",
+  "toast.exported.folders": "Exported %s folders",
+  "toast.exported.folder": "Exported folder %s",
+  "toast.imported.all": "Imported %s folders, %s loose users",
+  "toast.imported.folder": "Imported folder %s (%s users)",
+  "toast.import.failed": "Import failed - not valid JSON",
+  "toast.batch.done": "Batch done: %s ok",
+  "toast.batch.done.skipped": "Batch done: %s ok, %s skipped",
+  "toast.action.failed": "Couldn't %s @%s",
+  "toast.action.failed.retry": "Couldn't %s @%s, scroll back to them and try again",
+  "toast.note.deletefrom": "If you wish to delete the note, click it and press \"Delete\" instead.",
+
+  "menu.openprofile": "Open profile",
+  "menu.customnote": "Custom note",
+  "menu.editnote": "Edit note",
+  "menu.delete": "Delete",
+  "menu.edit": "Edit",
+  "menu.expand": "Expand",
+  "menu.collapse": "Collapse",
+  "menu.newuser": "New user",
+  "menu.newfolder": "New folder",
+  "menu.newcategory": "New category",
+  "menu.rename": "Rename",
+  "menu.export": "Export",
+  "menu.import": "Import",
+
+  "confirm.import.title": "Import and %s all?",
+  "confirm.import.body": "This folder is set to %s its members. Importing will %s all %s users in it, in the background. You can cancel while it runs.",
+  
+  "pick.instr": "Search and pick a user to add to %s   ·   Esc to cancel",
+  "pick.cancel": "Cancel",
+  "pick.target.folder": "\"%s\"",
+  "pick.target.afolder": "a folder",
+  "pick.target.category": "the category",
+  "pick.target.canvas": "the canvas",
+  
+  "settings.pane.title": "User Manager",
+  "settings.pane.sub": "Preferences for the extension.",
+  "settings.tab": "User Manager"
+}

@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
 
+  const T = (...a) => tum.strings.t(...a);
   const SEARCHINPUT = '[data-testid="SearchBox_Search_Input"]';
   const RESULTSEL = '[data-testid="TypeaheadUser"], [data-testid="UserCell"]';
 
@@ -13,9 +14,9 @@
   let returnurl = null, returnscroll = 0;
 
   function targetlabel() {
-    if (target && target.type === "folder") {const f = tum.folders.get(target.id); return f ? '"' + f.name + '"' : "a folder"}
-    if (target && target.type === "category") return "the category";
-    return "the canvas";
+    if (target && target.type === "folder") {const f = tum.folders.get(target.id); return f ? T("pick.target.folder", f.name) : T("pick.target.afolder")}
+    if (target && target.type === "category") return T("pick.target.category");
+    return T("pick.target.canvas");
   }
 
   function showchrome() {
@@ -26,13 +27,13 @@
       label.className = "tumpicklabel";
       const cancel = document.createElement("button");
       cancel.className = "tumpickcancel";
-      cancel.textContent = "Cancel";
+      cancel.textContent = T("pick.cancel");
       cancel.addEventListener("click", exit);
       banner.appendChild(label);
       banner.appendChild(cancel);
       document.body.appendChild(banner);
     }
-    banner.querySelector(".tumpicklabel").textContent = "Search and pick a user to add to " + targetlabel() + "   ·   Esc to cancel";
+    banner.querySelector(".tumpicklabel").textContent = T("pick.instr", targetlabel());
     document.documentElement.classList.add("tumpickuser");
   }
   function removechrome() {
@@ -69,7 +70,7 @@
       const py = typeof target.cy === "number" ? target.cy : 200;
       tum.unsorted.add(Object.assign({}, user, {cat: target.type === "category" ? target.id : null}), px, py);
     }
-    try {tum.overlay.toast("Added @" + user.handle)} catch {}
+    try {tum.overlay.toast(T("toast.added", user.handle))} catch {}
   }
 
   function onclick(e) {

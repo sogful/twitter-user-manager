@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
 
+  const T = (...a) => tum.strings.t(...a);
   const LOG = true;
   const log = (...a) => {if (LOG) try {console.log("%c[tum]", "color:#1d9bf0;font-weight:700", ...a)} catch {}};
 
@@ -211,7 +212,7 @@
     brunning = false;
     if (!bcancel) {
       const done = bqueue.filter(i => i.done).length, failed = bqueue.filter(i => i.failed).length;
-      if (done || failed) try {tum.overlay.toast("Batch done: " + done + " ok" + (failed ? ", " + failed + " skipped" : ""))} catch {}
+      if (done || failed) try {tum.overlay.toast(failed ? T("toast.batch.done.skipped", done, failed) : T("toast.batch.done", done))} catch {}
     }
     bqueue = bqueue.filter(i => !i.done && !i.failed);
     bpersist(); bemit();
@@ -314,11 +315,11 @@
         if (!ok) ok = await runreal(action, user);
         if (ok) notify(action, user.handle);
         log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
-        if (!ok) tum.overlay.toast("Couldn't " + action + " @" + user.handle + " - scroll back to them and try again");
+        if (!ok) tum.overlay.toast(T("toast.action.failed.retry", action, user.handle));
         return ok;
       } catch (e) {
         log("action error:", e && e.message);
-        tum.overlay.toast("Couldn't " + action + " @" + user.handle);
+        tum.overlay.toast(T("toast.action.failed", action, user.handle));
         return false;
       }
     }

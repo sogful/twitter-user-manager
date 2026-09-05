@@ -197,7 +197,8 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldericoncol {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 2px; flex-shrink: 0
+  flex-shrink: 0;
+  width: 15px
 }
 .tumfoldertitlelines {
   flex: 1; display: flex;
@@ -249,7 +250,8 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldercount {
   color: var(--tumheaderfg,white); opacity: 0.85;
   font-size: 10px; font-weight: 400;
-  line-height: 1; flex-shrink: 0
+  line-height: 1.05; flex-shrink: 0;
+  text-align: center; width: 100%
 }
 .tumfoldercollapse, .tumfolderremove, .tumfolderexport {
   width: 20px; height: 20px;
@@ -300,8 +302,11 @@ img {-webkit-user-drag: none; user-drag: none}
   background: var(--tumelev,#16181c);
   flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column;
-  overscroll-behavior: contain
+  overscroll-behavior: contain;
+  scrollbar-width: none
 }
+/* hidden scrollbars: they still scroll, but no longer flash on every folder when one is focused */
+.tumfolderlist::-webkit-scrollbar {width: 0; height: 0; display: none}
 .tumfolderempty {
   color: var(--tummuted,#71767b); font-size: 12px;
   text-align: center; padding: 16px 8px
@@ -318,7 +323,7 @@ img {-webkit-user-drag: none; user-drag: none}
 /* user rows / chips */
 .tumfoldermember, .tumloosechip {
   display: flex; align-items: center;
-  gap: 8px; cursor: grab
+  gap: 3px; cursor: grab
 }
 .tumfoldermember {padding: 2px 5px; border-radius: 8px}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}

@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
   const O = window.tum._ov = {};
+  const T = (...a) => tum.strings.t(...a);
 
   const ICONS = {
     follow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
@@ -75,6 +76,13 @@
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 150 ? "#000" : "white";
+  }
+  // keep the folder count column a fixed size: a 4+ digit count splits across two lines (48255 -> 482 / 55)
+  function splitcount(n) {
+    const s = String(n);
+    if (s.length < 4) return s;
+    const h = Math.ceil(s.length / 2);
+    return s.slice(0, h) + "<br>" + s.slice(h);
   }
   function iconhtml(icon) {
     if (!icon) return "";
@@ -527,7 +535,7 @@
         <div class="tumfoldertitle">
           <div class="tumfoldericoncol">
             ${f.icon ? `<span class="tumfolderactionicon">${iconhtml(f.icon)}</span>` : ""}
-            <span class="tumfoldercount">${members.length}</span>
+            <span class="tumfoldercount">${splitcount(members.length)}</span>
           </div>
           <div class="tumfoldertitlelines">
             <div class="tumfoldertoprow">
@@ -542,20 +550,32 @@
         </div>
       </div>
       <div class="tumfoldertools">
-        <input class="tumfoldersearch" placeholder="Search">
+        <input class="tumfoldersearch" placeholder="${T("folder.search")}">
         <button class="tumfoldersort" title="Sort: ${SORTLABEL[f.sort] || SORTLABEL.added}">${SORTLABEL[f.sort] || SORTLABEL.added}</button>
       </div>
       <div class="tumfolderlist"></div>
     `;
     const list = node.querySelector(".tumfolderlist");
     if (!members.length) {
-      list.appendChild(el("div", "tumfolderempty", "drop users here"));
+      list.appendChild(el("div", "tumfolderempty", T("folder.empty")));
     } else {
+      const src = {type: "folder", id: f.id};
+      // append rows [0,cap); "load more" appends the NEXT batch in place (no full render) so the
+      // folder's scroll position is preserved
+      const fill = shown => {
+        for (const m of members.slice(shown - MEMBERCAP < 0 ? 0 : shown - MEMBERCAP, shown)) list.appendChild(buildmemberrow(src, m));
+        if (members.length > shown) {
+          const more = el("div", "tumfoldermore", T("folder.more", members.length - shown));
+          more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = shown + MEMBERCAP; showncap.set(f.id, next); fill(next)});
+          list.appendChild(more);
+        }
+      };
       const cap = showncap.get(f.id) || MEMBERCAP;
-      for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow({type: "folder", id: f.id}, m));
+      // initial render of everything up to the stored cap, in one pass
+      for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow(src, m));
       if (members.length > cap) {
-        const more = el("div", "tumfoldermore", `+${members.length - cap} more, click to load`);
-        more.addEventListener("click", e => {e.stopPropagation(); showncap.set(f.id, cap + MEMBERCAP); render()});
+        const more = el("div", "tumfoldermore", T("folder.more", members.length - cap));
+        more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = cap + MEMBERCAP; showncap.set(f.id, next); fill(next)});
         list.appendChild(more);
       }
     }
@@ -680,7 +700,7 @@
       t.addEventListener("click", e => {
         e.stopPropagation();
         const text = t.textContent || "";
-        navigator.clipboard.writeText(text).then(() => toast("Copied " + text)).catch(() => {});
+        navigator.clipboard.writeText(text).then(() => toast(T("toast.copied", text))).catch(() => {});
       });
     }
   }

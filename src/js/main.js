@@ -27,6 +27,11 @@
     setInterval(() => {if (!document.getElementById("tum-host")) safe("overlay", () => tum.overlay.mount())}, 4000);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once: true});
-  else init();
+  // wait for the strings file before rendering so labels/toasts don't flash their fallback keys
+  function boot() {
+    const go = () => {if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once: true}); else init()};
+    if (window.tum && tum.strings && tum.strings.ready) tum.strings.ready.then(go, go);
+    else go();
+  }
+  boot();
 })();

@@ -72,6 +72,8 @@
   function isdraghandle(target) {
     if (target.closest(AVATARSEL)) return true;
     if (inprofileheader(target)) return true;
+    // the expanded profile header's name/handle block is NOT a drag handle - only the pfp is
+    if (target.closest('[data-testid="UserName"]')) return false;
     if (usercellhandle(target)) return true;
     const namebox = target.closest(NAMEBOXSEL);
     if (namebox && target.closest('a[role="link"]') && !target.closest('button, [role="button"]')) return true;
