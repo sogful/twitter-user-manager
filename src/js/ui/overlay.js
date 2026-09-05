@@ -139,7 +139,7 @@
       els.freeform.style.transformOrigin = "0 0";
       els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
     }
-    try {drawminimap()} catch {}
+    scheduleminimap();
     if (els.gridlayer) {
       els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
       els.gridlayer.style.backgroundSize = `${window.innerWidth * zoom}px ${window.innerHeight * zoom}px`;
@@ -490,7 +490,7 @@
     for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
     refreshmarquees();
-    try {drawminimap()} catch {}
+    scheduleminimap();
     if (els.jumplist && !els.jumplist.hidden) buildjumprows(els.jumpsearch.value);
   }
 
@@ -981,6 +981,8 @@
       rows.appendChild(row);
     }
   }
+  let minimapraf = 0;
+  function scheduleminimap() {if (!minimapraf) minimapraf = requestAnimationFrame(() => {minimapraf = 0; try {drawminimap()} catch {}})}
   function drawminimap() {
     if (!els.minimap || !els.minimapcanvas) return;
     const has = tum.folders.list().length > 0;
@@ -993,7 +995,7 @@
     const vw = window.innerWidth, vh = window.innerHeight;
     const vminx = -pan.x / zoom, vminy = -pan.y / zoom, vmaxx = (vw - pan.x) / zoom, vmaxy = (vh - pan.y) / zoom;
     const minx = Math.min(bb.minx, vminx), miny = Math.min(bb.miny, vminy), maxx = Math.max(bb.maxx, vmaxx), maxy = Math.max(bb.maxy, vmaxy);
-    const pad = 40, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
+    const pad = 260, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
     const s = Math.min(W / cw, H / ch);
     const ox = (W - cw * s) / 2 - (minx - pad) * s, oy = (H - ch * s) / 2 - (miny - pad) * s;
     cv._map = {s, ox, oy};

@@ -126,57 +126,59 @@ img {-webkit-user-drag: none; user-drag: none}
   position: absolute; inset: 0
 }
 
-/* corner minimap (bottom-left) - dots for folders + a box for the current viewport, click to jump */
 .tumminimap {
   position: absolute; left: 16px; bottom: 16px;
   z-index: 3; pointer-events: auto;
   padding: 6px; border-radius: 10px;
   background: var(--tumelev,#16181c);
   border: 1px solid var(--tumborder,#2f3336);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.4)}
+}
 .tumminimapcanvas {display: block; cursor: pointer; border-radius: 6px}
 
-/* jump-to-folder searchable list (floats under the top-left tools) */
+.tumjumplist[hidden] {display: none}
 .tumjumplist {
   position: absolute; left: 16px; top: 60px;
-  z-index: 4; width: 240px; max-height: 60vh;
+  z-index: 4; width: 200px; max-height: 60vh;
   display: flex; flex-direction: column;
   pointer-events: auto; overflow: hidden;
   border-radius: 12px; padding: 8px;
   background: var(--tumelev,#16181c);
-  border: 1px solid var(--tumborder,#2f3336);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5)}
+}
 .tumjumpsearch {
   flex-shrink: 0; margin-bottom: 6px;
   background: var(--tuminput,#000);
   border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px;
   color: var(--tumtext,#e7e9ea); font-size: 13px;
-  padding: 6px 12px}
+  padding: 6px 12px
+}
 .tumjumpsearch:focus {outline: none; border-color: #1d9bf0}
-.tumjumprows {overflow-y: auto; display: flex; flex-direction: column; gap: 2px}
+.tumjumprows {
+  overflow-y: auto; display: flex; 
+  flex-direction: column; gap: 2px
+}
 .tumjumprow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; cursor: pointer;
   color: var(--tumtext,#e7e9ea); font-size: 13px}
-.tumjumprow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tumjumprow:hover {background: var(--tumhover,rgba(255,255,255,0.06))
+}
 .tumjumpdot {
   width: 12px; height: 12px; border-radius: 3px;
   flex-shrink: 0}
 .tumjumpname {
   flex: 1; min-width: 0; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; font-weight: 700}
+  overflow: hidden; text-overflow: ellipsis; 
+  font-weight: 700
+}
 .tumjumpcount {color: var(--tummuted,#71767b); font-size: 11px; flex-shrink: 0}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-/* free-floating bounding region behind folders/users - just constrains, never sorts. it always sits
-   on the dark backdrop scrim (every theme), so it uses fixed light-on-dark colors, not --tum* vars
-   (which flip the title/bg to dark on light mode and make them unreadable) */
 .tumcategory {
   position: absolute;
   background: rgba(255,255,255,0.05);
   border: 2px solid rgba(231,233,234,0.35);
-  border-radius: 12px; pointer-events: auto
+  border-radius: 16px; pointer-events: auto
 }
 .tumcategorytitle {
   position: absolute; left: 2px; top: -30px;
@@ -215,9 +217,7 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto;
   --tumcolor: #1d9bf0
 }
-/* while moving, rasterize the rounded/clipped box on its own layer so its edges don't seam (very
-   visible as a white folder slides over the dark scrim in light mode). only during drag, else a
-   zoomed-in static folder would blur */
+
 .tumfolder.tumdragactive {transform: translateZ(0); backface-visibility: hidden}
 .tumfolder.tumover {outline: 3px solid white}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
@@ -231,10 +231,10 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  min-height: 42px; padding: 5px 8px 5px 12px;
+  height: 42px; padding: 5px 8px 5px 12px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
-  cursor: grab; flex-shrink: 0
+  cursor: grab; flex-shrink: 0; box-sizing: border-box
 }
 .tumfolderdragging .tumfolderhead {cursor: grabbing}
 .tumfoldertitle {
