@@ -260,7 +260,7 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
   transition: background 0.15s ease}
 .tumimportfolder:hover {background: rgba(29,155,240,0.1)}
 .tumimportfolder svg {display: block}
-.tumimportfolder.tumbusy {opacity: 0.5; pointer-events: none}
+.tumimportfolder.tumbusy {opacity: 0.55}
 /* smaller grey variant for the reply filter row */
 .tumimportgrey {
   width: 26px; height: 26px;

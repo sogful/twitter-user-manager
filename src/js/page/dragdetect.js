@@ -365,6 +365,21 @@
     const av = img.closest('[data-testid^="UserAvatar-Container-"]') || img.parentElement || img;
     return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
   }
+  // explore "Today's News" avatars are handle-less imgs buried in nested divs, so a real pointerdown
+  // lands on a wrapper/text node, not the img. find the resolvable avatar actually under the cursor.
+  function avatarmapatpoint(x, y) {
+    let best = null, bestd = Infinity;
+    for (const img of document.querySelectorAll("img")) {
+      const src = img.currentSrc || img.src || "";
+      if (!/profile_images/.test(src) || !avatarmap.has(avatarkey(src))) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width < 1) continue;
+      if (x < r.left - 4 || x > r.right + 4 || y < r.top - 4 || y > r.bottom + 4) continue;
+      const d = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y);
+      if (d < bestd) {best = img; bestd = d}
+    }
+    return best;
+  }
 
   function aggregatednotifavatar(target, article) {
     if (!/^\/notifications/.test(location.pathname)) return null;
@@ -385,9 +400,16 @@
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest && e.target.closest(".tumpagefolderdot, .tumpagereasonbadge")) return;
-    if (!isdraghandle(e.target)) return;
+    // resolvable avatar (e.g. Today's News preview) under the cursor even when the target is a wrapper
+    let mapav = null;
+    if (!isdraghandle(e.target)) {
+      mapav = avatarmapatpoint(e.clientX, e.clientY);
+      if (!mapav) return;
+    }
     let user;
-    if (inprofileheader(e.target)) {
+    if (mapav) {
+      user = extractfromavatarmap(mapav);
+    } else if (inprofileheader(e.target)) {
       user = extractprofileheaderuser();
     } else {
       const cell = e.target.closest(USERCELLSEL);

@@ -147,6 +147,7 @@
     applypan();
   }
   function onwheel(e) {
+    if (!e.ctrlKey) return; // ctrl+wheel zooms; plain wheel stays free for scrolling folder lists
     if (!state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
     e.preventDefault();
     zoomat(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12);

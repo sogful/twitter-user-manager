@@ -50,7 +50,7 @@
     return null;
   }
 
-  let importing = false, cancel = false;
+  let importing = false, cancel = false, runtoken = 0;
   let bar = null;
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -177,12 +177,12 @@
 
   // generic pager: pull pages from pagefn(cursor) into the folder; on a broken first page use fallback
   async function runimport(folder, name, expected, pagefn, fallback) {
-    if (importing) return;
+    const token = ++runtoken; // a newer import supersedes this one
     importing = true; cancel = false; ensureicons();
     const seen = new Set(), built = [];
     let cursor = null, saved = 0;
     ensurebar(); renderbar(0, expected);
-    while (!cancel) {
+    while (!cancel && token === runtoken) {
       let page;
       try {page = await pagefn(cursor)} catch (e) {break}
       if (page.status === 429 || page.status === 420) {
@@ -190,7 +190,7 @@
         await sleep(60000);
         continue;
       }
-      if (!page.ok && built.length === 0) {importing = false; if (fallback) {fallback(folder, name, expected); return} break}
+      if (!page.ok && built.length === 0) {if (token !== runtoken) return; importing = false; if (fallback) {fallback(folder, name, expected); return} break}
       let added = 0;
       for (const u of page.users) {
         const h = (u.handle || "").toLowerCase();
@@ -205,6 +205,7 @@
       cursor = page.cursor;
       await sleep(350);
     }
+    if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
     // graphql returned nothing usable (empty/private timeline, rotated qid we didn't catch) but the
     // page itself shows a user list -> fall back to scraping it
     if (built.length === 0 && !cancel && fallback) {importing = false; fallback(folder, name, expected); return}
@@ -275,19 +276,19 @@
   }
   // scrape the user list already on the page, auto-scrolling in place (rotation-proof fallback / quotes+replies)
   async function scrapeimport(folder, expected, name, mode) {
-    if (importing) return;
+    const token = ++runtoken;
     importing = true; cancel = false; ensureicons();
     const seen = new Set(), built = [];
     const harvest = mode === "articles" ? harvestarticles : harvestcells;
     ensurebar(); renderbar(0, expected);
     let last = 0, stagnant = 0, saved = 0;
-    for (let w = 0; w < 30 && !cancel; w++) {
+    for (let w = 0; w < 30 && !cancel && token === runtoken; w++) {
       const s = memberscope() || document.querySelector('[data-testid="primaryColumn"]');
       if (s && (s.querySelector('[data-testid="UserCell"]') || s.querySelector("article"))) break;
       await sleep(400);
     }
     let iters = 0;
-    while (!cancel) {
+    while (!cancel && token === runtoken) {
       harvest(seen, built);
       const scope = memberscope();
       if (scope) {const sc = scrollcontainer(scope); if (sc) sc.scrollTop = sc.scrollHeight; else {const cs = scope.querySelectorAll('[data-testid="UserCell"]'); if (cs.length) cs[cs.length - 1].scrollIntoView()}}
@@ -298,14 +299,16 @@
       harvest(seen, built);
       renderbar(built.length, expected);
       if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
-      if (built.length === last) stagnant++; else stagnant = 0;
+      // only count "no new users" toward stopping while the tab is VISIBLE - a backgrounded tab stops
+      // loading rows entirely, so we must NOT conclude "done" there; we pause and resume on refocus
+      if (built.length === last) {if (!document.hidden) stagnant++} else stagnant = 0;
       last = built.length;
-      const stoplimit = document.hidden ? 22 : 6;
       if (expected && built.length >= expected) break;
-      if (built.length > 0 && stagnant >= stoplimit) break;
-      if (stagnant >= (document.hidden ? 22 : 12)) break;
-      if (++iters > 6000) break;
+      if (!document.hidden && built.length > 0 && stagnant >= 6) break;
+      if (!document.hidden && stagnant >= 12) break;
+      if (++iters > 9000) break; // absolute safety so a forever-hidden scrape can't spin indefinitely
     }
+    if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
     finishimport(folder, built, name);
   }
 
@@ -369,7 +372,14 @@
     const col = document.querySelector('[data-testid="primaryColumn"]');
     const back = col && col.querySelector('[data-testid="app-bar-back"]');
     const row = back && back.parentElement && back.parentElement.parentElement;
-    return (row && row.children.length >= 2) ? {parent: row, before: null} : null;
+    if (!row || row.children.length < 2) return null;
+    const last = row.lastElementChild;
+    // a real actions cluster (share/more) -> sit just LEFT of it (list pages)
+    if (last.querySelector('[data-testid$="-button"], [aria-label="More"], [aria-label="Share post"], button')) return {parent: row, before: last};
+    // a trailing empty reserved slot (community members tab) -> fill it so there's no floating gap
+    if (last.tagName === "DIV" && !last.children.length && !(last.textContent || "").trim() && last.getBoundingClientRect().width < 90) return {parent: last, before: null};
+    // otherwise (followers/verified/moderators) append at the rightmost
+    return {parent: row, before: null};
   }
   function dialogrow() {
     const dlg = document.querySelector('[aria-modal="true"][role="dialog"]') || document.querySelector('[role="dialog"]');
@@ -455,7 +465,6 @@
   const FOLDERSVG = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm2 5 4 4h-3v4h-2v-4H8l4-4z"/></svg>';
 
   async function beginimport(surface) {
-    if (importing) return;
     const ctx = surface.match();
     if (!ctx) return;
     let meta;
