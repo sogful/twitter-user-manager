@@ -249,21 +249,23 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 .tumbatchcancel:hover {background: rgba(244,33,46,0.12); border-color: #f4212e; color: #f4212e}
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* lists.js - "import as folder" button injected into a list's header row */
+/* lists.js - icon-only "import as folder" button, blends into a page's header/action icons */
 
-.tumlistimport {
-  display: inline-flex; align-items: center;
-  gap: 6px; margin-left: auto;
-  padding: 0 14px; height: 32px;
-  border: 1px solid #536471; border-radius: 999px;
+.tumimportfolder {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0;
+  border: none; border-radius: 999px;
   background: transparent; color: inherit;
-  font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  font-size: 14px; font-weight: 700;
-  cursor: pointer; white-space: nowrap;
+  cursor: pointer; flex: 0 0 auto;
   transition: background 0.15s ease}
-.tumlistimport:hover {background: rgba(29,155,240,0.1)}
-.tumlistimport svg {flex: 0 0 auto; display: block}
-.tumlistimport.tumbusy {opacity: 0.6; pointer-events: none}
+.tumimportfolder:hover {background: rgba(29,155,240,0.1)}
+.tumimportfolder svg {display: block}
+.tumimportfolder.tumbusy {opacity: 0.5; pointer-events: none}
+/* smaller grey variant for the reply filter row */
+.tumimportgrey {
+  width: 26px; height: 26px;
+  color: #71767b; margin-left: 4px}
+.tumimportgrey svg {width: 17px; height: 17px}
 
 /*//////////////////////////////////////////////////////////////////////*/
 

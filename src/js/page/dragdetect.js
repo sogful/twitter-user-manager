@@ -83,6 +83,8 @@
     }
     if (target.closest('[data-testid^="dm-conversation-item-"]')) return true;
     if (/^\/notifications/.test(location.pathname) && target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "")) return true;
+    // a bare profile-image (e.g. explore "Today's News" preview) whose handle we know from the avatar map
+    if (target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "") && avatarmap.has(avatarkey(target.src))) return true;
     return false;
   }
 
@@ -413,7 +415,7 @@
         else if (av) user = extractnearavatar(av);
         else if (chatitem || chatavatarimg || handlespan) user = extractchatuser(e.target);
         else if (plink && handlefromhref(plink.getAttribute("href"))) user = extractfromlink(plink);
-        else return;
+        else {user = extractfromavatarmap(e.target); if (!user) return}
       }
     }
     if (!user) user = extractfromavatarmap(e.target);

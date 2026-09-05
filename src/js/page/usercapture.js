@@ -101,6 +101,9 @@
     } catch {}
   }
   const isnotifs = url => typeof url === "string" && /\/notifications\/|Notifications/.test(url);
+  // explore's "Today's News" story-preview avatars have no handle in the DOM; harvest their
+  // pfp->handle mapping from the ExplorePage response so they become draggable
+  const isexplore = url => typeof url === "string" && url.indexOf("ExplorePage") >= 0;
 
   const origfetch = window.fetch;
   window.fetch = function (...args) {
@@ -110,7 +113,7 @@
       try {
         const url = (args[0] && args[0].url) || args[0] || "";
         if (typeof url === "string" && url.indexOf("UserByScreenName") >= 0) res.clone().text().then(relay).catch(() => {});
-        else if (isnotifs(url)) res.clone().text().then(relaynotifs).catch(() => {});
+        else if (isnotifs(url) || isexplore(url)) res.clone().text().then(relaynotifs).catch(() => {});
       } catch {}
       return res;
     });
@@ -123,7 +126,7 @@
       this.addEventListener("load", () => {
         try {
           if (String(this.__tumurl).indexOf("UserByScreenName") >= 0) relay(this.responseText);
-          else if (isnotifs(String(this.__tumurl))) relaynotifs(this.responseText);
+          else if (isnotifs(String(this.__tumurl)) || isexplore(String(this.__tumurl))) relaynotifs(this.responseText);
         } catch {}
       });
     } catch {}

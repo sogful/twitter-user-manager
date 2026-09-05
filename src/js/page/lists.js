@@ -13,11 +13,6 @@
   let importing = false, cancel = false;
   let bar = null;
 
-  function currentlistid() {
-    const m = /^\/i\/lists\/(\d+)/.exec(location.pathname);
-    return m ? m[1] : null;
-  }
-
   function listname() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
     const h2 = col && col.querySelector('h2[role="heading"]');
@@ -169,7 +164,7 @@
     return {handle, displayname: nm || handle, avatarurl: img ? img.src : null, sourceurl: "https://x.com/" + handle, reason: "", badges: []};
   }
   function harvestcells(seen, built) {
-    const scope = memberscope();
+    const scope = memberscope() || document.querySelector('[data-testid="primaryColumn"]');
     if (!scope) return;
     for (const cell of scope.querySelectorAll('[data-testid="UserCell"]')) {
       const u = extractcell(cell);
@@ -233,28 +228,22 @@
     setTimeout(() => {try {tum.overlay.open()} catch {}}, 500);
   }
 
-  async function importlist(id) {
-    if (importing || !id) return;
-    importing = true; cancel = false;
-    setbtn();
-    const name = listname();
-    const expected = membercount();
-    const desc = listdescription();
-    let center = null;
-    try {center = tum.overlay.canvascenter()} catch {}
-    const folder = tum.folders.create({
-      name: name.slice(0, 40),
-      description: desc,
-      x: center ? center.x - 100 : undefined,
-      y: center ? center.y - 144 : undefined
-    });
+  function finishimport(folder, built, name) {
+    tum.folders.update(folder.id, {members: built});
+    removebar();
+    importing = false;
+    try {tum.overlay.toast((cancel ? "Stopped - imported " : "Imported ") + built.length + " into \"" + name + "\"")} catch {}
+    setTimeout(() => {try {tum.overlay.open()} catch {}}, 400);
+    ensureicons();
+  }
 
-    const seen = new Set();
-    const built = [];
+  // list members: fast graphql path, reload+scrape fallback on rotation
+  async function graphqlimport(folder, id, name, expected) {
+    if (importing) return;
+    importing = true; cancel = false; ensureicons();
+    const seen = new Set(), built = [];
     let cursor = null, saved = 0;
-    ensurebar();
-    renderbar(0, expected);
-
+    ensurebar(); renderbar(0, expected);
     while (!cancel) {
       let page;
       try {page = await fetchpage(id, cursor)} catch (e) {break}
@@ -263,12 +252,7 @@
         await sleep(60000);
         continue;
       }
-      // first page broke (rotated queryId/features) -> hand off to the reload+scrape fallback
-      if (!page.ok && built.length === 0) {
-        importing = false;
-        startscrapefallback(id, folder.id, name, expected);
-        return;
-      }
+      if (!page.ok && built.length === 0) {importing = false; startscrapefallback(id, folder.id, name, expected); return}
       let added = 0;
       for (const u of page.users) {
         const h = (u.handle || "").toLowerCase();
@@ -278,59 +262,204 @@
         added++;
       }
       renderbar(built.length, expected);
-      if (built.length - saved >= 300) {
-        tum.folders.update(folder.id, {members: built.slice()}, true);
-        saved = built.length;
-      }
+      if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
       if (!page.cursor || added === 0 || page.cursor === cursor) break;
       cursor = page.cursor;
       await sleep(400);
     }
+    finishimport(folder, built, name);
+  }
 
-    tum.folders.update(folder.id, {members: built});
-    removebar();
-    importing = false;
-    try {tum.overlay.toast((cancel ? "Stopped - imported " : "Imported ") + built.length + " into \"" + name + "\"")} catch {}
-    setTimeout(() => {try {tum.overlay.open()} catch {}}, 400);
-    setbtn();
+  // everything else: scrape the user list already on the page (auto-scroll in place). mode "usercells"
+  // (followers/community/reposters) reads UserCell rows; "articles" reads tweet authors (quotes/replies)
+  function harvestarticles(seen, built) {
+    const col = document.querySelector('[data-testid="primaryColumn"]');
+    if (!col) return;
+    for (const art of col.querySelectorAll("article")) {
+      const av = art.querySelector('[data-testid^="UserAvatar-Container-"]');
+      if (!av) continue;
+      const m = /UserAvatar-Container-(.+)$/.exec(av.getAttribute("data-testid") || "");
+      if (!m || m[1] === "unknown") continue;
+      const handle = m[1], h = handle.toLowerCase();
+      if (seen.has(h)) continue;
+      seen.add(h);
+      const img = av.querySelector("img");
+      const nb = art.querySelector('[data-testid="User-Name"]');
+      let nm = handle;
+      if (nb) {const t = [...nb.querySelectorAll("span")].map(s => (s.textContent || "").trim()).find(x => x && !x.startsWith("@")); if (t) nm = t}
+      built.push({handle, displayname: nm, avatarurl: img ? img.src : null, sourceurl: "https://x.com/" + handle, reason: "", badges: []});
+    }
+  }
+  async function scrapeimport(folder, expected, name, mode) {
+    if (importing) return;
+    importing = true; cancel = false; ensureicons();
+    const seen = new Set(), built = [];
+    const harvest = mode === "articles" ? harvestarticles : harvestcells;
+    ensurebar(); renderbar(0, expected);
+    let last = 0, stagnant = 0, saved = 0;
+    for (let w = 0; w < 30 && !cancel; w++) {
+      const s = memberscope() || document.querySelector('[data-testid="primaryColumn"]');
+      if (s && (s.querySelector('[data-testid="UserCell"]') || s.querySelector("article"))) break;
+      await sleep(400);
+    }
+    while (!cancel) {
+      harvest(seen, built);
+      const scope = memberscope();
+      if (scope) {const sc = scrollcontainer(scope); if (sc) sc.scrollTop = sc.scrollHeight; else {const cs = scope.querySelectorAll('[data-testid="UserCell"]'); if (cs.length) cs[cs.length - 1].scrollIntoView()}}
+      else window.scrollTo(0, document.documentElement.scrollHeight);
+      await sleep(650);
+      harvest(seen, built);
+      renderbar(built.length, expected);
+      if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
+      if (built.length === last) stagnant++; else stagnant = 0;
+      last = built.length;
+      if (expected && built.length >= expected) break;
+      if (stagnant >= 6 && built.length > 0) break;
+      if (stagnant >= 12) break;
+    }
+    finishimport(folder, built, name);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  function makebtn() {
-    const b = document.createElement("button");
-    b.className = "tumlistimport";
-    b.type = "button";
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm2 5 4 4h-3v4h-2v-4H8l4-4z"/></svg>' +
-      '<span>Import as folder</span>';
-    b.addEventListener("click", e => {
-      e.preventDefault(); e.stopPropagation();
-      const id = currentlistid();
-      if (id && !importing) importlist(id);
-    });
-    return b;
-  }
-  function setbtn() {
-    const b = document.querySelector(".tumlistimport");
-    if (!b) return;
-    b.classList.toggle("tumbusy", importing);
-    b.querySelector("span").textContent = importing ? "Importing..." : "Import as folder";
-  }
+  const RESERVED = /^(i|home|explore|search|notifications|messages|settings|compose|hashtag)$/i;
+  const FOLLOWLABEL = {followers: "followers", following: "following", verified_followers: "verified followers"};
 
-  function ensurebtn() {
-    if (!currentlistid()) {const old = document.querySelector(".tumlistimport"); if (old) old.remove(); return}
-    if (document.querySelector(".tumlistimport")) {setbtn(); return}
+  function headername() {
+    const col = document.querySelector('[data-testid="primaryColumn"]');
+    const h2 = col && col.querySelector('h2[role="heading"]');
+    return h2 ? (h2.textContent || "").trim() : "";
+  }
+  function tweettext() {
+    const col = document.querySelector('[data-testid="primaryColumn"]');
+    const t = col && col.querySelector('[data-testid="tweetText"]');
+    return t ? (t.textContent || "").trim().slice(0, 120) : "";
+  }
+  function cap(s) {return s ? s.charAt(0).toUpperCase() + s.slice(1) : s}
+
+  // where to hang the icon: the primary-column header actions row, or an open dialog's title bar
+  function headerrow() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
     const back = col && col.querySelector('[data-testid="app-bar-back"]');
-    // header bar = [back cluster] [title stack] [actions cluster]; sit just left of the actions
     const row = back && back.parentElement && back.parentElement.parentElement;
-    if (!row || row.children.length < 2) return;
-    row.insertBefore(makebtn(), row.lastElementChild);
-    setbtn();
+    return (row && row.children.length >= 2) ? {parent: row, before: row.lastElementChild} : null;
+  }
+  function dialogrow() {
+    const dlg = document.querySelector('[aria-modal="true"][role="dialog"]') || document.querySelector('[role="dialog"]');
+    if (!dlg) return null;
+    const close = dlg.querySelector('[data-testid="app-bar-close"], [aria-label="Close"]');
+    const row = close && close.parentElement;
+    return row ? {parent: row, before: null} : null;
+  }
+  // the replies filter row on a tweet ("Relevant" / "Most recent") - a grey small icon at its right
+  function replyfilterrow() {
+    const col = document.querySelector('[data-testid="primaryColumn"]');
+    if (!col) return null;
+    let filter = null;
+    for (const b of col.querySelectorAll('button[aria-haspopup="menu"], [role="button"]')) {
+      const t = (b.textContent || "").trim();
+      if (/^(Relevant|Most recent|Liked|Recency|Likes)$/i.test(t)) {filter = b; break}
+    }
+    if (!filter) return null;
+    // walk up to the row that spans the column (holds "Relevant" on the left, "View quotes" on the right)
+    const colw = col.getBoundingClientRect().width || 600;
+    let row = filter.parentElement;
+    for (let i = 0; i < 5 && row && row !== col; i++) {
+      if (row.getBoundingClientRect().width >= colw * 0.7) break;
+      row = row.parentElement;
+    }
+    return row ? {parent: row, before: null} : null;
+  }
+
+  const SURFACES = [
+    {
+      key: "list",
+      match: () => {const m = /^\/i\/lists\/(\d+)$/.exec(location.pathname); return m ? {id: m[1]} : null},
+      anchor: headerrow,
+      meta: () => ({name: listname(), description: listdescription()}),
+      start: (folder, ctx) => graphqlimport(folder, ctx.id, listname(), membercount())
+    },
+    {
+      key: "follows",
+      match: () => {const m = /^\/([A-Za-z0-9_]+)\/(followers|following|verified_followers)$/.exec(location.pathname); return (m && !RESERVED.test(m[1])) ? {user: m[1], kind: m[2]} : null},
+      anchor: headerrow,
+      meta: ctx => ({name: (headername() || "@" + ctx.user) + "'s " + cap(FOLLOWLABEL[ctx.kind]), description: "@" + ctx.user + "'s " + FOLLOWLABEL[ctx.kind]}),
+      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "usercells")
+    },
+    {
+      key: "community",
+      match: () => {const m = /^\/i\/communities\/(\d+)\/(members|moderators)$/.exec(location.pathname); return m ? {id: m[1], kind: m[2]} : null},
+      anchor: headerrow,
+      meta: ctx => ({name: (headername() || "Community") + " " + ctx.kind, description: "community " + ctx.kind}),
+      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "usercells")
+    },
+    {
+      key: "reposts",
+      match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/(retweets|reposts)$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
+      anchor: () => dialogrow() || headerrow(),
+      meta: ctx => ({name: "@" + ctx.user + " reposters", description: tweettext() || ("reposters of @" + ctx.user + "'s post")}),
+      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "usercells")
+    },
+    {
+      key: "quotes",
+      match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/quotes$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
+      anchor: headerrow,
+      meta: ctx => ({name: "@" + ctx.user + " quoters", description: tweettext() || ("quoters of @" + ctx.user + "'s post")}),
+      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "articles")
+    },
+    {
+      key: "replies",
+      match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)$/.exec(location.pathname); return (m && replyfilterrow()) ? {user: m[1], id: m[2]} : null},
+      anchor: replyfilterrow,
+      variant: "tumimportgrey",
+      meta: ctx => ({name: "@" + ctx.user + " repliers", description: tweettext() || ("repliers to @" + ctx.user + "'s post")}),
+      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "articles")
+    }
+  ];
+
+  const FOLDERSVG = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm2 5 4 4h-3v4h-2v-4H8l4-4z"/></svg>';
+
+  function beginimport(surface) {
+    if (importing) return;
+    const ctx = surface.match();
+    if (!ctx) return;
+    const meta = surface.meta(ctx);
+    let center = null;
+    try {center = tum.overlay.canvascenter()} catch {}
+    tum.overlay.opencreatemodal({
+      name: (meta.name || "Imported").slice(0, 40),
+      description: meta.description || "",
+      x: center ? center.x - 100 : undefined,
+      y: center ? center.y - 144 : undefined,
+      oncreate: folder => {try {surface.start(folder, ctx, meta)} catch {}}
+    });
+  }
+
+  function makeicon(surface) {
+    const b = document.createElement("button");
+    b.className = "tumimportfolder" + (surface.variant ? " " + surface.variant : "");
+    b.type = "button";
+    b.title = "Import as folder";
+    b.setAttribute("aria-label", "Import as folder");
+    b.innerHTML = FOLDERSVG;
+    b.addEventListener("click", e => {e.preventDefault(); e.stopPropagation(); beginimport(surface)});
+    return b;
+  }
+
+  function ensureicons() {
+    const active = SURFACES.find(s => s.match());
+    const existing = document.querySelector(".tumimportfolder");
+    if (!active) {if (existing) existing.remove(); return}
+    if (existing) {existing.classList.toggle("tumbusy", importing); return}
+    const a = active.anchor();
+    if (!a || !a.parent) return;
+    const icon = makeicon(active);
+    if (a.before) a.parent.insertBefore(icon, a.before); else a.parent.appendChild(icon);
+    icon.classList.toggle("tumbusy", importing);
   }
 
   let scheduled = 0;
-  function schedule() {if (!scheduled) scheduled = setTimeout(() => {scheduled = 0; ensurebtn()}, 120)}
+  function schedule() {if (!scheduled) scheduled = setTimeout(() => {scheduled = 0; ensureicons()}, 150)}
 
   window.tum.lists = {
     init() {
