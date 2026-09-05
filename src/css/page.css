@@ -179,6 +179,18 @@ a[href*="/header_photo"]:hover .tumhd,
   padding: 16px; font-size: 12px;
   text-align: right; opacity: 0.7}
 
+.tumsetdangerbtn {
+  flex-shrink: 0; align-self: center;
+  padding: 10px 20px; border-radius: 999px;
+  border: 2px solid #f4212e; background: transparent;
+  color: #f4212e; font-size: 14px;
+  font-weight: 700; cursor: pointer;
+  white-space: nowrap; transition: background-color .15s ease, color .15s ease
+}
+.tumsetdangerbtn:hover {background: rgba(244,33,46,0.12)}
+.tumsetdangerbtn.tumarmed {background: #f4212e; color: white}
+.tumsetdangerbtn:disabled {opacity: .6; cursor: default}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
 html.tumpickuser header[role="banner"],

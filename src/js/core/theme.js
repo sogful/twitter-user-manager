@@ -60,8 +60,6 @@
   
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // stamp the palette as --tum* vars onto a page-level element (overlay does this on its host, but
-  // page elements like the batch bar live outside the shadow and need their own copy)
   function paint(el) {
     if (!el) return;
     const p = PALETTES[classify()] || PALETTES.dark;

@@ -27,6 +27,7 @@
           tracking.dragging = true;
           O.root.classList.add("tumfolderdragging");
           node.classList.add("tumdragactive");
+          O.els.quickdelete.classList.remove("tumdisabled");
         }
         const px = (ev.clientX - tracking.offsetx - pan.x) / z;
         const py = (ev.clientY - tracking.offsety - pan.y) / z;
@@ -36,15 +37,26 @@
 
         node.style.left = Math.round(a.left) + "px";
         node.style.top = Math.round(a.top) + "px";
-        O.categoryhover(c.x, c.y);
+
+        const overdel = rectcontains(O.els.quickdelete.getBoundingClientRect(), ev.clientX, ev.clientY);
+        O.els.quickdelete.classList.toggle("tumover", overdel);
+        node.classList.toggle("tumoverremove", overdel);
+        O.categoryhover(overdel ? null : c.x, overdel ? null : c.y);
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         O.root.classList.remove("tumfolderdragging");
-        node.classList.remove("tumdragactive");
+        node.classList.remove("tumdragactive", "tumoverremove");
         O.categoryhover(null);
-        if (tracking && tracking.dragging) {
+        O.els.quickdelete.classList.remove("tumover");
+        O.els.quickdelete.classList.add("tumdisabled"); 
+        if (tracking && tracking.dragging && rectcontains(O.els.quickdelete.getBoundingClientRect(), ev.clientX, ev.clientY)) {
+          const s = tum.folders.get(f.id) || f;
+          node.style.left = (s.x || 0) + "px";
+          node.style.top = (s.y || 0) + "px";
+          O.confirmfolderdelete(f);
+        } else if (tracking && tracking.dragging) {
           const px = (ev.clientX - tracking.offsetx - pan.x) / z;
           const py = (ev.clientY - tracking.offsety - pan.y) / z;
           const w = node.offsetWidth, h = node.offsetHeight;
@@ -56,7 +68,7 @@
 
           tum.folders.update(f.id, {x: Math.round(a.left), y: Math.round(a.top), cat: c.cat}, true);
         } else if (tracking) {
-          O.toggledcollapse(f.id); 
+          O.toggledcollapse(f.id);
         }
         tracking = null;
       };
@@ -185,8 +197,8 @@
   function movechip(x, y) {
     O.els.chip.style.left = x + "px";
     O.els.chip.style.top = y + "px";
-    // match the canvas zoom so the dragged chip is the same size it'll be once dropped
     O.els.chip.style.transform = "translate(-50%,-50%) scale(" + O.zoom() + ")";
+
     if (state.drag) {state.drag.lastx = x; state.drag.lasty = y}
   }
 

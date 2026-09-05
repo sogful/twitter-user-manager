@@ -806,14 +806,31 @@
       const bottom = handle.classList.contains("tumcatresizeb") || handle.classList.contains("tumcatresizebr");
       handle.addEventListener("pointerdown", e => {
         if (e.button !== 0) return;
+        
         e.preventDefault();
         e.stopPropagation();
+
         const startx = e.clientX, starty = e.clientY;
         const ow = c.w || 480, oh = c.h || 360;
         let sizing = false;
+
+        const GRIDGAP = 14, SNAP = 26;
+        const snapdim = (v, folder) => {
+          const cell = folder + GRIDGAP, base = 2 * CATBORDER - GRIDGAP;
+          const n = Math.round((v - base) / cell);
+          if (n < 1) return v;
+          const snapped = base + n * cell;
+          return Math.abs(snapped - v) <= SNAP ? snapped : v;
+        };
+
+        const ext = categorycontentextent(c);
+        const minw = Math.max(160, ext.right - c.x + CATBORDER);
+        const minh = Math.max(120, ext.bottom - c.y + CATBORDER);
         const sizeit = ev => {
-          const w = right ? Math.max(160, ow + (ev.clientX - startx) / zoom) : ow;
-          const h = bottom ? Math.max(120, oh + (ev.clientY - starty) / zoom) : oh;
+          let w = right ? ow + (ev.clientX - startx) / zoom : ow;
+          let h = bottom ? oh + (ev.clientY - starty) / zoom : oh;
+          if (right) w = Math.max(minw, snapdim(w, 200));
+          if (bottom) h = Math.max(minh, snapdim(h, 288));
           node.style.width = w + "px";
           node.style.height = h + "px";
           return {w, h};
@@ -869,6 +886,23 @@
 
   const CATOUT = 48;
   const CATBORDER = 2;
+
+  function categorycontentextent(c) {
+    let right = c.x + CATBORDER, bottom = c.y + CATBORDER;
+    for (const f of tum.folders.list()) if (f.cat === c.id) {
+      const n = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
+      const w = n ? n.offsetWidth : 200, h = n ? n.offsetHeight : 288;
+      right = Math.max(right, (f.x || 0) + w);
+      bottom = Math.max(bottom, (f.y || 0) + h);
+    }
+    for (const u of tum.unsorted.list()) if (u.cat === c.id) {
+      const n = els.freeform.querySelector('.tumloosechip[data-handle="' + u.handle + '"]');
+      const w = n ? n.offsetWidth : 150, h = n ? n.offsetHeight : 58;
+      right = Math.max(right, (u.x || 0) + w / 2);
+      bottom = Math.max(bottom, (u.y || 0) + h / 2);
+    }
+    return {right, bottom};
+  }
   const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + CATBORDER + w / 2, c.x + c.w - CATBORDER - w / 2), y: clamp(cy, c.y + CATBORDER + h / 2, c.y + c.h - CATBORDER - h / 2), cat: c.id});
   const catunder = (cx, cy, skip) => {
     for (const c of tum.categories.list()) if (c.id !== skip && cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) return c;
@@ -1052,8 +1086,7 @@
     if (fmoves.length) tum.folders.bulkmove(fmoves);
     if (umoves.length) tum.unsorted.bulkmove(umoves);
   }
-  // core: slide a w*h top-left box out of every existing folder/chip (except `exclude` node). used both
-  // by node drags and by chip drops (where the node doesn't exist yet, so we pass dims directly).
+
   function nooverlapadjustbox(left, top, w, h, exclude) {
     if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
     const GAP = 0;

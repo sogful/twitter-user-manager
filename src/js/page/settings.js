@@ -148,6 +148,49 @@
     return row;
   }
 
+  function currenthandle() {
+    const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
+    let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
+    if (!h) {const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'); const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || ""); if (m) h = m[1]}
+    return h ? "@" + h : "this account";
+  }
+  function builddangerrow(primary, sec) {
+    const row = document.createElement("div");
+    row.className = "tumsetrow";
+    const txt = document.createElement("div");
+    txt.className = "tumsetrowtext";
+    const t1 = document.createElement("div");
+    t1.className = "tumsettitle";
+    t1.style.color = primary;
+    t1.textContent = T("settings.deleteall.title");
+    const t2 = document.createElement("div");
+    t2.className = "tumsetdesc";
+    t2.style.color = sec;
+    t2.textContent = T("settings.deleteall.desc", currenthandle());
+    txt.appendChild(t1);
+    txt.appendChild(t2);
+    const btn = document.createElement("button");
+    btn.className = "tumsetdangerbtn";
+    btn.textContent = T("settings.deleteall.button");
+    let armed = false, timer = 0;
+    const reset = () => {armed = false; btn.classList.remove("tumarmed"); btn.textContent = T("settings.deleteall.button")};
+    btn.addEventListener("click", () => {
+      if (!armed) {armed = true; btn.classList.add("tumarmed"); btn.textContent = T("settings.deleteall.confirm"); clearTimeout(timer); timer = setTimeout(reset, 4000); return}
+      clearTimeout(timer);
+      for (const f of tum.folders.list()) tum.folders.remove(f.id);
+      for (const c of (tum.categories ? tum.categories.list() : [])) tum.categories.remove(c.id);
+      for (const u of tum.unsorted.list()) tum.unsorted.remove(u.handle);
+      btn.classList.remove("tumarmed");
+      btn.textContent = T("settings.deleteall.done");
+      btn.disabled = true;
+      armed = false;
+      setTimeout(() => {btn.disabled = false; reset()}, 2500);
+    });
+    row.appendChild(txt);
+    row.appendChild(btn);
+    return row;
+  }
+
   function buildpane() {
     const {primary, sec} = palette();
     const pane = document.createElement("div");
@@ -170,6 +213,12 @@
       pane.appendChild(sh);
       for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));
     }
+    const dh = document.createElement("div");
+    dh.className = "tumsetsubhead";
+    dh.style.color = primary;
+    dh.textContent = T("settings.section.danger");
+    pane.appendChild(dh);
+    pane.appendChild(builddangerrow(primary, sec));
     const ver = document.createElement("div");
     ver.className = "tumsetversion";
     ver.style.color = sec;

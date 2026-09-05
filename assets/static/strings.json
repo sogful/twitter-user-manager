@@ -86,6 +86,13 @@
   "settings.destroyoption.title": "Fun",
   "settings.destroyoption.desc": "Yeah...",
 
+  "settings.section.danger": "Danger zone",
+  "settings.deleteall.title": "Delete everything",
+  "settings.deleteall.desc": "Permanently wipe extension data for %s on this device. This cannot be undone, so preferably export a backup first!",
+  "settings.deleteall.button": "Very scary...",
+  "settings.deleteall.confirm": "Click again to confirm!",
+  "settings.deleteall.done": "Boom!!!!!!!!!!",
+
   "action.success.follow": "You followed @%s",
   "action.success.unfollow": "You unfollowed @%s",
   "action.success.mute": "@%s has been muted.",

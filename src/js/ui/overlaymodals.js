@@ -421,6 +421,8 @@
   }
 
   function confirmcategorydelete(c) {
+    const empty = !tum.folders.list().some(f => f.cat === c.id) && !tum.unsorted.list().some(u => u.cat === c.id);
+    if (empty) {tum.categories.remove(c.id); return}
     openconfirm({
       title: "Delete category?",
       body: "This removes the \"" + (c.name || "Edit Me...") + "\" category outline. The folders and users will stay where they were.",
@@ -543,5 +545,5 @@
     oncontextmenu, closectx, ctxopen, newuser,
     opencreatemodal, openeditmodal, closemodal, savemodal, editfields,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
-    setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, closeconfirmsheet});
+    setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, confirmcategorydelete, closeconfirmsheet});
 })();
