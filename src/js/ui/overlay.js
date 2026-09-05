@@ -139,6 +139,7 @@
       els.freeform.style.transformOrigin = "0 0";
       els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
     }
+    try {drawminimap()} catch {}
     if (els.gridlayer) {
       els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
       els.gridlayer.style.backgroundSize = `${window.innerWidth * zoom}px ${window.innerHeight * zoom}px`;
@@ -315,6 +316,13 @@
       toolclose: root.querySelector(".tumtoolclose"),
       toolexport: root.querySelector(".tumtoolexport"),
       toolimport: root.querySelector(".tumtoolimport"),
+      toolfit: root.querySelector(".tumtoolfit"),
+      tooljump: root.querySelector(".tumtooljump"),
+      jumplist: root.querySelector(".tumjumplist"),
+      jumpsearch: root.querySelector(".tumjumpsearch"),
+      jumprows: root.querySelector(".tumjumprows"),
+      minimap: root.querySelector(".tumminimap"),
+      minimapcanvas: root.querySelector(".tumminimapcanvas"),
       reasonform: root.querySelector(".tumreasonform"),
       reasonactions: root.querySelector(".tumreasonactions"),
       reasonactionbtns: root.querySelectorAll(".tumreasonactions .tummodalaction"),
@@ -382,6 +390,11 @@
     els.toolclose.addEventListener("click", () => {if (!state.drag) closeoverlay()});
     els.toolexport.addEventListener("click", O.exportdata);
     els.toolimport.addEventListener("click", O.importdata);
+    els.toolfit.addEventListener("click", fitall);
+    els.tooljump.addEventListener("click", togglejumplist);
+    els.jumpsearch.addEventListener("input", () => buildjumprows(els.jumpsearch.value));
+    els.jumpsearch.addEventListener("pointerdown", e => e.stopPropagation());
+    els.minimapcanvas.addEventListener("click", onminimapclick);
 
     function applydestroyoption() {
       const on = !tum.settings || tum.settings.get("destroyoption");
@@ -477,6 +490,8 @@
     for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
     refreshmarquees();
+    try {drawminimap()} catch {}
+    if (els.jumplist && !els.jumplist.hidden) buildjumprows(els.jumpsearch.value);
   }
 
   function enablemarquee(outer) {
@@ -901,6 +916,103 @@
   function rectof(n) {
     return {left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0, w: n.offsetWidth, h: n.offsetHeight};
   }
+  // nearest spot to (x,y) that doesn't overlap an existing folder - used so imports/new folders never
+  // land on top of each other, regardless of the "prevent overlap" setting
+  function findfreespot(x, y, w, h) {
+    if (!els.freeform) return {x, y};
+    const others = [...els.freeform.querySelectorAll(".tumfolder")].map(rectof);
+    const GAP = 14;
+    const overlaps = (l, t) => others.some(o => l < o.left + o.w + GAP && l + w + GAP > o.left && t < o.top + o.h + GAP && t + h + GAP > o.top);
+    if (!overlaps(x, y)) return {x, y};
+    const sx = w + GAP, sy = h + GAP;
+    for (let ring = 1; ring < 60; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) for (let dy = -ring; dy <= ring; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue; // ring perimeter only
+        const nx = Math.round(x + dx * sx), ny = Math.round(y + dy * sy);
+        if (!overlaps(nx, ny)) return {x: nx, y: ny};
+      }
+    }
+    return {x, y};
+  }
+  /*//////////////////////////////////////////////////////////////////////*/
+  // finding folders again: fit-all button, jump-to list, and a corner minimap
+
+  function contentbbox() {
+    const nodes = [...els.freeform.querySelectorAll(".tumfolder, .tumcategory, .tumloosechip")];
+    if (!nodes.length) return null;
+    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    for (const n of nodes) {const r = rectof(n); minx = Math.min(minx, r.left); miny = Math.min(miny, r.top); maxx = Math.max(maxx, r.left + r.w); maxy = Math.max(maxy, r.top + r.h)}
+    return {minx, miny, maxx, maxy};
+  }
+  function centeron(cx, cy) {
+    pan.x = window.innerWidth / 2 - cx * zoom;
+    pan.y = window.innerHeight / 2 - cy * zoom;
+    applypan();
+  }
+  function fitall() {
+    const bb = contentbbox();
+    if (!bb) {pan.x = 0; pan.y = 0; zoom = 1; applypan(); return}
+    const vw = window.innerWidth, vh = window.innerHeight, pad = 80;
+    const bw = (bb.maxx - bb.minx) + pad * 2, bh = (bb.maxy - bb.miny) + pad * 2;
+    zoom = Math.max(ZMIN, Math.min(1, Math.min(vw / bw, vh / bh))); // never zoom IN past 1
+    centeron((bb.minx + bb.maxx) / 2, (bb.miny + bb.maxy) / 2);
+  }
+  function jumpto(f) {
+    if (!f) return;
+    centeron((f.x || 0) + 100, (f.y || 0) + 144);
+    const node = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
+    if (node) {node.classList.remove("tumflash"); void node.offsetWidth; node.classList.add("tumflash"); setTimeout(() => node.classList.remove("tumflash"), 1200)}
+    togglejumplist(false);
+  }
+  function togglejumplist(force) {
+    const show = typeof force === "boolean" ? force : els.jumplist.hidden;
+    els.jumplist.hidden = !show;
+    if (show) {els.jumpsearch.value = ""; buildjumprows(""); els.jumpsearch.focus()}
+  }
+  function buildjumprows(q) {
+    const rows = els.jumprows;
+    rows.innerHTML = "";
+    const ql = (q || "").trim().toLowerCase();
+    for (const f of tum.folders.list()) {
+      if (ql && !(f.name || "").toLowerCase().includes(ql)) continue;
+      const row = el("div", "tumjumprow");
+      row.innerHTML = `<span class="tumjumpdot" style="background:${f.color}"></span><span class="tumjumpname">${escapehtml(f.name)}</span><span class="tumjumpcount">${(f.members || []).length}</span>`;
+      row.addEventListener("click", () => jumpto(f));
+      rows.appendChild(row);
+    }
+  }
+  function drawminimap() {
+    if (!els.minimap || !els.minimapcanvas) return;
+    const has = tum.folders.list().length > 0;
+    els.minimap.hidden = !has;
+    if (!has || !state.open) return;
+    const cv = els.minimapcanvas, ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    const bb = contentbbox();
+    if (!bb) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const vminx = -pan.x / zoom, vminy = -pan.y / zoom, vmaxx = (vw - pan.x) / zoom, vmaxy = (vh - pan.y) / zoom;
+    const minx = Math.min(bb.minx, vminx), miny = Math.min(bb.miny, vminy), maxx = Math.max(bb.maxx, vmaxx), maxy = Math.max(bb.maxy, vmaxy);
+    const pad = 40, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
+    const s = Math.min(W / cw, H / ch);
+    const ox = (W - cw * s) / 2 - (minx - pad) * s, oy = (H - ch * s) / 2 - (miny - pad) * s;
+    cv._map = {s, ox, oy};
+    for (const n of els.freeform.querySelectorAll(".tumfolder")) {
+      const r = rectof(n);
+      ctx.fillStyle = n.style.getPropertyValue("--tumcolor") || "#1d9bf0";
+      ctx.fillRect(ox + r.left * s, oy + r.top * s, Math.max(2, r.w * s), Math.max(2, r.h * s));
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ox + vminx * s, oy + vminy * s, (vmaxx - vminx) * s, (vmaxy - vminy) * s);
+  }
+  function onminimapclick(e) {
+    const map = els.minimapcanvas._map;
+    if (!map) return;
+    const rect = els.minimapcanvas.getBoundingClientRect();
+    centeron((e.clientX - rect.left - map.ox) / map.s, (e.clientY - rect.top - map.oy) / map.s);
+  }
+
   function resolveoverlap(active) {
     if (!active || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
     const GAP = 0;
@@ -1023,7 +1135,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, linkify, iconhtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjusthandle,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });

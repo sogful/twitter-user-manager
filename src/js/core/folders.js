@@ -5,7 +5,14 @@
 
   const ACTIONS = ["follow", "mute", "block"];
   // how colorful!
-  const COLORS = ["#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e"];
+  const COLORS = [
+    // twitter classics (kept first so auto-assigned new-folder colours stay familiar)
+    "#1d9bf0", "#00ba7c", "#f91880", "#ffd400", "#7856ff", "#f4212e",
+    // rainbow
+    "#ff3b30", "#ff9500", "#ffcc00", "#ffee00", "#a3e635", "#34c759", "#00c7be", "#32ade6", "#007aff", "#5856d6", "#af52de", "#ff2d92",
+    // misc
+    "#ff6b6b", "#ff8fab", "#c9a26b", "#8b5e3c", "#7ee2b8", "#40e0d0", "#9acd32", "#d4af37", "#b0b8c0", "#71767b", "#3a3f44", "#e7e9ea"
+  ];
   let colorcursor = 0;
   let createcount = 0;
 

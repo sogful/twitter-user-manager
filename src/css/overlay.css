@@ -126,19 +126,62 @@ img {-webkit-user-drag: none; user-drag: none}
   position: absolute; inset: 0
 }
 
+/* corner minimap (bottom-left) - dots for folders + a box for the current viewport, click to jump */
+.tumminimap {
+  position: absolute; left: 16px; bottom: 16px;
+  z-index: 3; pointer-events: auto;
+  padding: 6px; border-radius: 10px;
+  background: var(--tumelev,#16181c);
+  border: 1px solid var(--tumborder,#2f3336);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4)}
+.tumminimapcanvas {display: block; cursor: pointer; border-radius: 6px}
+
+/* jump-to-folder searchable list (floats under the top-left tools) */
+.tumjumplist {
+  position: absolute; left: 16px; top: 60px;
+  z-index: 4; width: 240px; max-height: 60vh;
+  display: flex; flex-direction: column;
+  pointer-events: auto; overflow: hidden;
+  border-radius: 12px; padding: 8px;
+  background: var(--tumelev,#16181c);
+  border: 1px solid var(--tumborder,#2f3336);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5)}
+.tumjumpsearch {
+  flex-shrink: 0; margin-bottom: 6px;
+  background: var(--tuminput,#000);
+  border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px;
+  color: var(--tumtext,#e7e9ea); font-size: 13px;
+  padding: 6px 12px}
+.tumjumpsearch:focus {outline: none; border-color: #1d9bf0}
+.tumjumprows {overflow-y: auto; display: flex; flex-direction: column; gap: 2px}
+.tumjumprow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  color: var(--tumtext,#e7e9ea); font-size: 13px}
+.tumjumprow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tumjumpdot {
+  width: 12px; height: 12px; border-radius: 3px;
+  flex-shrink: 0}
+.tumjumpname {
+  flex: 1; min-width: 0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-weight: 700}
+.tumjumpcount {color: var(--tummuted,#71767b); font-size: 11px; flex-shrink: 0}
+
 /*//////////////////////////////////////////////////////////////////////*/
 
-/* free-floating bounding region behind folders/users - just constrains, never sorts */
+/* free-floating bounding region behind folders/users - just constrains, never sorts. it always sits
+   on the dark backdrop scrim (every theme), so it uses fixed light-on-dark colors, not --tum* vars
+   (which flip the title/bg to dark on light mode and make them unreadable) */
 .tumcategory {
   position: absolute;
-  background: rgba(0,0,0,0.28);
-  border: 2px solid var(--tummuted,#71767b);
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(231,233,234,0.35);
   border-radius: 12px; pointer-events: auto
 }
 .tumcategorytitle {
   position: absolute; left: 2px; top: -30px;
   max-width: 100%; padding: 1px 4px;
-  color: var(--tumtext,#e7e9ea);
+  color: #f7f9f9;
   font-size: 20px; font-weight: 700;
   line-height: 24px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -172,6 +215,10 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto;
   --tumcolor: #1d9bf0
 }
+/* while moving, rasterize the rounded/clipped box on its own layer so its edges don't seam (very
+   visible as a white folder slides over the dark scrim in light mode). only during drag, else a
+   zoomed-in static folder would blur */
+.tumfolder.tumdragactive {transform: translateZ(0); backface-visibility: hidden}
 .tumfolder.tumover {outline: 3px solid white}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
 .tumfolder.tumflash {outline: 3px solid transparent; animation: tumflash .5s ease-in-out 2}
@@ -775,16 +822,18 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumipcolor::-webkit-color-swatch {border: 1px solid var(--tuminputborder,#37434d); border-radius: 50%}
 
 .tummodalcolors {
-  display: flex; gap: 8px;
-  margin-bottom: 16px;
-  justify-content: space-between
+  display: flex; gap: 6px;
+  flex-wrap: wrap; justify-content: center;
+  margin-bottom: 16px
 }
 .tummodalcolor {
-  width: 26px; height: 26px;
-  border-radius: 50%; border: 2px solid transparent;
-  cursor: pointer; padding: 0
+  width: 13px; height: 13px;
+  border-radius: 50%; border: 1.5px solid transparent;
+  cursor: pointer; padding: 0;
+  box-sizing: content-box
 }
-.tummodalcolor.tumselected {border-color: var(--tumtext,white)}
+.tummodalcolor:hover {transform: scale(1.25)}
+.tummodalcolor.tumselected {border-color: var(--tumtext,white); transform: scale(1.25)}
 
 .tummodalsave, .tumreasonsave, .tumreasonedit {
   width: 100%; background: #1d9bf0;

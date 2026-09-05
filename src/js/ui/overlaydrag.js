@@ -26,6 +26,7 @@
           if (Math.hypot(dx, dy) < THRESHOLD) return;
           tracking.dragging = true;
           O.root.classList.add("tumfolderdragging");
+          node.classList.add("tumdragactive");
         }
         const px = (ev.clientX - tracking.offsetx - pan.x) / z;
         const py = (ev.clientY - tracking.offsety - pan.y) / z;
@@ -33,14 +34,17 @@
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
         const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
 
-        node.style.left = a.left + "px";
-        node.style.top = a.top + "px";
+        // snap to whole px: a fractional position inside the scaled freeform gives the rounded/clipped
+        // folder edges anti-aliasing seams (very visible - a white folder on the dark scrim in light mode)
+        node.style.left = Math.round(a.left) + "px";
+        node.style.top = Math.round(a.top) + "px";
         O.categoryhover(c.x, c.y);
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         O.root.classList.remove("tumfolderdragging");
+        node.classList.remove("tumdragactive");
         O.categoryhover(null);
         if (tracking && tracking.dragging) {
           const px = (ev.clientX - tracking.offsetx - pan.x) / z;
@@ -48,11 +52,11 @@
           const w = node.offsetWidth, h = node.offsetHeight;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
           const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
-          
-          node.style.left = a.left + "px";
-          node.style.top = a.top + "px";
 
-          tum.folders.update(f.id, {x: a.left, y: a.top, cat: c.cat}, true);
+          node.style.left = Math.round(a.left) + "px";
+          node.style.top = Math.round(a.top) + "px";
+
+          tum.folders.update(f.id, {x: Math.round(a.left), y: Math.round(a.top), cat: c.cat}, true);
         } else if (tracking) {
           O.toggledcollapse(f.id); 
         }

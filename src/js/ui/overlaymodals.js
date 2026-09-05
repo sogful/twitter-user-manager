@@ -254,8 +254,13 @@
         const pc = O.categorydrop(null, state.pendingfoldercat.cx, state.pendingfoldercat.cy, 200, 288);
         fx = pc.x - 100; fy = pc.y - 144; fcat = pc.cat;
         state.pendingfoldercat = null;
-      } else if (state.pendingpos) {
-        fx = state.pendingpos.x; fy = state.pendingpos.y;
+      } else {
+        // imports carry a pendingpos; a plain "New folder" starts at the camera center. either way,
+        // snap to the nearest free spot so it never stacks on an existing folder
+        let bx, by;
+        if (state.pendingpos) {bx = state.pendingpos.x; by = state.pendingpos.y}
+        else {let cc = null; try {cc = tum.overlay.canvascenter()} catch {} if (cc) {bx = cc.x - 100; by = cc.y - 144}}
+        if (typeof bx === "number") {const spot = O.findfreespot(bx, by, 200, 288); fx = spot.x; fy = spot.y}
       }
       const folder = tum.folders.create({name, description, icon, action, color, x: fx, y: fy, cat: fcat});
       if (state.pendingcreate) {
