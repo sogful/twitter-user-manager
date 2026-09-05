@@ -30,20 +30,20 @@
   const SORTMODES = ["az", "za", "new", "old"];
   const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
 
-  const MEMBERCAP = 200; // render cap per folder list
-  const THRESHOLD = 6; // px before a pointerdown on the backdrop becomes a pan
+  const MEMBERCAP = 200; // render cap per folder list; "+N more" bumps it per-folder for the session
+  const showncap = new Map();
+  const THRESHOLD = 6;
   const URLRE = /(https?:\/\/[^\s<]+)/g;
 
   let shadow = null, root = null, host = null;
   let els = {};
 
   const settings = tum.storage.create("tum.settings", {global: true});
-  let keepopen = true; // on by default
+  let keepopen = true;
   function applysetting(v) {keepopen = v && "keepopen" in v ? !!v.keepopen : true}
   settings.get().then(applysetting);
   settings.subscribe(applysetting);
 
-  // camera position survives reloads (per-account, debounced write)
   const campos = tum.storage.create("tum.campos");
   let campostimer = 0;
   function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
@@ -67,7 +67,6 @@
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
   function badgeshtml(badges) {
-    // drop emoji imgs that older captures stored as badges (they belong in the name, not piled beside it)
     const b = (Array.isArray(badges) ? badges : []).filter(h => !/\/emoji\//.test(h));
     return b.length ? `<span class="tumbadges">${b.join("")}</span>` : "";
   }
@@ -143,12 +142,9 @@
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
       if (e.button !== 0 && e.button !== 1) return;
-      // preventDefault + pointer capture so a touchscreen / pen doesn't hand the
-      // gesture to native scrolling (which fires pointercancel and the pan never
-      // starts, even though the move cursor shows)
       e.preventDefault();
       try {bd.setPointerCapture(e.pointerId)} catch {}
-      const ctxwasdismissed = O._ctxdismiss; // this pointerdown just closed a context menu
+      const ctxwasdismissed = O._ctxdismiss;
       O._ctxdismiss = false;
       const startx = e.clientX, starty = e.clientY;
       const panstart = {x: pan.x, y: pan.y};
@@ -188,12 +184,10 @@
     const block = ev => {if (root && root.classList.contains("tumactive") && !allow(ev)) ev.preventDefault()};
     window.addEventListener("wheel", block, {capture: true, passive: false});
     window.addEventListener("touchmove", block, {capture: true, passive: false});
-    // middle-button starts x.com's native autoscroll on the page behind - kill it while open
     window.addEventListener("mousedown", ev => {if (ev.button === 1 && root && root.classList.contains("tumactive")) ev.preventDefault()}, {capture: true});
   }
   const SCROLLKEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
-  // holding an edge arrow pans the canvas that way (up arrow reveals content above, etc)
   function wirearrows() {
     const DIRS = {tumedgeup: [0, 1], tumedgedown: [0, -1], tumedgeleft: [1, 0], tumedgeright: [-1, 0]};
     const SPEED = 15;
@@ -300,9 +294,8 @@
     attachpan();
     setupscrolllock();
     wirearrows();
+
     root.addEventListener("contextmenu", O.oncontextmenu);
-    // dismissing an open context menu by clicking empty canvas should NOT also close the
-    // overlay - flag this gesture so attachpan's click-to-close skips it
     root.addEventListener("pointerdown", e => {
       let dismiss = false;
       const editing = root.querySelector(".tumcategorytitle.tumediting");
@@ -315,8 +308,10 @@
     els.modalsave.addEventListener("click", O.savemodal);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
     els.modaliconclear.addEventListener("click", e => {e.stopPropagation(); O.selecticon("")});
+
     for (const b of els.modalactions) b.addEventListener("click", () => O.toggleaction(b.dataset.action));
     for (const b of els.reasonactionbtns) b.addEventListener("click", () => O.togglereasonaction(b.dataset.action));
+
     els.reasonclose.addEventListener("click", O.closereasonmodal);
     els.reasonmodal.addEventListener("click", e => {if (e.target === els.reasonmodal) O.closereasonmodal()});
     els.reasonedit.addEventListener("click", () => O.setreasonmode("edit"));
@@ -358,7 +353,6 @@
     tum.categories.subscribe(render);
     Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(() => {
       render();
-      // open on load if the setting says so (small delay lets the settings store finish loading)
       setTimeout(() => {if (!state.open && tum.settings && tum.settings.get("autoopen")) openoverlay()}, 350);
     });
 
@@ -430,7 +424,7 @@
   function render() {
     if (!els.freeform) return;
     els.freeform.innerHTML = "";
-    for (const c of tum.categories.list()) els.freeform.appendChild(buildcategorynode(c)); // behind, appended first
+    for (const c of tum.categories.list()) els.freeform.appendChild(buildcategorynode(c));
     for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
     for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
     updatequickstate();
@@ -451,8 +445,6 @@
   }
   function refreshmarquees() {
     if (!els.freeform) return;
-    // just flag which names overflow, once per render - the scroll itself is a
-    // hover-only css animation now, so nothing runs while idle
     for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
   }
 
@@ -476,7 +468,7 @@
     const members = Array.isArray(f.members) ? f.members.slice() : [];
     if (f.sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
     else if (f.sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
-    else if (f.sort === "old") members.reverse(); // members are unshifted on add, so index 0 is newest
+    else if (f.sort === "old") members.reverse();
     return members;
   }
 
@@ -520,8 +512,13 @@
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", "drop users here"));
     } else {
-      for (const m of members.slice(0, MEMBERCAP)) list.appendChild(buildmemberrow({type: "folder", id: f.id}, m));
-      if (members.length > MEMBERCAP) list.appendChild(el("div", "tumfoldermore", `+${members.length - MEMBERCAP} more`));
+      const cap = showncap.get(f.id) || MEMBERCAP;
+      for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow({type: "folder", id: f.id}, m));
+      if (members.length > cap) {
+        const more = el("div", "tumfoldermore", `+${members.length - cap} more, click to load`);
+        more.addEventListener("click", e => {e.stopPropagation(); showncap.set(f.id, cap + MEMBERCAP); render()});
+        list.appendChild(more);
+      }
     }
     O.attachfolderdrag(node, f);
     node.querySelector(".tumfolderremove").addEventListener("click", e => {
@@ -545,8 +542,6 @@
   }
 
   function openprofile(source, m) {
-    // fade the overlay out then route to the profile in-page (x.com's SPA responds to
-    // pushState + popstate, same trick settings.js uses) - no full reload
     const go = () => {
       closeoverlay();
       setTimeout(() => {
@@ -653,8 +648,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // fold/unfold one folder without a full re-render, so the other folders' lists
-  // don't all flash a scrollbar
   function toggledcollapse(id) {
     const f = tum.folders.get(id);
     if (!f) return;
@@ -663,7 +656,7 @@
     const node = els.freeform.querySelector('.tumfolder[data-id="' + id + '"]');
     if (node) {
       node.classList.toggle("tumcollapsed", now);
-      if (!now) resolveoverlap(node); // expanding grew it - push neighbors away
+      if (!now) resolveoverlap(node);
     }
   }
 
@@ -695,9 +688,9 @@
   function attachcategorydrag(node, c) {
     node.addEventListener("pointerdown", e => {
       if (e.button !== 0) return;
-      if (e.target.closest(".tumcategorytitle.tumediting")) return; // editing text, don't drag
+      if (e.target.closest(".tumcategorytitle.tumediting")) return;
       if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
-      const ontitle = !!e.target.closest(".tumcategorytitle"); // click = rename, drag = move
+      const ontitle = !!e.target.closest(".tumcategorytitle");
       e.preventDefault();
       const startx = e.clientX, starty = e.clientY;
       const ox = c.x || 0, oy = c.y || 0;
@@ -716,9 +709,10 @@
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         root.classList.remove("tumfolderdragging");
+
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        // one persist per store (bulkmove) so no half-updated onChanged render flashes a member's old spot
+
         tum.categories.update(c.id, {x: ox + dx, y: oy + dy}, true);
         const fmoves = [], umoves = [];
         for (const m of members) {
@@ -757,7 +751,7 @@
           document.removeEventListener("pointerup", up);
           if (!sizing) return;
           const s = sizeit(ev);
-          tum.categories.update(c.id, {w: s.w, h: s.h}, true); // silent - DOM already sized
+          tum.categories.update(c.id, {w: s.w, h: s.h}, true);
         };
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
@@ -800,22 +794,18 @@
     }
   }
 
-  // how far past its pinned edge an item must be dragged to pop out of its category
   const CATOUT = 48;
-  const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + w / 2, c.x + c.w - w / 2), y: clamp(cy, c.y + h / 2, c.y + c.h - h / 2), cat: c.id});
+  const CATBORDER = 2; // .tumcategory outline width; inset members so they neighbor it (0 gap) instead of covering it
+  const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + CATBORDER + w / 2, c.x + c.w - CATBORDER - w / 2), y: clamp(cy, c.y + CATBORDER + h / 2, c.y + c.h - CATBORDER - h / 2), cat: c.id});
   const catunder = (cx, cy, skip) => {
     for (const c of tum.categories.list()) if (c.id !== skip && cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h) return c;
     return null;
   };
-  // cx,cy = item center in freeform-local px; returns the (possibly clamped) center + cat id
   function categorydrop(currentcat, cx, cy, w, h) {
     const prev = currentcat && tum.categories.get(currentcat);
     if (prev) {
-      // a member stays clamped inside until the center is dragged CATOUT past where it pins
-      // (checked vs the pin box, NOT the outer bounds - a big category's center can be far
-      // inside the bounds yet already well past the pinned edge)
-      const lox = prev.x + w / 2, hix = prev.x + prev.w - w / 2;
-      const loy = prev.y + h / 2, hiy = prev.y + prev.h - h / 2;
+      const lox = prev.x + CATBORDER + w / 2, hix = prev.x + prev.w - CATBORDER - w / 2;
+      const loy = prev.y + CATBORDER + h / 2, hiy = prev.y + prev.h - CATBORDER - h / 2;
       const dx = cx < lox ? lox - cx : cx > hix ? cx - hix : 0;
       const dy = cy < loy ? loy - cy : cy > hiy ? cy - hiy : 0;
       if (Math.max(dx, dy) <= CATOUT) return {x: clamp(cx, lox, hix), y: clamp(cy, loy, hiy), cat: currentcat};
@@ -846,8 +836,6 @@
   function rectof(n) {
     return {left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0, w: n.offsetWidth, h: n.offsetHeight};
   }
-  // "prevent overlap" setting: push any folders/chips overlapping `active` out of the way,
-  // cascading to whatever those pushes then collide with, then persist the lot in one write
   function resolveoverlap(active) {
     if (!active || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
     const GAP = 0;
@@ -883,8 +871,6 @@
     if (fmoves.length) tum.folders.bulkmove(fmoves);
     if (umoves.length) tum.unsorted.bulkmove(umoves);
   }
-  // solid collision: when dragging/dropping, keep the MOVED node from overlapping others by
-  // sliding it out (the others don't move - that's only for the unavoidable expand case)
   function nooverlapadjust(node, left, top) {
     if (!node || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
     const w = node.offsetWidth, h = node.offsetHeight, GAP = 0;
@@ -918,7 +904,6 @@
 
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
-    // let a category title edit swallow its own keys (Enter/Escape) instead of closing the overlay
     if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
     if (!state.drag) {
       if (e.key === "Escape") {if (O.ctxopen && O.ctxopen()) {O.closectx(); return} closeoverlay(); return}
@@ -967,7 +952,7 @@
     els.toast.textContent = msg;
     els.toast.classList.add("tumshow");
     clearTimeout(toasttimer);
-    toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), 1800);
+    toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), 2600);
   }
 
   Object.assign(O, {
@@ -985,6 +970,9 @@
     canceldrag: () => O.canceldrag(),
     toast,
     open: () => openoverlay(),
+    // center of the currently-panned view in canvas coords (a node placed here lands mid-screen)
+    canvascenter: () => ({x: Math.round(window.innerWidth / 2 - pan.x), y: Math.round(window.innerHeight / 2 - pan.y)}),
+    opencreatemodal: opts => O.opencreatemodal(opts),
     openreasonview: (source, m) => O.openreasonview(source, m),
     openandflash,
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder

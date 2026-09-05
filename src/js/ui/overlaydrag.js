@@ -12,7 +12,7 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
-      if (e.button !== undefined && e.button !== 0) return; // right-click opens the menu, never drags/folds
+      if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfolderremove")) return;
       const rect = node.getBoundingClientRect();
       tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
@@ -27,9 +27,9 @@
         const px = ev.clientX - tracking.offsetx - pan.x;
         const py = ev.clientY - tracking.offsety - pan.y;
         const w = node.offsetWidth, h = node.offsetHeight;
-        // live-clamp inside the folder's category until dragged a full item beyond its edge
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-        const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2); // solid: slide out of others
+        const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
+
         node.style.left = a.left + "px";
         node.style.top = a.top + "px";
         O.categoryhover(c.x, c.y);
@@ -45,12 +45,13 @@
           const w = node.offsetWidth, h = node.offsetHeight;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
           const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
+          
           node.style.left = a.left + "px";
           node.style.top = a.top + "px";
-          // silent + keep the live DOM position -> no re-render flash
+
           tum.folders.update(f.id, {x: a.left, y: a.top, cat: c.cat}, true);
         } else if (tracking) {
-          O.toggledcollapse(f.id); // header click folds/unfolds; edit lives in the right-click menu
+          O.toggledcollapse(f.id); 
         }
         tracking = null;
       };
@@ -220,7 +221,6 @@
     return null;
   }
 
-  // dragging a user to a viewport edge auto-pans the canvas so far-off folders come into reach
   const EDGE = 60; // px zone
   const PANMAX = 16; // px per tick at the very edge
   let edgetimer = 0, edgevx = 0, edgevy = 0, edgexy = null;
@@ -239,7 +239,7 @@
       if (!state.drag || (!edgevx && !edgevy)) return;
       pan.x += edgevx; pan.y += edgevy;
       O.applypan();
-      if (edgexy) updatedrag(edgexy.x, edgexy.y); // re-hit-test as content scrolls under the chip
+      if (edgexy) updatedrag(edgexy.x, edgexy.y);
     }, 16);
   }
   function stopedge() {clearInterval(edgetimer); edgetimer = 0; edgevx = edgevy = 0; edgexy = null}
@@ -344,11 +344,13 @@
     } else {
       const prevcat = source.type === "unsorted" ? (tum.unsorted.get(user.handle) || {}).cat : null;
       removefromsource(source, user.handle);
-      const c = O.categorydrop(prevcat, x - pan.x, y - pan.y, 150, 58);
+      // measure the drag chip (mirrors the resting loose chip) so a wide name doesn't poke past the category edge
+      const cr = O.els.chip.getBoundingClientRect();
+      const c = O.categorydrop(prevcat, x - pan.x, y - pan.y, cr.width || 150, cr.height || 58);
       tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), c.x, c.y);
       state.open = true;
       render();
-      O.nooverlapadjusthandle(user.handle); // solid: slide the dropped chip out of any overlap
+      O.nooverlapadjusthandle(user.handle);
       return;
     }
     state.open = true;

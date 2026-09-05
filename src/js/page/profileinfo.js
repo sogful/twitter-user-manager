@@ -98,18 +98,17 @@
 
   function applyjoin(items, u) {
     const d = parsetwdate(u.createdAt);
+
     if (!d) return;
     const join = items.querySelector('[data-testid="UserJoinDate"]');
     if (!join || join.dataset.tumjoin) return;
     join.dataset.tumjoin = "1";
-    // it's just a date - kill the hovercard/overlay and clicks, no age. the popup's hover
-    // trigger is the single-item wrapper around the link (the link itself going pointer-events
-    // none just lets the hover fall through to it), so disable that wrapper too
     if (join.tagName === "A") {join.removeAttribute("href"); join.removeAttribute("role")}
     join.style.cursor = "default";
     join.style.pointerEvents = "none";
     if (join.parentElement) join.parentElement.style.pointerEvents = "none";
     join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
+    
     const leaf = [...join.querySelectorAll("span")].filter(s => s.children.length === 0).find(s => /joined/i.test(s.textContent || ""));
     if (!leaf) return;
     const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
@@ -192,7 +191,6 @@
     const flags = [];
     if (u) {
       if (u.possiblySensitive) flags.push("possibly sensitive");
-      if (u.isProtected) flags.push("protected");
       if (u.withheld && u.withheld.length) flags.push("withheld in " + u.withheld.join(", "));
     }
     const sig = JSON.stringify([id, email, source, changes, changedon, names.map(n => [n.name, n.from, n.to]), flags]);

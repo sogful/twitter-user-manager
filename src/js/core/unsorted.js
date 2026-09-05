@@ -13,7 +13,6 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
 
-  // one-time viewport-% -> absolute px, same as folders (stops resize from shifting chips)
   function migratepositions() {
     let changed = false;
     const w = window.innerWidth || 1280, h = window.innerHeight || 800;

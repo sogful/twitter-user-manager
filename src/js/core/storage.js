@@ -5,11 +5,6 @@
 
   const HASCHROME = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
 
-  // which account is logged in right now. the twid cookie holds the current
-  // account id as "u=<id>" (url-encoded "u%3D<id>"); auth_multi lists all of them
-  // but we only need the active one. folders/notes/queue are namespaced per account
-  // since the block/mute/follow actions only ever apply to the logged-in account -
-  // showing another account's list here would be meaningless. settings stay global.
   function accountid() {
     try {
       const m = document.cookie.match(/(?:^|;\s*)twid=([^;]+)/);
@@ -25,12 +20,10 @@
   }
   const ACCT = accountid();
   window.tum.accountid = ACCT;
-  const NS = ACCT ? "a" + ACCT + "." : ""; // per-account key prefix ("" = not logged in / legacy)
+  const NS = ACCT ? "a" + ACCT + "." : "";
 
   /*//////////////////////////////////////////////////////////////////////*/
-  // one-time migration: the account that first runs this build inherits the old
-  // un-namespaced folders/notes. guarded by a GLOBAL flag so switching accounts
-  // later doesn't copy that same data onto a second account.
+
   const MIGKEY = "tum.migrated.v2";
   const LEGACY = ["tum.folders", "tum.unsorted"];
   if (NS) {
@@ -55,8 +48,6 @@
     }
   }
 
-  // if the logged-in account changes under us (account switch), reload so the right
-  // profile loads. debounced so a momentary cookie flicker doesn't reload.
   let switchtimer = 0;
   setInterval(() => {
     if (accountid() === ACCT) {clearTimeout(switchtimer); switchtimer = 0; return}
@@ -66,7 +57,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function create(key, opts) {
-    const rk = opts && opts.global ? key : NS + key; // real storage key
+    const rk = opts && opts.global ? key : NS + key;
     const listeners = new Set();
     function notify(v) {for (const cb of listeners) try {cb(v)} catch {}}
 

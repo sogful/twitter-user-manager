@@ -5,6 +5,7 @@
 
   const FAKE = "/settings/usermanager";
   const NAVSEL = 'div[role="tablist"]';
+
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {keepopen: true, nooverlap: false, startcollapsed: false, autoopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, confirmdelete: false, destroyoption: true};
@@ -34,6 +35,10 @@
   store.get().then(v => {vals = {...DEFAULTS, ...(v || {})}; syncswitches(); emitchange()});
   store.subscribe(v => {vals = {...DEFAULTS, ...(v || {})}; syncswitches(); emitchange()});
   function setval(key, on) {vals = {...vals, [key]: on}; store.set(vals); syncswitches(); emitchange()}
+
+  function manifestversion() {
+    try {return chrome.runtime.getManifest().version} catch {return "1.3"}
+  }
 
   function onsettings() {return location.pathname.indexOf("/settings") === 0}
   function onus() {return location.pathname.replace(/\/$/, "") === FAKE}
@@ -88,7 +93,7 @@
     const ref = document.querySelector('a[role="tab"] [data-testid="test-LTRtext"]') ||
       document.querySelector('a[role="tab"] span') || document.querySelector('a[role="tab"]') || document.body;
     const primary = getComputedStyle(ref).color || "rgb(15,20,25)";
-    const sec = "#71767b"; // twitter's gray, used for descriptions + the sub-line
+    const sec = "#71767b"; // twitter's beautifuyl wonderful gray
     return {primary, sec};
   }
 
@@ -165,13 +170,19 @@
       pane.appendChild(sh);
       for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));
     }
+    const ver = document.createElement("div");
+    ver.className = "tumsetversion";
+    ver.style.color = sec;
+    ver.textContent = "v" + manifestversion();
+    pane.appendChild(ver);
     return pane;
   }
 
   function ensurepane() {
     if (!onus()) {const p = document.querySelector(".tumsettingspane"); if (p) p.remove(); return}
-    // not sure on how to approach external extensions swapping the end for " / Twitter" so ig it just won't have it
-    if (document.title !== "User Manager") document.title = "User Manager";
+    // match whatever branding the page currently shows (" / X", or " / Twitter" from a reverter)
+    const wanted = "User Manager" + brandsuffix;
+    if (document.title !== wanted) document.title = wanted;
     markselected();
     const err = document.querySelector('[data-testid="error-detail"]');
     if (err) err.style.display = "none";
@@ -183,8 +194,18 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  // remember the site's title suffix so our page reads "User Manager / X" (or "/ Twitter" when a
+  // branding-reverter script is installed), tracked off whatever other pages currently show
+  let brandsuffix = " / X";
+  function tracktitle() {
+    const t = document.title || "";
+    if (t.indexOf("User Manager") === 0) return; // our own title, don't read it back
+    const m = / \/ (X|Twitter)$/.exec(t);
+    if (m) brandsuffix = m[0];
+  }
+
   let scheduled = 0;
-  function scan() {scheduled = 0; syncroute(); ensurenav(); ensurepane()}
+  function scan() {scheduled = 0; tracktitle(); syncroute(); ensurenav(); ensurepane()}
   function schedule() {if (!scheduled) scheduled = setTimeout(scan, 80)}
 
   window.tum.settingspane = {open() {if (!onus()) navto(FAKE)}};

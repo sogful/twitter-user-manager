@@ -308,8 +308,10 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldermore {
   color: var(--tummuted,#71767b); font-size: 11px;
-  text-align: center; padding: 6px
+  text-align: center; padding: 6px;
+  cursor: pointer
 }
+.tumfoldermore:hover {color: var(--tumtext,#e7e9ea)}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -318,7 +320,7 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   gap: 8px; cursor: grab
 }
-.tumfoldermember {padding: 2px 0; border-radius: 8px}
+.tumfoldermember {padding: 2px 5px; border-radius: 8px}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumfoldermemberavatar {
   width: 24px; height: 24px;
@@ -854,11 +856,11 @@ img {-webkit-user-drag: none; user-drag: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-/* right-click menu styled after x.com's tweet triple-dot dropdown */
+/* theme-adaptive via the host's --tum* vars, so it reads right on light/dim/dark */
 .tumcontextmenu {
   position: fixed; z-index: 8;
   min-width: 220px; max-width: 320px;
-  background: #141414;
+  background: var(--tumelev,#16181c);
   border: 1px solid var(--tumborder,#2f3336);
   border-radius: 14px; padding: 2px 0;
   opacity: 0; visibility: hidden;
@@ -877,7 +879,7 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 15px; font-weight: 700;
   font-family: inherit
 }
-.tumctxrow:hover {background: #1b1b1b}
+.tumctxrow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumctxdanger {color: #f4212e}
 .tumctxicon {
   display: flex; align-items: center; justify-content: center;
@@ -901,10 +903,9 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 15px; line-height: 20px;
   max-width: 90%; text-align: center;
   opacity: 0; visibility: hidden;
-  transition: opacity .17s cubic-bezier(0,0,1,1);
+  transition: none;
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {
-  opacity: 1; visibility: visible;
-  transition: none
+  opacity: 1; visibility: visible
 }

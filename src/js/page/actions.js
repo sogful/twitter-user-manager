@@ -66,9 +66,6 @@
     else if (action === "unmute" || action === "unblock") showposts(handle);
   }
 
-  // returns the raw http status (0 on network error) so the batch queue can tell
-  // a rate-limit (429/420, back off + retry) apart from a plain reject (403 already
-  // blocked / protected etc - skip and move on)
   async function apiraw(action, handle) {
     const path = ENDPOINTS[action];
     if (!path || !handle) return 0;
@@ -282,7 +279,7 @@
     bar.innerHTML = '<div class="tumbatchfill"></div>' +
       '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">Cancel</button></div>';
     bar.querySelector(".tumbatchcancel").addEventListener("click", cancelbatch);
-    // sit on documentElement after #tum-host so it paints over the open overlay
+    try {tum.theme.paint(bar)} catch {}
     document.documentElement.appendChild(bar);
     return bar;
   }

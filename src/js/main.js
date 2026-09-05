@@ -19,6 +19,7 @@
     safe("overlay", () => tum.overlay.mount());
     safe("dragdetect", () => tum.dragdetect.init());
     safe("newuser", () => tum.newuser.init());
+    safe("lists", () => tum.lists.init());
     safe("badges", () => tum.badges.init());
     safe("suggest", () => tum.suggest.init());
     safe("profileinfo", () => tum.profileinfo.init());

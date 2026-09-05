@@ -8,8 +8,6 @@
     muted: {re: /^\/settings\/muted\/all/, label: "muted"}
   };
 
-  // dismissals persist (global - it's a UI hint, not account data) so a dismissed
-  // banner stays gone across sessions and account switches
   const dstore = tum.storage.create("tum.suggestdismissed", {global: true});
   let dismissed = new Set();
   dstore.get().then(v => {if (Array.isArray(v)) {dismissed = new Set(v); refresh()}});

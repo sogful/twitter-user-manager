@@ -16,15 +16,11 @@
     return !!target.closest(PROFILEAVATARSEL);
   }
 
-  // twitter renders emoji in names as twemoji <img>s. those are part of the NAME, not
-  // verification badges - grabbing them as badges piled them up in a non-scrolling row
   function isemojiimg(el) {
     if (!el || el.tagName !== "IMG") return false;
     const src = el.getAttribute("src") || "", alt = el.getAttribute("alt") || "";
     return /\/emoji\//.test(src) || (!!alt && /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u.test(alt));
   }
-  // rebuild a name link's text WITH its emoji inline (as the plain emoji char), so they
-  // scroll and clip along with the rest of the name
   function nametext(el) {
     if (!el) return "";
     let s = "";
@@ -86,7 +82,6 @@
       if (!target.children.length && /^@[A-Za-z0-9_]+$/.test((target.textContent || "").trim())) return true;
     }
     if (target.closest('[data-testid^="dm-conversation-item-"]')) return true;
-    // notifications: bare avatar imgs with no handle in the dom, resolved via the map
     if (/^\/notifications/.test(location.pathname) && target.matches && target.matches("img") && /profile_images/.test(target.currentSrc || target.src || "")) return true;
     return false;
   }
@@ -157,8 +152,6 @@
     if (!handle) return null;
     const badges = capturebadges(namelink);
     const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
-    // only skip the folder action when dragging off the blocked/muted lists (already actioned);
-    // on following/followers/search etc the autoaction SHOULD run (alreadydone() guards dupes)
     const skipaction = /^\/settings\/(blocked|muted)/.test(location.pathname);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction, source: "live"};
   }
@@ -181,7 +174,10 @@
     for (let i = 0; i < 5 && scope && !avatar; i++) {avatar = scope.querySelector('[data-testid^="UserAvatar-Container-"]'); scope = scope.parentElement}
     const avatarimg = avatar && avatar.querySelector("img");
     const dimtargets = [avatar, namelink, handlelink, ...badgeels(namebox)].filter(Boolean);
-    return {handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+    return {
+      handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, 
+      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+    };
   }
 
   function extractnearavatar(av) {
@@ -202,7 +198,10 @@
       scope = scope.parentElement;
     }
     const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
-    return {handle, displayname: displayname || handle, avatarurl: img ? img.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+    return {
+      handle, displayname: displayname || handle, avatarurl: img ? img.src : null, 
+      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+    };
   }
 
   const RESERVED = /^(i|home|explore|search|notifications|messages|settings|compose)$/i;
@@ -232,7 +231,10 @@
     }
     const img = avatar && avatar.querySelector("img");
     const dimtargets = [avatar, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
-    return {handle, displayname: displayname || handle, avatarurl: img ? img.src : null, badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"};
+    return {
+      handle, displayname: displayname || handle, avatarurl: img ? img.src : null, 
+      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+    };
   }
 
   function chatavatar(scope) {return scope.querySelector('img[alt="user avatar"]') || scope.querySelector("img")}
@@ -313,8 +315,6 @@
     const dimtargets = [avatarcontainer, namelink, handlelink, statuslink, ...headerbullets(namebox, statuslink, article), ...badgeels(badgescope)];
     if (!namelink && !handlelink && namebox) {
       dimtargets.push(namebox);
-      // qrt previews render name + @handle + date as adjacent link-less spans, so
-      // textContent is one blob ("nameusername·date") - cut it at the @handle
       if (!displayname) {
         const full = (namebox.textContent || "").trim();
         const at = full.toLowerCase().indexOf("@" + handle.toLowerCase());
@@ -341,8 +341,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // pfp-url -> {handle, name}, fed by notifications responses (usercapture), so
-  // avatars that carry no handle in the dom (aggregated rows) become draggable
+  // pfp-url -> {handle, name}
   const avatarmap = new Map();
   function avatarkey(url) {
     const m = /profile_images\/(\d+)\/([^/?#.]+)/.exec(url || "");
@@ -365,9 +364,6 @@
     return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
   }
 
-  // on an aggregated notification ("A and 99 others liked...") each avatar carries its own
-  // UserAvatar-Container-<handle>; grabbing one should drag THAT user, not the article's first.
-  // scoped to /notifications so normal tweets (author + a quoted author) aren't affected.
   function aggregatednotifavatar(target, article) {
     if (!/^\/notifications/.test(location.pathname)) return null;
     const av = target.closest('[data-testid^="UserAvatar-Container-"]');
@@ -399,8 +395,8 @@
       const aggav = article ? aggregatednotifavatar(e.target, article) : null;
       if (cell) user = extractusercell(cell);
       else if (aggav) {
-        user = extractnearavatar(aggav); // has the handle from the avatar's testid
-        const mapped = extractfromavatarmap(aggav); // real display name from the harvested notif data
+        user = extractnearavatar(aggav);
+        const mapped = extractfromavatarmap(aggav);
         if (user && mapped && mapped.displayname && mapped.displayname !== user.handle) user.displayname = mapped.displayname;
       }
       else if (quoted && article && article.contains(quoted) && quoted.querySelector('[data-testid^="UserAvatar-Container-"]')) user = extractuser(quoted);

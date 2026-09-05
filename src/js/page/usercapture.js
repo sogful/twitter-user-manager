@@ -80,9 +80,6 @@
     } catch {}
   }
 
-  // notifications hand us pfp+username for avatars that carry no handle in the dom
-  // (aggregated "A and 3 others" rows), so we harvest every user we can see and
-  // ship a pfp-url -> handle map to the content side for dragging
   function scanusers(obj, out, budget) {
     if (!obj || typeof obj !== "object" || budget.n <= 0) return;
     budget.n--;

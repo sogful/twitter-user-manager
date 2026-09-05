@@ -139,13 +139,17 @@
   }
 
   function opencreatemodal(opts) {
+    opts = opts || {};
     state.editing = null;
     state.modalopen = true;
     state.open = true;
-    state.pendingfoldercat = opts && opts.cat ? {catid: opts.cat, cx: opts.cx, cy: opts.cy} : null;
+    state.pendingfoldercat = opts.cat ? {catid: opts.cat, cx: opts.cx, cy: opts.cy} : null;
+    // prefill + optional fixed position / post-create callback (used by "import as folder")
+    state.pendingpos = (typeof opts.x === "number" && typeof opts.y === "number") ? {x: opts.x, y: opts.y} : null;
+    state.pendingoncreate = typeof opts.oncreate === "function" ? opts.oncreate : null;
     modalicon = "";
-    O.els.modalname.value = "";
-    O.els.modaldesc.value = "";
+    O.els.modalname.value = opts.name || "";
+    O.els.modaldesc.value = opts.description || "";
     O.els.modalsave.textContent = "Create";
     selectaction(null);
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
@@ -175,6 +179,8 @@
     const pendinghandle = state.pendingcreate && state.pendingcreate.user && state.pendingcreate.user.handle;
     state.pendingcreate = null;
     state.pendingfoldercat = null;
+    state.pendingpos = null;
+    state.pendingoncreate = null;
     state.editing = null;
     state.modalopen = false;
     hidebackdrop();
@@ -193,7 +199,7 @@
       const members = f && Array.isArray(f.members) ? f.members.slice() : [];
       const apply = () => tum.folders.update(fid, {name, description, icon, action, color});
       const changed = action && action !== prevaction;
-      // a meaningful batch gets a warning first; a few members just runs quietly
+
       if (changed && members.length > 3) {
         const cap = action.charAt(0).toUpperCase() + action.slice(1);
         closemodal();
@@ -208,12 +214,13 @@
       apply();
       if (changed && members.length) tum.actions.enqueue(action, members.map(m => m.handle));
     } else {
-      // a folder made from a category's right-click lands inside that category, at the click
       let fx, fy, fcat = null;
       if (state.pendingfoldercat) {
         const pc = O.categorydrop(null, state.pendingfoldercat.cx, state.pendingfoldercat.cy, 200, 288);
         fx = pc.x - 100; fy = pc.y - 144; fcat = pc.cat;
         state.pendingfoldercat = null;
+      } else if (state.pendingpos) {
+        fx = state.pendingpos.x; fy = state.pendingpos.y;
       }
       const folder = tum.folders.create({name, description, icon, action, color, x: fx, y: fy, cat: fcat});
       if (state.pendingcreate) {
@@ -223,6 +230,7 @@
         if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
         filed = true;
       }
+      if (state.pendingoncreate) {const cb = state.pendingoncreate; setTimeout(() => {try {cb(folder)} catch {}}, 0)}
     }
     closemodal();
     if (filed && !O.keepopen()) closeoverlay();
@@ -396,7 +404,6 @@
     return m ? {source: {type: "folder", id: f.id}, m} : null;
   }
 
-  // launch the /explore search picker; adds the picked user to `target` (folder/category/canvas)
   function newuser(target) {
     if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
     else toast("Adding users from search is coming soon");

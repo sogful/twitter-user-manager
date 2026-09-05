@@ -152,10 +152,11 @@ a[href*="/header_photo"]:hover .tumhd,
   gap: 16px; padding: 12px 16px;
   user-select: text
 }
-/* indicator via an inset shadow (no layout box, so the tab's arrow never shifts) */
+
 [data-testid="usermanagerLink"] {transition: background-color 0.2s ease}
 [data-testid="usermanagerLink"]:hover, [data-testid="usermanagerLink"]:focus {background-color: #16181c}
 [data-testid="usermanagerLink"]:focus, [data-testid="usermanagerLink"][aria-selected="true"] {box-shadow: inset -2px 0 0 rgb(29,155,240)}
+
 .tumsetrowtext {flex: 1 1 auto; min-width: 0}
 .tumsettitle {font-size: 15px}
 .tumsetdesc {font-size: 13px; margin-top: 2px}
@@ -173,10 +174,11 @@ a[href*="/header_photo"]:hover .tumhd,
   font-weight: 800; line-height: 1.3
 }
 .tumsetpanesub {padding: 2px 16px 0; font-size: 13px}
+.tumsetversion {
+  padding: 16px; font-size: 12px;
+  text-align: right; opacity: 0.7}
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* "new user" picker mode: dim the surrounding columns (not an overlay - stacking contexts make
-   raising the nested search impossible), hide trends/recents, keep the search header live */
 
 html.tumpickuser header[role="banner"],
 html.tumpickuser [data-testid="sidebarColumn"],
@@ -186,8 +188,8 @@ html.tumpickuser [data-testid="primaryColumn"] [aria-label^="Timeline"],
 html.tumpickuser [data-testid="trend"],
 html.tumpickuser [data-testid="typeaheadRecentSearchesHeader"],
 html.tumpickuser [data-testid="typeaheadRecentSearchesItem"],
-/* search-TERM suggestions have no avatar img; only keep the actual user rows */
 html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !important}
+
 .tumpickbanner {
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 2147483000; padding: 12px 16px;
@@ -222,15 +224,15 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 /*//////////////////////////////////////////////////////////////////////*/
 /* actions.js - batch action progress bar (page-level, survives overlay close) */
 
+/* colors come from --tum* vars painted on by tum.theme.paint (light/dim/dark aware); no drop shadow */
 .tumbatchbar {
   position: fixed; left: 50%; bottom: 20px;
   transform: translateX(-50%); z-index: 2147483647;
   width: 320px; max-width: calc(100vw - 32px);
-  background: #16181c; border: 1px solid #2f3336;
+  background: var(--tumelev,#16181c); border: 1px solid var(--tumborder,#2f3336);
   border-radius: 12px; overflow: hidden;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
   font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  color: #e7e9ea}
+  color: var(--tumtext,#e7e9ea)}
 .tumbatchfill {
   height: 3px; width: 0;
   background: #1d9bf0; transition: width 0.25s ease}
@@ -239,12 +241,29 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
   gap: 12px; padding: 10px 14px}
 .tumbatchlabel {font-size: 13px; font-weight: 700}
 .tumbatchcancel {
-  flex: 0 0 auto; border: 1px solid #536471;
-  background: transparent; color: #e7e9ea;
+  flex: 0 0 auto; border: 1px solid var(--tumcancelborder,#536471);
+  background: transparent; color: var(--tumtext,#e7e9ea);
   border-radius: 999px; padding: 4px 14px;
   font-size: 13px; font-weight: 700; cursor: pointer;
   font-family: inherit}
 .tumbatchcancel:hover {background: rgba(244,33,46,0.12); border-color: #f4212e; color: #f4212e}
+
+/*//////////////////////////////////////////////////////////////////////*/
+/* lists.js - "import as folder" button injected into a list's header row */
+
+.tumlistimport {
+  display: inline-flex; align-items: center;
+  gap: 6px; margin-left: auto;
+  padding: 0 14px; height: 32px;
+  border: 1px solid #536471; border-radius: 999px;
+  background: transparent; color: inherit;
+  font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.15s ease}
+.tumlistimport:hover {background: rgba(29,155,240,0.1)}
+.tumlistimport svg {flex: 0 0 auto; display: block}
+.tumlistimport.tumbusy {opacity: 0.6; pointer-events: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 

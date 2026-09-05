@@ -23,8 +23,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  // positions used to be viewport percentages, which shifted folders around on resize.
-  // one-time convert them to absolute px (using the current viewport as the reference)
   function migratepositions() {
     let changed = false;
     const w = window.innerWidth || 1280, h = window.innerHeight || 800;
@@ -101,8 +99,6 @@
       persist();
       emit();
     },
-    // apply many position updates in ONE persist (avoids per-item storage writes each
-    // firing an onChanged -> render with a half-updated list, which flashed old positions)
     bulkmove(moves) {
       for (const m of moves) {const f = list.find(x => x.id === m.id); if (f) {f.x = m.x; f.y = m.y}}
       persist();
