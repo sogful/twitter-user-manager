@@ -1032,7 +1032,9 @@
     for (const {r} of rects) {minx = Math.min(minx, r.left); miny = Math.min(miny, r.top); maxx = Math.max(maxx, r.left + r.w); maxy = Math.max(maxy, r.top + r.h)}
 
     const pad = Math.max(maxx - minx, maxy - miny) * 0.05 + 20;
-    const s = Math.min(W / (maxx - minx + pad * 2), H / (maxy - miny + pad * 2));
+    let s = Math.min(W / (maxx - minx + pad * 2), H / (maxy - miny + pad * 2));
+    const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
+    s = Math.min(s, (W * 0.5) / vw, (H * 0.5) / vh);
     const ccx = (window.innerWidth / 2 - pan.x) / zoom, ccy = (window.innerHeight / 2 - pan.y) / zoom;
     const ox = W / 2 - ccx * s, oy = H / 2 - ccy * s;
 
