@@ -453,6 +453,8 @@
     if (!O.root.classList.contains("tumactive") || state.drag) return;
     if (e.target.closest("input, textarea")) return;
     if (e.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
+    // let the real browser menu through on the misc chrome (toolbar buttons, settings, minimap, jump panel)
+    if (e.target.closest(".tumtools, .tumtoolsright, .tumminimap, .tumjumplist")) return;
     const chip = e.target.closest(".tumloosechip");
     const memberrow = e.target.closest(".tumfoldermember");
     const foldernode = e.target.closest(".tumfolder");

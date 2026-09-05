@@ -913,8 +913,19 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  // loose chips are anchored by their CENTER (translate(-50%,-50%)), folders by their top-left.
+  // rectof always returns a true top-left bounding box so overlap math is consistent across both.
   function rectof(n) {
-    return {left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0, w: n.offsetWidth, h: n.offsetHeight};
+    const w = n.offsetWidth, h = n.offsetHeight;
+    let left = parseFloat(n.style.left) || 0, top = parseFloat(n.style.top) || 0;
+    if (n.classList.contains("tumloosechip")) {left -= w / 2; top -= h / 2}
+    return {left, top, w, h};
+  }
+  // write a true top-left back onto a node, re-centering it if it's a chip
+  function setrect(n, left, top) {
+    if (n.classList.contains("tumloosechip")) {left += n.offsetWidth / 2; top += n.offsetHeight / 2}
+    n.style.left = left + "px";
+    n.style.top = top + "px";
   }
   // nearest spot to (x,y) that doesn't overlap an existing folder - used so imports/new folders never
   // land on top of each other, regardless of the "prevent overlap" setting
@@ -995,18 +1006,31 @@
     const vw = window.innerWidth, vh = window.innerHeight;
     const vminx = -pan.x / zoom, vminy = -pan.y / zoom, vmaxx = (vw - pan.x) / zoom, vmaxy = (vh - pan.y) / zoom;
     const minx = Math.min(bb.minx, vminx), miny = Math.min(bb.miny, vminy), maxx = Math.max(bb.maxx, vmaxx), maxy = Math.max(bb.maxy, vmaxy);
-    const pad = 260, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
+    // pad in viewport-widths so the framing scales with how far you're zoomed, not a fixed canvas gap
+    const pad = (vmaxx - vminx) * 0.35, cw = (maxx - minx) + pad * 2, ch = (maxy - miny) + pad * 2;
     const s = Math.min(W / cw, H / ch);
     const ox = (W - cw * s) / 2 - (minx - pad) * s, oy = (H - ch * s) / 2 - (miny - pad) * s;
     cv._map = {s, ox, oy};
+    const X = v => ox + v * s, Y = v => oy + v * s;
+    // folders as rounded rects in their colour
     for (const n of els.freeform.querySelectorAll(".tumfolder")) {
       const r = rectof(n);
       ctx.fillStyle = n.style.getPropertyValue("--tumcolor") || "#1d9bf0";
-      ctx.fillRect(ox + r.left * s, oy + r.top * s, Math.max(2, r.w * s), Math.max(2, r.h * s));
+      const x = X(r.left), y = Y(r.top), w = Math.max(3, r.w * s), h = Math.max(3, r.h * s);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, 1.5); else ctx.rect(x, y, w, h);
+      ctx.fill();
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    // show the visible region by dimming everything OUTSIDE it - no white outline needed
+    const vx = X(vminx), vy = Y(vminy), vX = X(vmaxx), vY = Y(vmaxy);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, W, vy);
+    ctx.fillRect(0, vY, W, H - vY);
+    ctx.fillRect(0, vy, vx, vY - vy);
+    ctx.fillRect(vX, vy, W - vX, vY - vy);
+    ctx.strokeStyle = "rgba(29,155,240,0.9)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(ox + vminx * s, oy + vminy * s, (vmaxx - vminx) * s, (vmaxy - vminy) * s);
+    ctx.strokeRect(vx + 0.5, vy + 0.5, (vX - vx) - 1, (vY - vy) - 1);
   }
   function onminimapclick(e) {
     const map = els.minimapcanvas._map;
@@ -1034,8 +1058,7 @@
         let nl = br.left, nt = br.top;
         if (ox < oy) nl += (br.left + br.w / 2 >= ar.left + ar.w / 2 ? 1 : -1) * (ox + GAP);
         else nt += (br.top + br.h / 2 >= ar.top + ar.h / 2 ? 1 : -1) * (oy + GAP);
-        b.style.left = nl + "px";
-        b.style.top = nt + "px";
+        setrect(b, nl, nt);
         movedset.add(b);
         queue.push(b);
       }
@@ -1073,10 +1096,11 @@
     if (!(tum.settings && tum.settings.get("nooverlap"))) return;
     const n = [...els.freeform.querySelectorAll(".tumloosechip")].find(x => x.dataset.handle === handle);
     if (!n) return;
-    const a = nooverlapadjust(n, parseFloat(n.style.left) || 0, parseFloat(n.style.top) || 0);
-    n.style.left = a.left + "px";
-    n.style.top = a.top + "px";
-    tum.unsorted.move(handle, a.left, a.top, true);
+    const w = n.offsetWidth, h = n.offsetHeight;
+    const cx = parseFloat(n.style.left) || 0, cy = parseFloat(n.style.top) || 0; // chip pos is its center
+    const a = nooverlapadjust(n, cx - w / 2, cy - h / 2); // nooverlapadjust works in top-left space
+    setrect(n, a.left, a.top);
+    tum.unsorted.move(handle, a.left + w / 2, a.top + h / 2, true);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
