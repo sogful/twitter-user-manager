@@ -5,13 +5,13 @@
 > kind of a work in progress and not well tested..
 
 drag any profile picture or name to bring up an overlay where you can create folders and categories to add users into.<br>
-you might also notice a new <img width="20" src=".github/folder.png"> icon in most lists of users on the site, click it to import all of them as a folder!
+you might also run into a new <img width="20" src=".github/folder.png"> icon, present in most lists of users on the site, click it to import them as a folder!
 <br><br>
-as for the user info, some is pulled from twitter's new additional about menu for location/installation info, along with:
+as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
 - memory.lol ([username history before 2021](https://archive.org/details/twitterstream)),
 - breach.vip 
-- and a custom api ([emails](https://haveibeenpwned.com/Breach/Twitter200M))
-are used for more details. to get better username history, [log in on memory.lol](https://api.memory.lol/v1/login/github)
+- and a custom api. ([emails](https://haveibeenpwned.com/Breach/Twitter200M))
+to get better username history results, [log in on memory.lol](https://api.memory.lol/v1/login/github)
 <br><br>
 to install on chrome, simply clone the repository, enable developer mode in chrome extensions and "load unpacked", pointing to the cloned repo. <br><br>
 to install on firefox, first turn it into a <b>zip file</b>, and disable extension verification through <code>xpinstall.signatures.required = false</code> in about:config, or through firefox nightly/dev. <br>
