@@ -38,7 +38,6 @@ jobs:
         run: |
           cat > notes.md <<'EOF'
           install with [tampermonkey](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) or [violentmonkey](https://chromewebstore.google.com/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag).<br>
-          prefer the real extension? load the repo unpacked - the manifest works on both chrome and firefox.<br>
           [*what is a userscript?*](https://en.wikipedia.org/wiki/Userscript)
           EOF
 
