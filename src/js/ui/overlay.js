@@ -97,13 +97,16 @@
     return new Promise(res => {
       let href = "../css/overlay.css";
       try {href = chrome.runtime.getURL("src/css/overlay.css")} catch {}
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.addEventListener("load", () => res(), {once: true});
-      link.addEventListener("error", () => res(), {once: true});
-      shadow.appendChild(link);
+      fetch(href).then(r => r.text()).then(css => {
+        const st = document.createElement("style");
+        st.textContent = css;
+        shadow.appendChild(st);
+        res();
+      }).catch(() => res());
     });
+  }
+  function destroyeravailable() {
+    try {const u = chrome.runtime.getURL("desktopdestroyer/index.html"); return !!u && u !== "about:blank"} catch {return false}
   }
 
   function build() {
@@ -394,7 +397,7 @@
     els.minimapcanvas.addEventListener("click", onminimapclick);
 
     function applydestroyoption() {
-      const on = !tum.settings || tum.settings.get("destroyoption");
+      const on = (!tum.settings || tum.settings.get("destroyoption")) && destroyeravailable();
       els.actiondestroy.style.display = on ? "" : "none";
       els.actionbtns = [...root.querySelectorAll(".tumactionbtn")].filter(b => getComputedStyle(b).display !== "none");
     }

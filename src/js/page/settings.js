@@ -9,7 +9,11 @@
 
   const store = tum.storage.create("tum.settings", {global: true});
 
-  const DEFAULTS = {keepopen: true, nooverlap: false, startcollapsed: false, autoopen: false, pagepencils: true, avatardots: true, extrainfo: true, hideposts: true, confirmdelete: false, destroyoption: true};
+  const DEFAULTS = {
+    keepopen: true, nooverlap: false, startcollapsed: false, 
+    autoopen: false, pagepencils: true, avatardots: true, 
+    extrainfo: true, hideposts: false, confirmdelete: false, destroyoption: false
+  };
 
   const SECTIONS = [
     {title: "settings.section.overlay", items: [
@@ -148,6 +152,9 @@
     return row;
   }
 
+  function destroyeravailable() {
+    try {const u = chrome.runtime.getURL("desktopdestroyer/index.html"); return !!u && u !== "about:blank"} catch {return false}
+  }
   function currenthandle() {
     const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
     let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
@@ -206,12 +213,14 @@
     sub.textContent = T("settings.pane.sub");
     pane.appendChild(sub);
     for (const section of SECTIONS) {
+      const items = section.items.filter(it => it.key !== "destroyoption" || destroyeravailable());
+      if (!items.length) continue;
       const sh = document.createElement("div");
       sh.className = "tumsetsubhead";
       sh.style.color = primary;
       sh.textContent = T(section.title);
       pane.appendChild(sh);
-      for (const item of section.items) pane.appendChild(buildrow(item, primary, sec));
+      for (const item of items) pane.appendChild(buildrow(item, primary, sec));
     }
     const dh = document.createElement("div");
     dh.className = "tumsetsubhead";

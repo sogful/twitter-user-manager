@@ -4,14 +4,16 @@
   function safe(label, fn) {try {fn()} catch (e) {console.warn("[tum] " + label + " failed:", e)}}
 
   function injectpagecss() {
-    if (document.querySelector("link[data-tumpagecss]")) return;
+    if (document.querySelector("style[data-tumpagecss]")) return;
     let href = "../css/page.css";
     try {href = chrome.runtime.getURL("src/css/page.css")} catch {}
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.setAttribute("data-tumpagecss", "");
-    (document.head || document.documentElement).appendChild(link);
+    fetch(href).then(r => r.text()).then(css => {
+      if (document.querySelector("style[data-tumpagecss]")) return;
+      const st = document.createElement("style");
+      st.setAttribute("data-tumpagecss", "");
+      st.textContent = css;
+      (document.head || document.documentElement).appendChild(st);
+    }).catch(() => {});
   }
 
   function init() {

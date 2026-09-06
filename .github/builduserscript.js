@@ -50,6 +50,7 @@ let svgcount = 0;
 
 const sandboxfiles = [
   "src/js/core/storage.js",
+  "src/js/core/strings.js",
   "src/js/core/theme.js",
   "src/js/ui/iconpicker.js",
   "src/js/core/folders.js",
@@ -58,6 +59,7 @@ const sandboxfiles = [
   "src/js/page/actions.js",
   "src/js/page/dragdetect.js",
   "src/js/page/newuser.js",
+  "src/js/page/lists.js",
   "src/js/ui/overlay.js",
   "src/js/ui/overlaydrag.js",
   "src/js/ui/overlaymodals.js",
@@ -91,6 +93,20 @@ const shim = `
   /*//////////////////////////////////////////////////////////////////////*/
 
   const DESTROYERBASE = "";
+
+  const _realfetch = (typeof window !== "undefined" && window.fetch) ? window.fetch.bind(window) : null;
+  function fetch(input, opts) {
+    const u = typeof input === "string" ? input : (input && input.url);
+    if (typeof u === "string" && u.slice(0, 5) === "data:") {
+      try {
+        const comma = u.indexOf(",");
+        const meta = u.slice(5, comma);
+        const body = /;base64/i.test(meta) ? atob(u.slice(comma + 1)) : decodeURIComponent(u.slice(comma + 1));
+        return Promise.resolve(new Response(body, {status: 200, headers: {"Content-Type": meta.split(";")[0] || "text/plain"}}));
+      } catch (e) {return Promise.reject(e)}
+    }
+    return _realfetch ? _realfetch(input, opts) : Promise.reject(new Error("no fetch"));
+  }
 
   const gmx = (typeof GM_xmlhttpRequest !== "undefined" && GM_xmlhttpRequest) || (typeof GM !== "undefined" && GM.xmlHttpRequest) || null;
   function gmfetch(opts) {

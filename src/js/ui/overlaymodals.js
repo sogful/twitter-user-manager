@@ -6,6 +6,8 @@
   const T = (...a) => tum.strings.t(...a);
 
   function launchdestroyer(user) {
+    const durl = chrome.runtime.getURL("desktopdestroyer/index.html");
+    if (!durl || durl === "about:blank") {toast(T("toast.destroyer.unavailable")); return}
     const pal = tum.theme.palette();
     const bg = tum.theme.css();
     const box = el("div", "tumdestroyer");
@@ -13,8 +15,7 @@
     const frame = document.createElement("iframe");
     frame.className = "tumdestroyerframe";
     frame.allow = "autoplay";
-    frame.src = chrome.runtime.getURL("desktopdestroyer/index.html") +
-      "#url=" + encodeURIComponent(user.avatarurl || "") + "&bg=" + encodeURIComponent(bg);
+    frame.src = durl + "#url=" + encodeURIComponent(user.avatarurl || "") + "&bg=" + encodeURIComponent(bg);
 
     const exit = document.createElement("button");
     exit.className = "tumdestroyerexit";
