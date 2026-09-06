@@ -3,13 +3,13 @@
 
 drag any profile picture or name to bring up an overlay where you can create folders and categories to add users into.<br>
 you might also run into a new <img width="20" src=".github/folder.png"> icon, present in most lists of users on the site, click it to import them as a folder!
-<br><br>
+<hr>
 as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
 <li>memory.lol (<a href="https://archive.org/details/twitterstream">username history before 2021</a>),</li>
 <li>breach.vip</li> 
-<li>and a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li><br>
+<li>and a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li>
 to get better username history results, <a href="https://api.memory.lol/v1/login/google">log in on memory.lol</a>
-<br><br>
+<hr>
 to install on chrome, simply clone the repository, enable developer mode in chrome extensions and "load unpacked", pointing to the cloned repo. <br><br>
 to install on firefox, use firefox nightly/dev. if those don't work, then the firefox versions you're installing are too gated and you might need to find a workaround. you can try using the userscript version in releases! <i>(though this one is a bit stripped down due to limitations)</i>
 
