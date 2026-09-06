@@ -10,12 +10,11 @@ you might also run into a new <img width="20" src=".github/folder.png"> icon, pr
 as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
 - memory.lol ([username history before 2021](https://archive.org/details/twitterstream)),
 - breach.vip 
-- and a custom api. ([emails](https://haveibeenpwned.com/Breach/Twitter200M))
+- and a custom api. ([emails](https://haveibeenpwned.com/Breach/Twitter200M))<br>
 to get better username history results, [log in on memory.lol](https://api.memory.lol/v1/login/github)
 <br><br>
 to install on chrome, simply clone the repository, enable developer mode in chrome extensions and "load unpacked", pointing to the cloned repo. <br><br>
-to install on firefox, first turn it into a <b>zip file</b>, and disable extension verification through <code>xpinstall.signatures.required = false</code> in about:config, or through firefox nightly/dev. <br>
-if neither work, then the firefox versions you're installing are too gated and you might need to find a workaround. you can try using the userscript version in releases! <i>(though this one is a bit stripped down due to limitations)</i>
+to install on firefox, use firefox nightly/dev. if those don't work, then the firefox versions you're installing are too gated and you might need to find a workaround. you can try using the userscript version in releases! <i>(though this one is a bit stripped down due to limitations)</i>
 
 <h5>shortcuts:</h5>
 <ul>
