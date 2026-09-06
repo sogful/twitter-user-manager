@@ -58,6 +58,7 @@
   function syncroute() {
     ensureflashstyle();
     document.documentElement.classList.toggle("tumusmroute", onus());
+    try {document.documentElement.classList.toggle("tumsetlight", tum.theme && tum.theme.classify() === "light")} catch {}
   }
 
   function navto(path) {
