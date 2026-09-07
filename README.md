@@ -5,9 +5,11 @@ drag any profile picture or name to bring up an overlay where you can create fol
 you might also run into a new <img width="20" src=".github/folder.png"> icon, present in most lists of users on the site, click it to import them as a folder!
 <hr>
 as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
-<li>memory.lol (<a href="https://archive.org/details/twitterstream">username history before 2021</a>),</li>
-<li>breach.vip</li> 
-<li>and a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li>
+<ul>
+  <li>memory.lol (<a href="https://archive.org/details/twitterstream">username history before 2021</a>),</li>
+  <li>breach.vip</li> 
+  <li>and a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li>
+</ul>
 to get better username history results, <a href="https://api.memory.lol/v1/login/google">log in on memory.lol</a>
 <hr>
 to install on chrome, simply clone the repository, enable developer mode in chrome extensions and "load unpacked", pointing to the cloned repo. <br><br>
@@ -28,7 +30,7 @@ to install on firefox, use firefox nightly/dev. if those don't work, then the fi
   <tr valign="center">
     <td>
       <a href="https://github.com/sogful/twitter-flags"><b>@sogful/twitter-flags</b></a><br>
-      change x/twitter feature flag values from a clean interface
+      change twitter feature flag values from a sidebar
     </td>
   </tr>
 </table>
