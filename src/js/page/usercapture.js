@@ -4,7 +4,8 @@
   function pick(u) {
     if (!u || typeof u !== "object") return null;
     const core = u.core || {}, rel = u.relationship_counts || {}, tw = u.tweet_counts || {};
-    const ver = u.verification || {}, priv = u.privacy || {}, legacy = u.legacy || {};
+    const ver = u.verification || {}, priv = u.privacy || {}, legacy = u.legacy || {}, bio = u.profile_bio || {};
+    const withheld = [bio.withheld_in_countries, u.withheld_in_countries, legacy.withheld_in_countries].find(c => Array.isArray(c) && c.length) || null;
     const handle = core.screen_name || legacy.screen_name;
     if (!handle) return null;
     return {
@@ -19,7 +20,8 @@
       blueVerified: !!u.is_blue_verified,
       isProtected: !!(priv.protected || legacy.protected),
       possiblySensitive: !!(u.possibly_sensitive != null ? u.possibly_sensitive : legacy.possibly_sensitive),
-      withheld: (legacy.withheld_in_countries && legacy.withheld_in_countries.length ? legacy.withheld_in_countries : null) || u.withheld_in_countries || null,
+      withheld,
+      accountLabel: u.parody_commentary_fan_label && u.parody_commentary_fan_label !== "None" ? u.parody_commentary_fan_label : null,
       avatar: (u.avatar && u.avatar.image_url) || legacy.profile_image_url_https || null,
       banner: (u.banner && u.banner.image_url) || legacy.profile_banner_url || null
     };

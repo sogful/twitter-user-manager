@@ -187,17 +187,18 @@
     const source = ab && ab.source;
     const changes = ab && ab.changesCount;
     const changedon = ab && ab.changesLastMsec;
+    const accountlabel = u && u.accountLabel;
     const names = mem && mem.names ? mem.names.filter(n => n.name.toLowerCase() !== key) : [];
     const flags = [];
     if (u) {
       if (u.possiblySensitive) flags.push("possibly sensitive");
       if (u.withheld && u.withheld.length) flags.push("withheld in " + u.withheld.join(", "));
     }
-    const sig = JSON.stringify([id, email, source, changes, changedon, names.map(n => [n.name, n.from, n.to]), flags]);
+    const sig = JSON.stringify([id, email, source, changes, changedon, accountlabel, names.map(n => [n.name, n.from, n.to]), flags]);
     let box = document.querySelector(".tumextrablock");
     if (box && box.dataset.sig === sig && box.dataset.handle === handle) return;
     if (box) box.remove();
-    if (!id && !email && !source && !changes && !names.length && !flags.length) return;
+    if (!id && !email && !source && !changes && !accountlabel && !names.length && !flags.length) return;
     const gray = itemgray(items);
     box = document.createElement("div");
     box.className = "tumextrablock";
@@ -225,8 +226,13 @@
       r.appendChild(wrap);
       box.appendChild(r);
     }
+    if (accountlabel) {
+      const r = entryrow(TAGPATH); r.classList.add("tuminfomisc");
+      const t = document.createElement("span"); t.textContent = accountlabel.toLowerCase() + " account"; r.appendChild(t);
+      box.appendChild(r);
+    }
     if (flags.length) {
-      const r = entryrow(WARNPATH); r.style.color = "#f4212e";
+      const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       const t = document.createElement("span"); t.textContent = flags.join(" · "); r.appendChild(t);
       box.appendChild(r);
     }
@@ -250,7 +256,7 @@
     const shield = iconsvg(SHIELDPATH, 1);
     shield.style.color = "#f4212e";
     const wrap = document.createElement("span");
-    wrap.title = "Using/have used a VPN";
+    wrap.title = "Used a VPN while on this account! This doesn't 100% mean they are currently using a VPN.";
     wrap.className = "tumvpnwrap";
     wrap.appendChild(shield);
     return wrap;
