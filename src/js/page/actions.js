@@ -303,7 +303,7 @@
     enqueue, cancelbatch, batchstate,
     onbatch(cb) {blisteners.add(cb); return () => blisteners.delete(cb)},
     async run(action, user) {
-      if (!action) {log("no action set on this folder, just filing", user.handle); return true}
+      if (!action) {log("no action set on this folder, just adding", user.handle); return true}
       if (await alreadydone(action, user.handle)) {log("already", action, user.handle); return true}
       log("running", action, "on", user.handle);
       try {

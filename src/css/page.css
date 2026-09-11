@@ -64,7 +64,8 @@
   margin-left: 2px; vertical-align: -0.18em
 }
 .tumprofessionaldetail {
-  display: block; width: 100%;
+  display: block; width: calc(100% - 22px);
+  margin-left: 22px;
   margin-top: 1px; font-size: 11px;
   letter-spacing: -0.01em; cursor: text
 }

@@ -246,7 +246,7 @@
     const relationship = (tum.relationships && tum.relationships.get(user.handle)) || user.relationship || {};
     const following = relationship.following === true || detectfollowing(user.handle) === true;
     if (!following) return null;
-    return relationship.followedBy === true ? "You are mutuals with @" + user.handle + "." : "You follow @" + user.handle + ".";
+    return relationship.followedBy === true ? T("confirm.blockfollow.mutual", user.handle) : T("confirm.blockfollow.following", user.handle);
   }
 
   function fileinfolder(folder, user, source) {
@@ -351,9 +351,9 @@
         const warning = folder.action === "block" && source.type !== "folder" ? followwarning(user) : null;
         if (warning) {
           O.openconfirm({
-            title: "Block someone you follow?",
-            body: warning + " Filing them here will block them.",
-            oklabel: "Block",
+            title: T("confirm.blockfollow.title"),
+            body: T("confirm.blockfollow.body", warning),
+            oklabel: T("action.block"),
             onok: () => {
               fileinfolder(folder, user, source);
               if (!O.keepopen()) {render(); closeoverlay(); return}

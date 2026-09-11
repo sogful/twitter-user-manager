@@ -67,7 +67,7 @@
   }
   function copyable(row, value) {
     row.style.cursor = "pointer";
-    row.addEventListener("click", e => {e.preventDefault(); e.stopPropagation(); copytext(value); pagetoast("Copied " + value)});
+    row.addEventListener("click", e => {e.preventDefault(); e.stopPropagation(); copytext(value); pagetoast(T("profile.copied", value))});
   }
 
   const userdata = new Map();    // handle -> normalized UserByScreenName fields
@@ -115,7 +115,7 @@
     const leaf = [...join.querySelectorAll("span")].filter(s => s.children.length === 0).find(s => /joined/i.test(s.textContent || ""));
     if (!leaf) return;
     const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
-    leaf.textContent = "Joined " + date;
+    leaf.textContent = T("profile.joined", date);
   }
 
   function applycounts(handle, u) {
@@ -136,12 +136,12 @@
     const pd = perday(u);
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => d.children.length === 0 && /^[\d.,KMB]+\s+posts$/i.test((d.textContent || "").trim()));
     if (!el || el.querySelector(".tumperday, .tumprofilepostdetails")) return;
-    if (typeof u.tweets === "number") el.textContent = fmtnum(u.tweets) + " posts";
+    if (typeof u.tweets === "number") el.textContent = T("profile.posts", fmtnum(u.tweets));
     const stats = [];
-    if (typeof u.highlights === "number") stats.push(u.highlights + " highlight" + (u.highlights === 1 ? "" : "s"));
-    if (typeof u.favorites === "number") stats.push(fmtnum(u.favorites) + " likes");
+    if (typeof u.highlights === "number") stats.push(T(u.highlights === 1 ? "profile.highlight" : "profile.highlights", u.highlights));
+    if (typeof u.favorites === "number") stats.push(T("profile.likes", fmtnum(u.favorites)));
     if (!pd && !stats.length) return;
-    if (pd) {const rate = document.createElement("span"); rate.className = "tumperday"; rate.textContent = " (" + pd + "/day)"; el.appendChild(rate)}
+    if (pd) {const rate = document.createElement("span"); rate.className = "tumperday"; rate.textContent = T("profile.postrate", pd); el.appendChild(rate)}
     if (stats.length) {const details = document.createElement("span"); details.className = "tumprofilepostdetails"; details.textContent = ", " + stats.join(", "); el.appendChild(details)}
   }
 
@@ -150,7 +150,7 @@
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => {
       return d.children.length === 0 && /^[\d.,]+[KMB]?\s+likes$/i.test((d.textContent || "").trim()) && d.parentElement && d.parentElement.querySelector(":scope > h2");
     });
-    if (el) el.textContent = fmtnum(u.favorites) + " likes";
+    if (el) el.textContent = T("profile.likes", fmtnum(u.favorites));
   }
 
   function hdbutton(href) {
@@ -158,7 +158,7 @@
     a.className = "tumhd";
     a.textContent = "HD";
     a.href = href; a.target = "_blank"; a.rel = "noopener";
-    a.title = "Open full-res in a new tab";
+    a.title = T("profile.openfullres");
     a.addEventListener("click", e => {e.stopPropagation()});
     return a;
   }
@@ -226,7 +226,7 @@
     const flags = [];
     const details = [];
     if (u) {
-      if (u.possiblySensitive) flags.push("possibly sensitive");
+      if (u.possiblySensitive) flags.push(T("profile.sensitive"));
       if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, T("profile.media.tags", u.canMediaTag ? "on" : "off")]);
       const subscriptions = [];
       if (typeof u.subscriptionsHidden === "boolean") subscriptions.push(u.subscriptionsHidden ? "hidden" : "visible");
@@ -257,16 +257,16 @@
     const smallest = document.createElement("div");
     smallest.className = "tuminfosmallest";
 
-    if (id) {const r = entryrow(TAGPATH); const t = document.createElement("span"); t.textContent = "ID: " + id; r.appendChild(t); copyable(r, String(id)); normal.appendChild(r)}
+    if (id) {const r = entryrow(TAGPATH); const t = document.createElement("span"); t.textContent = T("profile.id", id); r.appendChild(t); copyable(r, String(id)); normal.appendChild(r)}
     if (email) {const r = entryrow(MAILPATH); const t = document.createElement("span"); t.textContent = email; r.appendChild(t); copyable(r, email); normal.appendChild(r)}
-    if (source) {const r = entryrow(GLOBEPATH); const t = document.createElement("span"); t.textContent = "Connected via " + source; r.appendChild(t); normal.appendChild(r)}
+    if (source) {const r = entryrow(GLOBEPATH); const t = document.createElement("span"); t.textContent = T("profile.connected", source); r.appendChild(t); normal.appendChild(r)}
     if (changes || names.length) {
       const r = entryrow(CHANGESPATH);
       const wrap = document.createElement("div");
       wrap.className = "tumusernames";
       const head = document.createElement("span");
       const n = changes != null ? changes : names.length;
-      head.textContent = n + " username change" + (n === 1 ? "" : "s") + (changedon ? " (Last on " + monthyear(changedon) + ")" : "");
+      head.textContent = T(n === 1 ? "profile.usernamechange" : "profile.usernamechanges", n) + (changedon ? T("profile.laston", monthyear(changedon)) : "");
       wrap.appendChild(head);
       for (const nm of names) {
         const line = document.createElement("span");
@@ -285,7 +285,7 @@
     }
     if (withheld) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
-      r.title = "Withheld in " + withheld.join(", ");
+      r.title = T("profile.withheldtitle", withheld.join(", "));
       r.appendChild(document.createTextNode(T("profile.withheld")));
       for (const country of withheld) r.appendChild(countryflag(country));
       smallest.appendChild(r);
@@ -324,7 +324,7 @@
     const shield = iconsvg(SHIELDPATH, 1);
     shield.style.color = "#f4212e";
     const wrap = document.createElement("span");
-    wrap.title = "Used a VPN while on this account! This doesn't 100% mean they are currently using a VPN.";
+    wrap.title = T("profile.vpn");
     wrap.className = "tumvpnwrap";
     wrap.appendChild(shield);
     return wrap;
