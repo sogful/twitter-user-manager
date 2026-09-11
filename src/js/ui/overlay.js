@@ -462,7 +462,7 @@
   }
 
   const PEEKSEL = ".tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
-    ".tumextrablock,.tumbreachbadge,.tumbreachbackdrop,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday," +
+    ".tumextrablock,.tumbreachbadge,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday,.tumprofilepostdetails,.tumprofessionaldetail," +
     '[data-testid="usermanagerLink"]';
   function ensurehidestyle() {
     if (document.getElementById("tumhideallstyle")) return;

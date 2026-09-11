@@ -31,7 +31,12 @@
 
 .tuminforow {
   display: flex; align-items: flex-start;
-  gap: 6px; line-height: 1.3
+  line-height: 1.3
+}
+.tuminfoiconbox {
+  display: inline-flex; align-items: center;
+  height: 1.25em; margin-right: 4px;
+  flex: 0 0 auto
 }
 .tuminfoicon {
   flex: 0 0 auto; fill: currentColor;
@@ -46,12 +51,12 @@
 }
 .tuminfomisc {font-size: 11px; line-height: 1.2}
 
-.tumprofilepoststats {opacity: 0.45}
+.tumperday {opacity: 0.45}
 .tumcountryflag {
   width: 1.1em; height: 1.1em;
   margin-left: 2px; vertical-align: -0.18em
 }
-.tumprofessionaldetail {font-size: 11px; opacity: 0.55}
+.tumprofessionaldetail {letter-spacing: -0.01em}
 
 .tumusernames {
   display: flex; flex-direction: column;
