@@ -5,6 +5,8 @@
     if (!u || typeof u !== "object") return null;
     const core = u.core || {}, rel = u.relationship_counts || {}, tw = u.tweet_counts || {};
     const ver = u.verification || {}, priv = u.privacy || {}, legacy = u.legacy || {}, bio = u.profile_bio || {};
+    const actions = u.action_counts || {}, highlights = u.highlights_info || {}, media = u.media_permissions || {};
+    const professional = u.professional || {};
     const withheld = [bio.withheld_in_countries, u.withheld_in_countries, legacy.withheld_in_countries].find(c => Array.isArray(c) && c.length) || null;
     const handle = core.screen_name || legacy.screen_name;
     if (!handle) return null;
@@ -16,12 +18,27 @@
       following: rel.following != null ? rel.following : legacy.friends_count,
       tweets: tw.tweets != null ? tw.tweets : legacy.statuses_count,
       mediaTweets: tw.media_tweets != null ? tw.media_tweets : legacy.media_count,
+      favorites: actions.favorites_count != null ? actions.favorites_count : legacy.favourites_count,
+      highlights: highlights.can_highlight_tweets ? Number(highlights.highlighted_tweets || 0) : null,
       verifiedType: ver.verified_type || u.verified_type || null,
       blueVerified: !!u.is_blue_verified,
       isProtected: !!(priv.protected || legacy.protected),
       possiblySensitive: !!(u.possibly_sensitive != null ? u.possibly_sensitive : legacy.possibly_sensitive),
       withheld,
       accountLabel: u.parody_commentary_fan_label && u.parody_commentary_fan_label !== "None" ? u.parody_commentary_fan_label : null,
+      canMediaTag: media.can_media_tag != null ? media.can_media_tag : legacy.can_media_tag,
+      premiumGiftingEligible: u.premium_gifting_eligible != null ? !!u.premium_gifting_eligible : null,
+      subscriptionsHidden: u.has_hidden_subscriptions_on_profile != null ? !!u.has_hidden_subscriptions_on_profile : null,
+      subscriptionsEligible: u.super_follow_eligible != null ? !!u.super_follow_eligible : null,
+      profileInterstitialType: (u.profile_metadata && u.profile_metadata.profile_interstitial_type) || legacy.profile_interstitial_type || null,
+      seedTweets: u.user_seed_tweet_count != null ? u.user_seed_tweet_count : legacy.user_seed_tweet_count,
+      verifiedSinceMsec: u.verification_info && u.verification_info.verified_since_msec ? Number(u.verification_info.verified_since_msec) : null,
+      professional: professional.category && professional.category.length ? {
+        category: professional.category[0].name || null,
+        categoryId: professional.category[0].id != null ? professional.category[0].id : null,
+        type: professional.professional_type || null,
+        restId: professional.rest_id || null
+      } : null,
       avatar: (u.avatar && u.avatar.image_url) || legacy.profile_image_url_https || null,
       banner: (u.banner && u.banner.image_url) || legacy.profile_banner_url || null
     };

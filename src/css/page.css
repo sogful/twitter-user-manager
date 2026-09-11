@@ -46,7 +46,12 @@
 }
 .tuminfomisc {font-size: 11px; line-height: 1.2}
 
-.tumperday {opacity: 0.45}
+.tumprofilepoststats {opacity: 0.45}
+.tumcountryflag {
+  width: 1.1em; height: 1.1em;
+  margin-left: 2px; vertical-align: -0.18em
+}
+.tumprofessionaldetail {font-size: 11px; opacity: 0.55}
 
 .tumusernames {
   display: flex; flex-direction: column;

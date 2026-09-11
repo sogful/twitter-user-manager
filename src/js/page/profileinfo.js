@@ -129,14 +129,18 @@
     set('a[href$="/' + handle + '/following"]', u.following);
   }
 
-  function applyperday(u) {
+  function applypoststats(u) {
     const pd = perday(u);
-    if (!pd) return;
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => d.children.length === 0 && /^[\d.,KMB]+\s+posts$/i.test((d.textContent || "").trim()));
-    if (!el || el.querySelector(".tumperday")) return;
+    if (!el || el.querySelector(".tumprofilepoststats")) return;
+    const stats = [];
+    if (pd) stats.push(pd + "/day");
+    if (typeof u.favorites === "number") stats.push(fmtnum(u.favorites) + " likes");
+    if (typeof u.highlights === "number") stats.push(u.highlights + " highlight" + (u.highlights === 1 ? "" : "s"));
+    if (!stats.length) return;
     const s = document.createElement("span");
-    s.className = "tumperday";
-    s.textContent = " (" + pd + "/day)";
+    s.className = "tumprofilepoststats";
+    s.textContent = " (" + stats.join(" · ") + ")";
     el.appendChild(s);
   }
 
@@ -172,7 +176,28 @@
     }
   }
 
+  function applyprofessional(u) {
+    const p = u.professional;
+    const existing = document.querySelector(".tumprofessionaldetail");
+    if (!p || !p.category) {if (existing) existing.remove(); return}
+    const sig = JSON.stringify([p.category, p.categoryId, p.type, p.restId]);
+    if (existing && existing.dataset.sig === sig) return;
+    if (existing) existing.remove();
+    const category = [...document.querySelectorAll("span")].find(s => !s.children.length && (s.textContent || "").trim() === p.category);
+    if (!category) return;
+    const detail = document.createElement("span");
+    detail.className = "tumprofessionaldetail";
+    detail.dataset.sig = sig;
+    const values = [];
+    if (p.type) values.push(p.type.toLowerCase());
+    if (p.categoryId != null) values.push("#" + p.categoryId);
+    if (p.restId) values.push(p.restId);
+    detail.textContent = values.length ? " · " + values.join(" · ") : "";
+    category.insertAdjacentElement("afterend", detail);
+  }
+
   function monthyear(msec) {return new Date(msec).toLocaleDateString("en-GB", {month: "long", year: "numeric"})}
+  function fulldate(msec) {return new Date(msec).toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"})}
   function memdate(s) {
     if (!s) return "";
     const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + "T00:00:00" : s);
@@ -187,18 +212,25 @@
     const source = ab && ab.source;
     const changes = ab && ab.changesCount;
     const changedon = ab && ab.changesLastMsec;
-    const accountlabel = u && u.accountLabel;
     const names = mem && mem.names ? mem.names.filter(n => n.name.toLowerCase() !== key) : [];
     const flags = [];
+    const details = [];
     if (u) {
       if (u.possiblySensitive) flags.push("possibly sensitive");
-      if (u.withheld && u.withheld.length) flags.push("withheld in " + u.withheld.join(", "));
+      if (typeof u.canMediaTag === "boolean") details.push("media tags: " + (u.canMediaTag ? "on" : "off"));
+      if (typeof u.subscriptionsHidden === "boolean") details.push("subscriptions: " + (u.subscriptionsHidden ? "hidden" : "visible"));
+      if (typeof u.subscriptionsEligible === "boolean") details.push("subscriptions: " + (u.subscriptionsEligible ? "eligible" : "unavailable"));
+      if (typeof u.premiumGiftingEligible === "boolean") details.push("premium gifts: " + (u.premiumGiftingEligible ? "eligible" : "unavailable"));
+      if (typeof u.seedTweets === "number") details.push("seed posts: " + u.seedTweets);
+      if (u.verifiedSinceMsec) details.push("blue since " + fulldate(u.verifiedSinceMsec));
+      if (u.profileInterstitialType) flags.push("profile warning: " + u.profileInterstitialType);
     }
-    const sig = JSON.stringify([id, email, source, changes, changedon, accountlabel, names.map(n => [n.name, n.from, n.to]), flags]);
+    const withheld = u && u.withheld && u.withheld.length ? u.withheld : null;
+    const sig = JSON.stringify([id, email, source, changes, changedon, names.map(n => [n.name, n.from, n.to]), details, flags, withheld]);
     let box = document.querySelector(".tumextrablock");
     if (box && box.dataset.sig === sig && box.dataset.handle === handle) return;
     if (box) box.remove();
-    if (!id && !email && !source && !changes && !accountlabel && !names.length && !flags.length) return;
+    if (!id && !email && !source && !changes && !names.length && !details.length && !flags.length && !withheld) return;
     const gray = itemgray(items);
     box = document.createElement("div");
     box.className = "tumextrablock";
@@ -226,17 +258,31 @@
       r.appendChild(wrap);
       box.appendChild(r);
     }
-    if (accountlabel) {
-      const r = entryrow(TAGPATH); r.classList.add("tuminfomisc");
-      const t = document.createElement("span"); t.textContent = accountlabel.toLowerCase() + " account"; r.appendChild(t);
-      box.appendChild(r);
-    }
+    if (details.length) {const r = entryrow(TAGPATH); r.classList.add("tuminfomisc"); const t = document.createElement("span"); t.textContent = details.join(" · "); r.appendChild(t); box.appendChild(r)}
     if (flags.length) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       const t = document.createElement("span"); t.textContent = flags.join(" · "); r.appendChild(t);
       box.appendChild(r);
     }
+    if (withheld) {
+      const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
+      r.title = "Withheld in " + withheld.join(", ");
+      r.appendChild(document.createTextNode("withheld in "));
+      for (const country of withheld) r.appendChild(countryflag(country));
+      box.appendChild(r);
+    }
     items.parentNode.insertBefore(box, items.nextSibling);
+  }
+
+  function countryflag(country) {
+    const code = String(country || "").toUpperCase();
+    const img = document.createElement("img");
+    img.className = "tumcountryflag";
+    img.alt = code; img.title = code;
+    if (!/^[A-Z]{2}$/.test(code)) {img.alt = code || "?"; return img}
+    const cps = [...code].map(c => (0x1f1e6 + c.charCodeAt(0) - 65).toString(16)).join("-");
+    img.src = "https://abs.twimg.com/emoji/v2/svg/" + cps + ".svg";
+    return img;
   }
 
   function textleft(el) {
@@ -393,7 +439,7 @@
   }
 
   function removeextras() {
-    for (const n of document.querySelectorAll(".tumextrablock, .tumbreachbadge, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday")) n.remove();
+    for (const n of document.querySelectorAll(".tumextrablock, .tumbreachbadge, .tumbasedinitem, .tumbasedin, .tumhd, .tumprofilepoststats, .tumprofessionaldetail")) n.remove();
   }
 
   function scan() {
@@ -434,8 +480,9 @@
     if (u) {
       applyjoin(items, u);
       applycounts(handle, u);
-      applyperday(u);
+      applypoststats(u);
       applyhd(handle, u);
+      applyprofessional(u);
     }
     injectbasedin(items, handle);
     injectbreach(handle);
