@@ -62,6 +62,14 @@
   "settings.pane.sub": "Preferences for the extension.",
   "settings.tab": "User Manager",
 
+  "profile.media.tags": "media tags %s",
+  "profile.subscriptions": "%s subscriptions",
+  "profile.premiumgifts": "%s premium gifts",
+  "profile.seedposts": "%s seed posts",
+  "profile.bluesince": "blue since %s",
+  "profile.warning": "profile warning %s",
+  "profile.withheld": "withheld in ",
+
   "settings.section.overlay": "Overlay",
   "settings.section.onpage": "On the page",
   "settings.section.actions": "Actions",

@@ -2,6 +2,7 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)(?:\/(?:with_replies|media|likes|highlights|articles))?\/?$/;
   const SKIP = /^\/(i|home|explore|search|notifications|messages|settings|compose)\/?$/i;
@@ -200,7 +201,7 @@
     if (p.type) values.push(p.type.toLowerCase());
     if (p.categoryId != null) values.push("#" + p.categoryId);
     if (p.restId) values.push(p.restId);
-    detail.textContent = values.length ? ", " + values.join(", ") : "";
+    detail.textContent = values.join(", ");
     const button = category.closest("button");
     (button || category).insertAdjacentElement("afterend", detail);
   }
@@ -226,15 +227,15 @@
     const details = [];
     if (u) {
       if (u.possiblySensitive) flags.push("possibly sensitive");
-      if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, "media tags: " + (u.canMediaTag ? "on" : "off")]);
+      if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, T("profile.media.tags", u.canMediaTag ? "on" : "off")]);
       const subscriptions = [];
       if (typeof u.subscriptionsHidden === "boolean") subscriptions.push(u.subscriptionsHidden ? "hidden" : "visible");
       if (typeof u.subscriptionsEligible === "boolean") subscriptions.push(u.subscriptionsEligible ? "eligible" : "unavailable");
-      if (subscriptions.length) details.push([SHIELDPATH, "subscriptions: " + subscriptions.join(", ")]);
-      if (typeof u.premiumGiftingEligible === "boolean") details.push([GIFTPATH, "premium gifts: " + (u.premiumGiftingEligible ? "eligible" : "unavailable")]);
-      if (typeof u.seedTweets === "number") details.push([CHANGESPATH, "seed posts: " + u.seedTweets]);
-      if (u.verifiedSinceMsec) details.push([SHIELDPATH, "blue since " + fulldate(u.verifiedSinceMsec)]);
-      if (u.profileInterstitialType) flags.push("profile warning: " + u.profileInterstitialType);
+      if (subscriptions.length) details.push([SHIELDPATH, T("profile.subscriptions", subscriptions.join(", "))]);
+      if (typeof u.premiumGiftingEligible === "boolean") details.push([GIFTPATH, T("profile.premiumgifts", u.premiumGiftingEligible ? "eligible" : "unavailable")]);
+      if (typeof u.seedTweets === "number") details.push([CHANGESPATH, T("profile.seedposts", u.seedTweets)]);
+      if (u.verifiedSinceMsec) details.push([SHIELDPATH, T("profile.bluesince", fulldate(u.verifiedSinceMsec))]);
+      if (u.profileInterstitialType) flags.push(T("profile.warning", u.profileInterstitialType));
     }
     const withheld = u && u.withheld && u.withheld.length ? u.withheld : null;
     const sig = JSON.stringify([id, email, source, changes, changedon, names.map(n => [n.name, n.from, n.to]), details, flags, withheld]);
@@ -249,9 +250,16 @@
     box.dataset.handle = handle;
     box.style.color = gray;
 
-    if (id) {const r = entryrow(TAGPATH); const t = document.createElement("span"); t.textContent = "ID: " + id; r.appendChild(t); copyable(r, String(id)); box.appendChild(r)}
-    if (email) {const r = entryrow(MAILPATH); const t = document.createElement("span"); t.textContent = email; r.appendChild(t); copyable(r, email); box.appendChild(r)}
-    if (source) {const r = entryrow(GLOBEPATH); const t = document.createElement("span"); t.textContent = "Connected via " + source; r.appendChild(t); box.appendChild(r)}
+    const normal = document.createElement("div");
+    normal.className = "tuminfonormal";
+    const small = document.createElement("div");
+    small.className = "tuminfosmall";
+    const smallest = document.createElement("div");
+    smallest.className = "tuminfosmallest";
+
+    if (id) {const r = entryrow(TAGPATH); const t = document.createElement("span"); t.textContent = "ID: " + id; r.appendChild(t); copyable(r, String(id)); normal.appendChild(r)}
+    if (email) {const r = entryrow(MAILPATH); const t = document.createElement("span"); t.textContent = email; r.appendChild(t); copyable(r, email); normal.appendChild(r)}
+    if (source) {const r = entryrow(GLOBEPATH); const t = document.createElement("span"); t.textContent = "Connected via " + source; r.appendChild(t); normal.appendChild(r)}
     if (changes || names.length) {
       const r = entryrow(CHANGESPATH);
       const wrap = document.createElement("div");
@@ -267,21 +275,24 @@
         wrap.appendChild(line);
       }
       r.appendChild(wrap);
-      box.appendChild(r);
+      small.appendChild(r);
     }
-    for (const [icon, detail] of details) {const r = entryrow(icon); r.classList.add("tuminfomisc"); const t = document.createElement("span"); t.textContent = detail; r.appendChild(t); box.appendChild(r)}
+    for (const [icon, detail] of details) {const r = entryrow(icon); r.classList.add("tuminfomisc"); const t = document.createElement("span"); t.textContent = detail; r.appendChild(t); smallest.appendChild(r)}
     if (flags.length) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       const t = document.createElement("span"); t.textContent = flags.join(" · "); r.appendChild(t);
-      box.appendChild(r);
+      smallest.appendChild(r);
     }
     if (withheld) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       r.title = "Withheld in " + withheld.join(", ");
-      r.appendChild(document.createTextNode("withheld in "));
+      r.appendChild(document.createTextNode(T("profile.withheld")));
       for (const country of withheld) r.appendChild(countryflag(country));
-      box.appendChild(r);
+      smallest.appendChild(r);
     }
+    if (normal.children.length) box.appendChild(normal);
+    if (small.children.length) box.appendChild(small);
+    if (smallest.children.length) box.appendChild(smallest);
     items.parentNode.insertBefore(box, items.nextSibling);
   }
 
