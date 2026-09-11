@@ -100,10 +100,18 @@
   }
 
   function findprofilefollowbutton() {
-    for (const b of document.querySelectorAll('button[aria-label^="Follow @"]')) {
+    for (const b of document.querySelectorAll('button[aria-label^="Follow"], button[aria-label^="Unfollow"]')) {
       if (!b.closest("article")) return b;
     }
     return null;
+  }
+
+  function buttonrelationship(button, handle) {
+    if (!button) return null;
+    const label = (button.getAttribute("aria-label") || "").trim();
+    const match = /^(following|follow|unfollow)(?:\s+@([A-Za-z0-9_]+))?$/i.exec(label);
+    if (!match || (match[2] && match[2].toLowerCase() !== handle.toLowerCase())) return null;
+    return {following: /^(following|unfollow)$/i.test(match[1])};
   }
 
   function findprofilenametargets(heading, handle) {
@@ -134,7 +142,8 @@
     const avatarcontainer = avatarlink && avatarlink.closest('[data-testid^="UserAvatar-Container-"]');
     const hdpill = avatarcontainer && avatarcontainer.querySelector(".tumhd");
     const dimtargets = [avatarlink, hdpill, usernameblock, ...findprofilenametargets(heading, handle)].filter(Boolean);
-    return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton: findprofilefollowbutton(), source: "live"};
+    const followbutton = findprofilefollowbutton();
+    return {handle, displayname, avatarurl: avatarimg ? avatarimg.src : null, badges, sourceurl: null, dimtargets, caret: findprofilecaret(), followbutton, relationship: buttonrelationship(followbutton, handle), source: "live"};
   }
 
   function extractusercell(cell) {
@@ -347,12 +356,19 @@
 
   // pfp-url -> {handle, name}
   const avatarmap = new Map();
+  const relationshipmap = new Map();
+  tum.relationships = {get: handle => relationshipmap.get((handle || "").toLowerCase()) || null};
   function avatarkey(url) {
     const m = /profile_images\/(\d+)\/([^/?#.]+)/.exec(url || "");
     return m ? m[1] + "/" + m[2].replace(/_(normal|bigger|mini|x96|reasonably_small|\d+x\d+)$/i, "") : null;
   }
   window.addEventListener("message", e => {
-    if (!e.data || e.data.__tumavatars !== 1 || !Array.isArray(e.data.data)) return;
+    if (!e.data) return;
+    if (e.data.__tumuser && e.data.data && e.data.data.handle) {
+      relationshipmap.set(e.data.data.handle.toLowerCase(), e.data.data.relationship || {});
+      return;
+    }
+    if (e.data.__tumavatars !== 1 || !Array.isArray(e.data.data)) return;
     for (const u of e.data.data) {const k = avatarkey(u.avatar); if (k) avatarmap.set(k, {handle: u.handle, name: u.name})}
   });
   function nearestavatarimg(target) {
@@ -442,6 +458,10 @@
     if (!user) user = extractfromavatarmap(e.target);
     if (!user) return;
     if (isself(user.handle)) return;
+    const capturedrelationship = relationshipmap.get(user.handle.toLowerCase()) || null;
+    if (user.relationship && user.relationship.following != null) {
+      user.relationship = {...capturedrelationship, following: user.relationship.following};
+    } else user.relationship = capturedrelationship;
     tracking = {startx: e.clientX, starty: e.clientY, user, dragging: false};
   }
 

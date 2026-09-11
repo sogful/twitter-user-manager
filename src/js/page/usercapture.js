@@ -6,7 +6,7 @@
     const core = u.core || {}, rel = u.relationship_counts || {}, tw = u.tweet_counts || {};
     const ver = u.verification || {}, priv = u.privacy || {}, legacy = u.legacy || {}, bio = u.profile_bio || {};
     const actions = u.action_counts || {}, highlights = u.highlights_info || {}, media = u.media_permissions || {};
-    const professional = u.professional || {};
+    const professional = u.professional || {}, perspectives = u.relationship_perspectives || {};
     const withheld = [bio.withheld_in_countries, u.withheld_in_countries, legacy.withheld_in_countries].find(c => Array.isArray(c) && c.length) || null;
     const handle = core.screen_name || legacy.screen_name;
     if (!handle) return null;
@@ -23,6 +23,10 @@
       verifiedType: ver.verified_type || u.verified_type || null,
       blueVerified: !!u.is_blue_verified,
       isProtected: !!(priv.protected || legacy.protected),
+      relationship: {
+        following: perspectives.following != null ? !!perspectives.following : null,
+        followedBy: perspectives.followed_by != null ? !!perspectives.followed_by : null
+      },
       possiblySensitive: !!(u.possibly_sensitive != null ? u.possibly_sensitive : legacy.possibly_sensitive),
       withheld,
       accountLabel: u.parody_commentary_fan_label && u.parody_commentary_fan_label !== "None" ? u.parody_commentary_fan_label : null,

@@ -149,8 +149,10 @@
   function detectfollowing(handle) {
     const h = (handle || "").toLowerCase();
     for (const b of document.querySelectorAll("button[aria-label]")) {
-      const mm = /^(following|follow)\s+@([A-Za-z0-9_]+)$/i.exec((b.getAttribute("aria-label") || "").trim());
+      const label = (b.getAttribute("aria-label") || "").trim();
+      const mm = /^(following|follow)\s+@([A-Za-z0-9_]+)$/i.exec(label);
       if (mm && mm[2].toLowerCase() === h) return /^following/i.test(mm[1]);
+      if (location.pathname.toLowerCase().startsWith("/" + h) && /^(following|unfollow)\b/i.test(label)) return true;
     }
     return null;
   }
@@ -240,6 +242,19 @@
     return null;
   }
 
+  function followwarning(user) {
+    const relationship = (tum.relationships && tum.relationships.get(user.handle)) || user.relationship || {};
+    const following = relationship.following === true || detectfollowing(user.handle) === true;
+    if (!following) return null;
+    return relationship.followedBy === true ? "You are mutuals with @" + user.handle + "." : "You follow @" + user.handle + ".";
+  }
+
+  function fileinfolder(folder, user, source) {
+    removefromsource(source, user.handle);
+    tum.folders.addmember(folder.id, user);
+    if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
+  }
+
   const EDGE = 38; // px zone
   const PANMAX = 16; // px per tick at the very edge
   let edgetimer = 0, edgevx = 0, edgevy = 0, edgexy = null;
@@ -266,16 +281,16 @@
   function updatedrag(x, y) {
     if (!state.drag) {stopedge(); return}
     movechip(x, y);
-    const target = foldertargetunderpoint(x, y);
+    const zone = quickzone(x, y);
+    const act = actionbtnunderpoint(x, y);
+    const target = (zone || act) ? null : foldertargetunderpoint(x, y);
     for (const n of O.els.freeform.querySelectorAll(".tumfolder")) {
       n.classList.toggle("tumover", !!target && target.zone === "body" && n.dataset.id === target.id);
       n.classList.toggle("tumoverremove", !!target && target.zone === "remove" && n.dataset.id === target.id);
     }
-    const zone = quickzone(x, y);
     O.els.quickadd.classList.toggle("tumover", zone === "add");
     O.els.quickdelete.classList.toggle("tumover", zone === "delete");
     O.els.quickreason.classList.toggle("tumover", zone === "reason");
-    const act = actionbtnunderpoint(x, y);
     for (const b of O.els.actionbtns) b.classList.toggle("tumover", b.dataset.act === act);
     O.els.toolclose.classList.toggle("tumdiscardover", zone === "discard");
     O.els.toolgear.classList.toggle("tumsettingsover", zone === "settings");
@@ -301,8 +316,8 @@
 
     const {user, source} = state.drag;
     const act = actionbtnunderpoint(x, y);
-    const target = act ? null : foldertargetunderpoint(x, y);
     const zone = act ? null : quickzone(x, y);
+    const target = (act || zone) ? null : foldertargetunderpoint(x, y);
 
     const dragchiprect = O.els.chip.getBoundingClientRect();
     O.root.classList.remove("tumdragging");
@@ -331,11 +346,24 @@
       const folder = tum.folders.get(target.id);
       if (folder) O.confirmfolderdelete(folder);
     } else if (target && target.zone === "body") {
-      removefromsource(source, user.handle);
       const folder = tum.folders.get(target.id);
       if (folder) {
-        tum.folders.addmember(folder.id, user);
-        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
+        const warning = folder.action === "block" && source.type !== "folder" ? followwarning(user) : null;
+        if (warning) {
+          O.openconfirm({
+            title: "Block someone you follow?",
+            body: warning + " Filing them here will block them.",
+            oklabel: "Block",
+            onok: () => {
+              fileinfolder(folder, user, source);
+              if (!O.keepopen()) {render(); closeoverlay(); return}
+              state.open = true;
+              render();
+            }
+          });
+          return;
+        }
+        fileinfolder(folder, user, source);
       }
       if (!O.keepopen()) {render(); closeoverlay(); return}
     } else if (zone === "add") {

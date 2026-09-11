@@ -35,7 +35,7 @@
 }
 .tuminfoiconbox {
   display: inline-flex; align-items: center;
-  height: 1.25em; margin-right: 4px;
+  height: 16px; margin-right: 4px;
   flex: 0 0 auto
 }
 .tuminfoicon {
@@ -56,7 +56,10 @@
   width: 1.1em; height: 1.1em;
   margin-left: 2px; vertical-align: -0.18em
 }
-.tumprofessionaldetail {letter-spacing: -0.01em; cursor: text}
+.tumprofessionaldetail {
+  font-size: 11px; letter-spacing: -0.01em;
+  cursor: text
+}
 
 .tumusernames {
   display: flex; flex-direction: column;

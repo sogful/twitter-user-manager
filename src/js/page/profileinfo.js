@@ -200,7 +200,7 @@
     if (p.type) values.push(p.type.toLowerCase());
     if (p.categoryId != null) values.push("#" + p.categoryId);
     if (p.restId) values.push(p.restId);
-    detail.textContent = values.length ? " (" + values.join(", ") + ")" : "";
+    detail.textContent = values.length ? ", " + values.join(", ") : "";
     const button = category.closest("button");
     (button || category).insertAdjacentElement("afterend", detail);
   }
