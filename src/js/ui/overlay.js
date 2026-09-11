@@ -472,9 +472,12 @@
     document.head.appendChild(st);
   }
   const peekkeys = new Set();
+  let peekdelay = 0;
   function updatepeek() {
     ensurehidestyle();
-    document.documentElement.classList.toggle("tumhideall", peekkeys.size > 0);
+    clearTimeout(peekdelay);
+    if (!peekkeys.size) {document.documentElement.classList.remove("tumhideall"); return}
+    peekdelay = setTimeout(() => {if (peekkeys.size) document.documentElement.classList.add("tumhideall")}, 100);
   }
   function ispeekkey(e) {return e.key === "Control" || e.key === "PrintScreen"}
   function onpeekdown(e) {if (ispeekkey(e)) {peekkeys.add(e.key); updatepeek()}}

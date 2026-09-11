@@ -3,7 +3,7 @@
 
   window.tum = window.tum || {};
 
-  const PROFILEPATH = /^\/([A-Za-z0-9_]+)\/?$/;
+  const PROFILEPATH = /^\/([A-Za-z0-9_]+)(?:\/(?:with_replies|media|likes|highlights|articles))?\/?$/;
   const SKIP = /^\/(i|home|explore|search|notifications|messages|settings|compose)\/?$/i;
   const ITEMSSEL = '[data-testid="UserProfileHeader_Items"]';
 
@@ -14,6 +14,7 @@
   const CHANGESPATH = "M12 3.786c-4.556 0-8.25 3.694-8.25 8.25s3.694 8.25 8.25 8.25c1.595 0 3.081-.451 4.341-1.233l1.054 1.7c-1.568.972-3.418 1.534-5.395 1.534-5.661 0-10.25-4.589-10.25-10.25S6.339 1.786 12 1.786s10.25 4.589 10.25 10.25c0 .901-.21 1.77-.452 2.477-.592 1.731-2.343 2.477-3.917 2.334-1.242-.113-2.307-.74-3.013-1.647-.961 1.253-2.45 2.011-4.092 1.78-2.581-.363-4.127-2.971-3.76-5.578.366-2.606 2.571-4.688 5.152-4.325 1.019.143 1.877.637 2.519 1.342l1.803.258-.507 3.549c-.187 1.31.761 2.509 2.079 2.629.915.083 1.627-.356 1.843-.99.2-.585.345-1.224.345-1.83 0-4.556-3.694-8.25-8.25-8.25zm-.111 5.274c-1.247-.175-2.645.854-2.893 2.623-.249 1.769.811 3.143 2.058 3.319 1.247.175 2.645-.854 2.893-2.623.249-1.769-.811-3.144-2.058-3.319z";
   const SHIELDPATH = "M12 2c1.982.042 3.945.396 5.816 1.05 1.09.372 2.154.816 3.184 1.33v7.64c.03 1.404-.27 2.797-.876 4.065-.606 1.268-1.501 2.376-2.613 3.235-.87.66-1.786 1.254-2.743 1.78-.838.514-1.787.823-2.768.9-.98-.077-1.929-.386-2.768-.9-.956-.526-1.873-1.12-2.743-1.78-1.112-.859-2.007-1.967-2.613-3.235-.606-1.268-.906-2.66-.876-4.066V4.38c1.03-.513 2.095-.957 3.184-1.33C8.056 2.398 10.018 2.043 12 2zm0 2c-1.767.047-3.515.367-5.184.95-.767.25-1.398.51-1.816.69v6.38c-.03 1.091.197 2.175.663 3.164.466.988 1.157 1.853 2.018 2.526.793.601 1.63 1.146 2.5 1.63.55.35 1.172.575 1.819.66.648-.084 1.27-.31 1.822-.66.87-.484 1.706-1.029 2.5-1.63.86-.673 1.55-1.538 2.016-2.526.465-.989.692-2.073.662-3.164V5.64c-.416-.18-1.049-.44-1.816-.69C15.516 4.367 13.767 4.047 12 4zm0 10c.83 0 1.5.67 1.5 1.5S12.83 17 12 17s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm1-1.3c-.004-.001-.502-.2-1-.2-.5 0-1 .2-1 .2L10.75 7h2.5L13 12.7z";
   const PINPATH = "M12 7c-1.93 0-3.5 1.57-3.5 3.5S10.07 14 12 14s3.5-1.57 3.5-3.5S13.93 7 12 7zm0 5c-.827 0-1.5-.673-1.5-1.5S11.173 9 12 9s1.5.673 1.5 1.5S12.827 12 12 12zm0-10c-4.687 0-8.5 3.813-8.5 8.5 0 5.967 7.621 11.116 7.945 11.332l.555.37.555-.37c.324-.216 7.945-5.365 7.945-11.332C20.5 5.813 16.687 2 12 2zm0 17.77c-1.665-1.241-6.5-5.196-6.5-9.27C5.5 6.916 8.416 4 12 4s6.5 2.916 6.5 6.5c0 4.073-4.835 8.028-6.5 9.27z";
+  const GIFTPATH = "M20 7h-3.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.36C10.96 3.54 10.05 3 9 3 7.34 3 6 4.34 6 6c0 .35.07.69.18 1H3v5h1v9h16v-9h1V7zm-6-2c.55 0 1 .45 1 1s-.45 1-1 1h-1V6c0-.55.45-1 1-1zM9 5c.55 0 1 .45 1 1v1H9c-.55 0-1-.45-1-1s.45-1 1-1zm-4 4h7v2H5V9zm2 4h5v6H7v-6zm7 6v-6h4v6h-4zm0-8V9h5v2h-5z";
   const DBPATH = "M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zm5 17c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V19zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V15zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1V8.77c1.34.63 3.13 1 5 1s3.66-.37 5-1V11zM12 8c-3.31 0-5-.65-5-1s1.69-1 5-1 5 .65 5 1-1.69 1-5 1z";
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -107,9 +108,7 @@
     if (!join || join.dataset.tumjoin) return;
     join.dataset.tumjoin = "1";
     if (join.tagName === "A") {join.removeAttribute("href"); join.removeAttribute("role")}
-    join.style.cursor = "default";
-    join.style.pointerEvents = "none";
-    if (join.parentElement) join.parentElement.style.pointerEvents = "none";
+    join.style.cursor = "text";
     join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
     
     const leaf = [...join.querySelectorAll("span")].filter(s => s.children.length === 0).find(s => /joined/i.test(s.textContent || ""));
@@ -136,12 +135,21 @@
     const pd = perday(u);
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => d.children.length === 0 && /^[\d.,KMB]+\s+posts$/i.test((d.textContent || "").trim()));
     if (!el || el.querySelector(".tumperday, .tumprofilepostdetails")) return;
+    if (typeof u.tweets === "number") el.textContent = fmtnum(u.tweets) + " posts";
     const stats = [];
-    if (typeof u.favorites === "number") stats.push(fmtnum(u.favorites) + " likes");
     if (typeof u.highlights === "number") stats.push(u.highlights + " highlight" + (u.highlights === 1 ? "" : "s"));
+    if (typeof u.favorites === "number") stats.push(fmtnum(u.favorites) + " likes");
     if (!pd && !stats.length) return;
     if (pd) {const rate = document.createElement("span"); rate.className = "tumperday"; rate.textContent = " (" + pd + "/day)"; el.appendChild(rate)}
     if (stats.length) {const details = document.createElement("span"); details.className = "tumprofilepostdetails"; details.textContent = ", " + stats.join(", "); el.appendChild(details)}
+  }
+
+  function applylikescount(u) {
+    if (typeof u.favorites !== "number") return;
+    const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => {
+      return d.children.length === 0 && /^[\d.,]+[KMB]?\s+likes$/i.test((d.textContent || "").trim()) && d.parentElement && d.parentElement.querySelector(":scope > h2");
+    });
+    if (el) el.textContent = fmtnum(u.favorites) + " likes";
   }
 
   function hdbutton(href) {
@@ -192,7 +200,7 @@
     if (p.type) values.push(p.type.toLowerCase());
     if (p.categoryId != null) values.push("#" + p.categoryId);
     if (p.restId) values.push(p.restId);
-    detail.textContent = values.length ? ", " + values.join(", ") : "";
+    detail.textContent = values.length ? " (" + values.join(", ") + ")" : "";
     const button = category.closest("button");
     (button || category).insertAdjacentElement("afterend", detail);
   }
@@ -218,14 +226,14 @@
     const details = [];
     if (u) {
       if (u.possiblySensitive) flags.push("possibly sensitive");
-      if (typeof u.canMediaTag === "boolean") details.push("media tags: " + (u.canMediaTag ? "on" : "off"));
+      if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, "media tags: " + (u.canMediaTag ? "on" : "off")]);
       const subscriptions = [];
       if (typeof u.subscriptionsHidden === "boolean") subscriptions.push(u.subscriptionsHidden ? "hidden" : "visible");
       if (typeof u.subscriptionsEligible === "boolean") subscriptions.push(u.subscriptionsEligible ? "eligible" : "unavailable");
-      if (subscriptions.length) details.push("subscriptions: " + subscriptions.join(", "));
-      if (typeof u.premiumGiftingEligible === "boolean") details.push("premium gifts: " + (u.premiumGiftingEligible ? "eligible" : "unavailable"));
-      if (typeof u.seedTweets === "number") details.push("seed posts: " + u.seedTweets);
-      if (u.verifiedSinceMsec) details.push("blue since " + fulldate(u.verifiedSinceMsec));
+      if (subscriptions.length) details.push([SHIELDPATH, "subscriptions: " + subscriptions.join(", ")]);
+      if (typeof u.premiumGiftingEligible === "boolean") details.push([GIFTPATH, "premium gifts: " + (u.premiumGiftingEligible ? "eligible" : "unavailable")]);
+      if (typeof u.seedTweets === "number") details.push([CHANGESPATH, "seed posts: " + u.seedTweets]);
+      if (u.verifiedSinceMsec) details.push([SHIELDPATH, "blue since " + fulldate(u.verifiedSinceMsec)]);
       if (u.profileInterstitialType) flags.push("profile warning: " + u.profileInterstitialType);
     }
     const withheld = u && u.withheld && u.withheld.length ? u.withheld : null;
@@ -261,7 +269,7 @@
       r.appendChild(wrap);
       box.appendChild(r);
     }
-    for (const detail of details) {const r = entryrow(TAGPATH); r.classList.add("tuminfomisc"); const t = document.createElement("span"); t.textContent = detail; r.appendChild(t); box.appendChild(r)}
+    for (const [icon, detail] of details) {const r = entryrow(icon); r.classList.add("tuminfomisc"); const t = document.createElement("span"); t.textContent = detail; r.appendChild(t); box.appendChild(r)}
     if (flags.length) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       const t = document.createElement("span"); t.textContent = flags.join(" · "); r.appendChild(t);
@@ -449,7 +457,7 @@
     if (tum.settings && !tum.settings.get("extrainfo")) {removeextras(); return}
     const handle = currenthandle();
     const items = document.querySelector(ITEMSSEL);
-    if (!handle || !items) return;
+    if (!handle) return;
     const key = handle.toLowerCase();
     if (!cache.has(key)) {
       cache.set(key, null);
@@ -481,15 +489,16 @@
     }
     const u = userdata.get(key);
     if (u) {
-      applyjoin(items, u);
+      if (items) applyjoin(items, u);
       applycounts(handle, u);
       applypoststats(u);
+      applylikescount(u);
       applyhd(handle, u);
       applyprofessional(u);
     }
-    injectbasedin(items, handle);
+    if (items) injectbasedin(items, handle);
     injectbreach(handle);
-    buildblock(items, handle);
+    if (items) buildblock(items, handle);
   }
 
   let scheduled = 0;
