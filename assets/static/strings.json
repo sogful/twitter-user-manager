@@ -1,10 +1,10 @@
 {
   "import.progress": "Importing %s users",
   "import.progress.total": "Importing %s / %s users",
-  "import.ratelimited": "Rate limited, waiting a minute...",
+  "import.ratelimited": "Rate limited, waiting a bit...",
   "import.done": "Imported %s into \"%s\"",
-  "import.stopped": "Stopped - imported %s into \"%s\"",
-  "import.fallback": "Import endpoint changed - falling back to the members page...",
+  "import.stopped": "Stopped, imported %s into \"%s\"",
+  "import.fallback": "Import endpoint changed, falling back to the members page...",
   "import.stop": "Stop",
   "import.btn": "Import as folder",
 
@@ -13,11 +13,11 @@
   "folder.import.empty": "No users found in that file",
 
   "action.confirm.title": "%s %s people?",
-  "action.confirm.body": "This will %s all %s imported users in the background. Doing this to this many accounts at once can hit rate limits and temporarily break follows/blocks on your account. You can Stop it while it runs.",
+  "action.confirm.body": "This will %s all %s imported users in the background. Doing this to a lot of accounts at once can hit rate limits and temporarily break follows/blocks on your account. You can stop it while it runs.",
   "action.confirm.ok": "%s all",
   
   "folder.empty": "Drop users here",
-  "folder.more": "+%s more (click for more)",
+  "folder.more": "+%s (click for more)",
   "folder.search": "Search",
 
   "toast.copied": "Copied %s",
@@ -26,13 +26,13 @@
   "toast.exported.folder": "Exported folder %s",
   "toast.imported.all": "Imported %s folders, %s loose users",
   "toast.imported.folder": "Imported folder %s (%s users)",
-  "toast.import.failed": "Import failed - not valid JSON",
+  "toast.import.failed": "Import failed, not valid JSON",
   "toast.batch.done": "Batch done: %s ok",
   "toast.batch.done.skipped": "Batch done: %s ok, %s skipped",
   "toast.action.failed": "Couldn't %s @%s",
   "toast.action.failed.retry": "Couldn't %s @%s, scroll back to them and try again",
-  "toast.note.deletefrom": "If you wish to delete the note, click it and press \"Delete\" instead.",
-  "toast.destroyer.unavailable": "The destroyer minigame only works in the extension build, not the userscript.",
+  "toast.note.deletefrom": "If you want to delete the note, click it and press \"Delete\" instead.",
+  "toast.destroyer.unavailable": "Not available in the userscript, sorrgy...",
 
   "menu.openprofile": "Open profile",
   "menu.customnote": "Custom note",
@@ -64,7 +64,7 @@
 
   "profile.media.tags": "media tags %s",
   "profile.subscriptions": "%s subscriptions",
-  "profile.premiumgifts": "%s premium gifts",
+  "profile.premiumgifts": "%s for premium gifts",
   "profile.seedposts": "%s articles",
   "profile.bluesince": "blue since %s",
   "profile.warning": "profile warning %s",
@@ -84,7 +84,7 @@
   "profile.usernamechange": "%s username change",
   "profile.usernamechanges": "%s username changes",
   "profile.laston": " (Last on %s)",
-  "profile.vpn": "Used a VPN while on this account! This doesn't 100% mean they are currently using a VPN.",
+  "profile.vpn": "Twitter detected this account using a VPN. This doesn't confirm they are currently using one.",
 
   "confirm.blockfollow.title": "Block someone you follow?",
   "confirm.blockfollow.mutual": "You are mutuals with @%s.",
@@ -109,9 +109,9 @@
   "settings.avatardots.title": "Folder tags on avatars",
   "settings.avatardots.desc": "Mark the avatar of anyone you added to a folder with the folder's color and icon.",
   "settings.extrainfo.title": "Extended profile info",
-  "settings.extrainfo.desc": "Add the account id, real location, username history etc on profiles.",
+  "settings.extrainfo.desc": "Add the account ID, real location, username history etc on profiles.",
   "settings.hideposts.title": "Hide posts on mute / block",
-  "settings.hideposts.desc": "When you mute or block from the overlay, also hide that person's posts already on the page. Might be a bit buggy.",
+  "settings.hideposts.desc": "When you mute or block from the overlay, also hide that person's posts already on the page. Might be a bit buggy since it doesn't do what the web client normally does.",
   "settings.confirmdelete.title": "Always confirm delete",
   "settings.confirmdelete.desc": "Ask before deleting any folder, even empty or single member ones.",
   "settings.destroyoption.title": "Fun",
@@ -119,7 +119,7 @@
 
   "settings.section.danger": "Danger zone",
   "settings.deleteall.title": "Delete everything",
-  "settings.deleteall.desc": "Permanently wipe extension data for %s on this device. This cannot be undone, so preferably export a backup first!",
+  "settings.deleteall.desc": "Permanently wipe extension data for %s on this device. This cannot be undone, so preferably export a backup first! Profiles for other accounts will remain intact.",
   "settings.deleteall.button": "Very scary...",
   "settings.deleteall.confirm": "Click again to confirm!",
   "settings.deleteall.done": "Boom!!!!!!!!!!",
