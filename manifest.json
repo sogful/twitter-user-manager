@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitter user manager",
-  "version": "1.5.1",
+  "version": "1.6",
   "description": "sort and get additional info for accounts!",
   "author": "cv",
   "homepage_url": "https://coolsite.cv",
