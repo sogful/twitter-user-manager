@@ -17,6 +17,7 @@
   let createcount = 0;
 
   let list = [];
+  let loadversion = 0;
   const listeners = new Set();
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
@@ -45,7 +46,9 @@
   }
 
   async function load() {
+    const version = ++loadversion;
     const v = await tum.storage.get();
+    if (version !== loadversion) return;
     list = Array.isArray(v) ? v : [];
     migratepositions();
     resolveready();
@@ -156,4 +159,5 @@
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };
+  window.addEventListener("tumaccountchange", load);
 })();

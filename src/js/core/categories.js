@@ -6,6 +6,7 @@
   const store = tum.storage.create("tum.categories");
 
   let list = [];
+  let loadversion = 0;
   const listeners = new Set();
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
@@ -15,7 +16,9 @@
   function persist() {store.set(list)}
 
   async function load() {
+    const version = ++loadversion;
     const v = await store.get();
+    if (version !== loadversion) return;
     list = Array.isArray(v) ? v : [];
     resolveready();
     emit();
@@ -64,4 +67,5 @@
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };
+  window.addEventListener("tumaccountchange", load);
 })();
