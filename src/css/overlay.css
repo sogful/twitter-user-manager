@@ -256,10 +256,16 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderdesc {
   color: var(--tumheaderfg, white); opacity: .7;
-  font-size: 8px; line-height: 8.5px;
-  overflow: hidden; max-width: 100%;
+  font-size: 10px; line-height: 11px;
+  overflow: hidden; max-width: 100%; white-space: nowrap
+}
+.tumfolderdesc.tumfolderdesctwo {
+  font-size: 8px; line-height: 8.5px; white-space: normal;
   display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: 2
+}
+.tumfolderdesc.tumfolderdesctwo .tummqinner {white-space: normal}
+.tumfolderdesc.tumfolderdescscroll {font-size: 10px; line-height: 11px}
 }
 .tumfolderauto {
   display: flex; align-items: center; gap: 4px;
@@ -404,6 +410,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tummqinner {display: inline-block; white-space: nowrap}
 
 .tumfoldername.tummarqueeon .tummqinner,
+.tumfolderdesc.tummarqueeon .tummqinner,
 .tumfoldermember:hover .tumfoldermembername.tummarqueeon .tummqinner,
 .tumloosechip:hover .tumloosechipname.tummarqueeon .tummqinner {animation: tummarquee var(--mqdur,6s) ease-in-out infinite}
 @keyframes tummarquee {

@@ -70,7 +70,8 @@
     const parts = typeof Intl !== "undefined" && Intl.Segmenter ? [...new Intl.Segmenter(undefined, {granularity: "grapheme"}).segment(text)].map(x => x.segment) : Array.from(text);
     return parts.map(part => {
       if (!/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}]/u.test(part)) return escapehtml(part);
-      const id = [...part].map(c => c.codePointAt(0).toString(16)).filter(c => c !== "fe0f").join("-");
+      const points = [...part].map(c => c.codePointAt(0).toString(16));
+      const id = (part.includes("\u200d") ? points : points.filter(c => c !== "fe0f")).join("-");
       return `<img class="tumnameemoji" draggable="false" alt="${escapehtml(part)}" src="https://abs.twimg.com/emoji/v2/svg/${id}.svg">`;
     }).join("");
   }
@@ -80,6 +81,12 @@
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
   function avatarurl(value) {
     return value && !/^https?:\/\//i.test(value) ? AVATARPATH + value : value;
+  }
+  function miniavatarurl(value) {
+    return (avatarurl(value) || "").replace(/_(normal|bigger|mini|x96|reasonably_small|\d+x\d+)(\.(?:jpe?g|png|webp|gif))(?=[?#]|$)/i, "_mini$2");
+  }
+  function fullavatarurl(value) {
+    return (avatarurl(value) || "").replace(/_(normal|bigger|mini|x96|reasonably_small|\d+x\d+)(\.(?:jpe?g|png|webp|gif))(?=[?#]|$)/i, "$2");
   }
   function badgeshtml(badges, user) {
     function presetvalue(badge) {
@@ -97,14 +104,14 @@
     if (user && user.protected) values.add("protected");
     const icons = {
       verified: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>',
-      verifiedbusiness: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><defs><linearGradient id="tumverifieda" gradientUnits="userSpaceOnUse" x1="4.411" x2="18.083" y1="2.495" y2="21.508"><stop offset="0" stop-color="#f4e72a"/><stop offset=".539" stop-color="#cd8105"/><stop offset=".68" stop-color="#cb7b00"/><stop offset="1" stop-color="#f4ec26"/></linearGradient><linearGradient id="tumverifiedb" gradientUnits="userSpaceOnUse" x1="5.355" x2="16.361" y1="3.395" y2="19.133"><stop offset="0" stop-color="#f9e87f"/><stop offset=".406" stop-color="#e2b719"/><stop offset=".989" stop-color="#e2b719"/></linearGradient></defs><path d="M13.324 3.848L11 1.6 8.676 3.848l-3.201-.453-.559 3.184L2.06 8.095 3.48 11l-1.42 2.904 2.856 1.516.559 3.184 3.201-.452L11 20.4l2.324-2.248 3.201.452.559-3.184 2.856-1.516L18.52 11l1.42-2.905-2.856-1.516-.559-3.184zm-7.09 7.575l3.428 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifieda)"/><path d="M13.101 4.533L11 2.5 8.899 4.533l-2.895-.41-.505 2.88-2.583 1.37L4.2 11l-1.284 2.627 2.583 1.37.505 2.88 2.895-.41L11 19.5l2.101-2.033 2.895.41.505-2.88 2.583-1.37L17.8 11l1.284-2.627-2.583-1.37-.505-2.88zm-6.868 6.89l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifiedb)"/><path d="M6.233 11.423l3.429 3.428 5.65-6.17.038-.033-.005 1.398-5.683 6.206-3.429-3.429-.003-1.405.005.003z" fill="#d18800"/></svg>',
+      verifiedbusiness: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><defs><linearGradient id="tumverifieda" gradientUnits="userSpaceOnUse" x1="4.411" x2="18.083" y1="2.495" y2="21.508"><stop offset="0" stop-color="#f4e72a"/><stop offset=".539" stop-color="#cd8105"/><stop offset=".68" stop-color="#cb7b00"/><stop offset="1" stop-color="#f4ec26"/></linearGradient><linearGradient id="tumverifiedb" gradientUnits="userSpaceOnUse" x1="5.355" x2="16.361" y1="3.395" y2="19.133"><stop offset="0" stop-color="#f9e87f"/><stop offset=".406" stop-color="#e2b719"/><stop offset=".989" stop-color="#e2b719"/></linearGradient></defs><path d="M13.324 3.848L11 1.6 8.676 3.848l-3.201-.453-.559 3.184L2.06 8.095 3.48 11l-1.42 2.904 2.856 1.516.559 3.184 3.201-.452L11 20.4l2.324-2.248 3.201.452.559-3.184 2.856-1.516L18.52 11l1.42-2.905-2.856-1.516-.559-3.184zm-7.09 7.575l3.428 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifieda)"/><path d="M13.101 4.533L11 2.5 8.899 4.533l-2.895-.41-.505 2.88-2.583 1.37L4.2 11l-1.284 2.627 2.583 1.37.505 2.88 2.895-.41L11 19.5l2.101-2.033 2.895.41.505-2.88 2.583-1.37L17.8 11l1.284-2.627-2.583-1.37-.505-2.88zm-6.868 6.89l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifiedb)"/><path d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" fill="#000"/></svg>',
       verifiedgovernment: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path fill-rule="evenodd" d="M12.05 2.056c-.568-.608-1.532-.608-2.1 0l-1.393 1.49c-.284.303-.685.47-1.1.455L5.42 3.932c-.832-.028-1.514.654-1.486 1.486l.069 2.039c.014.415-.152.816-.456 1.1l-1.49 1.392c-.608.568-.608 1.533 0 2.101l1.49 1.393c.304.284.47.684.456 1.1l-.07 2.038c-.027.832.655 1.514 1.487 1.486l2.038-.069c.415-.014.816.152 1.1.455l1.392 1.49c.569.609 1.533.609 2.102 0l1.393-1.49c.283-.303.684-.47 1.099-.455l2.038.069c.832.028 1.515-.654 1.486-1.486L18 14.542c-.015-.415.152-.815.455-1.099l1.49-1.393c.608-.568.608-1.533 0-2.101l-1.49-1.393c-.303-.283-.47-.684-.455-1.1l.068-2.038c.029-.832-.654-1.514-1.486-1.486l-2.038.07c-.415.013-.816-.153-1.1-.456zm-5.817 9.367l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z"/></svg>',
       translator: '<svg viewBox="0 0 24 24" aria-label="Translator account" role="img"><path d="M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z"/></svg>',
       translatormod: '<svg viewBox="0 0 24 24" aria-label="Translator account" role="img"><path d="M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z"/></svg>',
       protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><path fill-rule="evenodd" d="M12 1.5c2.761 0 5 2.239 5 5v.745c.22.06.431.138.638.235 1.045.495 1.887 1.337 2.381 2.382.267.563.378 1.165.43 1.849.052.673.051 1.505.051 2.539 0 1.034 0 1.866-.05 2.54-.053.683-.164 1.285-.43 1.848-.495 1.045-1.337 1.887-2.382 2.381-.563.267-1.165.378-1.849.43-.673.052-1.505.051-2.539.051h-2.5c-1.034 0-1.866 0-2.54-.05-.683-.053-1.285-.164-1.848-.43-1.045-.495-1.887-1.337-2.382-2.382-.266-.563-.377-1.165-.43-1.849-.05-.673-.05-1.505-.05-2.539 0-1.034 0-1.866.05-2.54.053-.683.164-1.285.43-1.848.495-1.045 1.337-1.887 2.382-2.382.207-.097.419-.174.638-.235V6.5c0-2.761 2.239-5 5-5zM9.5 15h5v-2h-5v2zM12 3.5c-1.657 0-3 1.343-3 3v.515C9.508 7 10.088 7 10.75 7h2.5l1.405.006c.119.002.234.006.345.009V6.5c0-1.657-1.343-3-3-3z"/></svg>'
     };
     const standard = [...values].map(value => `<span class="tumbadge tumbadge${value}">${icons[value]}</span>`).join("");
-    const linked = affiliations.map(badge => `<a class="tumbadgeaffiliation" href="/${escapehtml(badge.handle)}"><img src="${escapehtml(avatarurl(badge.avatarurl) || "")}">@${escapehtml(badge.handle)}</a>`).join("");
+    const linked = affiliations.map(badge => `<a class="tumbadgeaffiliation" href="/${escapehtml(badge.handle)}"><img src="${escapehtml(miniavatarurl(badge.avatarurl))}">@${escapehtml(badge.handle)}</a>`).join("");
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }
   function readablefg(hex) {
@@ -170,7 +177,7 @@
 
   let pan = {x: 0, y: 0};
   let zoom = 1;
-  const ZMIN = 0.35, ZMAX = 2.5;
+  const ZMIN = 0.35, ZMAX = 3;
   function applypan() {
     if (els.freeform) {
       els.freeform.style.transformOrigin = "0 0";
@@ -548,6 +555,20 @@
     if (!els.freeform) return;
     for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
   }
+  function layoutfolderdesc(node) {
+    const desc = node.querySelector(".tumfolderdesc");
+    if (!desc) return;
+    requestAnimationFrame(() => {
+      if (!desc.isConnected || desc.scrollWidth <= desc.clientWidth + 2) return;
+      desc.classList.add("tumfolderdesctwo");
+      requestAnimationFrame(() => {
+        if (!desc.isConnected || desc.scrollHeight <= desc.clientHeight + 1) return;
+        desc.classList.remove("tumfolderdesctwo");
+        desc.classList.add("tumfolderdescscroll");
+        enablemarquee(desc);
+      });
+    });
+  }
 
   function isdragged(source, handle) {
     const d = state.drag;
@@ -597,7 +618,7 @@
               <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
               ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
             </div>
-            ${f.description ? `<div class="tumfolderdesc">${escapehtml(f.description)}</div>` : ""}
+            ${f.description ? `<div class="tumfolderdesc"><span class="tummqinner">${escapehtml(f.description)}</span></div>` : ""}
           </div>
         </div>
         <div class="tumfolderheadbtns">
@@ -649,6 +670,7 @@
         row.style.display = !q || text.includes(q) ? "" : "none";
       }
     });
+    layoutfolderdesc(node);
     return node;
   }
 
@@ -682,17 +704,18 @@
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
     const unfindable = m.unfindable === true;
+    const missing = unfindable || !m.userid;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
-      <img class="tumfoldermemberavatar" src="${avatarurl(m.avatarurl) || ""}">
+      <img class="tumfoldermemberavatar" src="${miniavatarurl(m.avatarurl)}">
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
           <span class="tumcopy tumfoldermembername"><span class="tummqinner">${emojihtml(m.displayname || m.handle)}</span></span>
           ${badgeshtml(m.badges, m)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}${unfindable ? " (can't find)" : ""}</span>
+        <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}${missing ? " (can't find)" : ""}</span>
       </div>
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
@@ -715,6 +738,7 @@
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
     const unfindable = u.unfindable === true;
+    const missing = unfindable || !u.userid;
     if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
     chip.style.left = (u.x || 0) + "px";
@@ -722,14 +746,14 @@
     chip.style.background = tum.theme.css();
     chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
-      <img class="tumloosechipavatar" src="${avatarurl(u.avatarurl) || ""}">
+      <img class="tumloosechipavatar" src="${miniavatarurl(u.avatarurl)}">
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
           <span class="tumcopy tumloosechipname"><span class="tummqinner">${emojihtml(u.displayname || u.handle)}</span></span>
           ${badgeshtml(u.badges, u)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}${unfindable ? " · unfindable" : ""}</span>
+        <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}${missing ? " · can't find" : ""}</span>
       </div>
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
@@ -1230,7 +1254,7 @@
   }
 
   Object.assign(O, {
-    state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, badgeshtml,
+    state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,

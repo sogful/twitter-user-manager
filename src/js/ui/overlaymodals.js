@@ -2,7 +2,7 @@
   "use strict";
 
   const O = window.tum._ov;
-  const {el, escapehtml, linkify, iconhtml, avatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const {el, escapehtml, linkify, iconhtml, avatarurl, fullavatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
   const T = (...a) => tum.strings.t(...a);
 
   function launchdestroyer(user) {
@@ -88,7 +88,7 @@
     }
     if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);
     const badges = (Array.isArray(member.badges) ? member.badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];
     });
@@ -518,6 +518,10 @@
     const target = info.source.type === "folder" ? {type: "folder", id: info.source.id, replace: info} : {type: "canvas", cx: old.x, cy: old.y, cat: old.cat, replace: info};
     newuser(target);
   }
+  function openavatar(user) {
+    const url = fullavatarurl(user.avatarurl);
+    if (url) window.open(url, "_blank", "noopener");
+  }
 
   function oncontextmenu(e) {
     if (!O.root.classList.contains("tumactive") || state.drag) return;
@@ -538,6 +542,7 @@
       if (!info) {closectx(); return}
       items = [
         ...(info.m.unfindable === true ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
+        {label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)},
         {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
