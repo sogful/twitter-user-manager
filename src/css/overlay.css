@@ -421,13 +421,12 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 15px; height: 15px;
   display: inline-block; vertical-align: middle
 }
-.tumbadge svg {
-  fill: none; stroke: currentColor;
-  stroke-width: 1.8; stroke-linecap: round;
-  stroke-linejoin: round
-}
+.tumbadge svg {fill: currentColor}
 .tumbadgeverified {color: #1d9bf0}
-.tumbadgeprotected {color: #71767b}
+.tumbadgetranslator svg, .tumbadgetranslatormod svg {
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round
+}
 .tumbadgeaffiliation {
   display: inline-flex; align-items: center;
   gap: 2px; color: var(--tummuted,#71767b);

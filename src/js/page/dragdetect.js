@@ -141,7 +141,7 @@
     const avatarlink = document.querySelector(PROFILEAVATARSEL);
     const avatarimg = avatarlink && avatarlink.querySelector("img");
     const displayname = nametext(heading) || handle;
-    const badges = capturebadges(heading);
+    const badges = capturebadges(heading.parentElement);
     const usernameblock = document.querySelector('[data-testid="UserName"]');
     const avatarcontainer = avatarlink && avatarlink.closest('[data-testid^="UserAvatar-Container-"]');
     const hdpill = avatarcontainer && avatarcontainer.querySelector(".tumhd");
@@ -167,7 +167,7 @@
       else if (t && !namelink) {displayname = nametext(a); namelink = a}
     }
     if (!handle) return null;
-    const badges = capturebadges(namelink);
+    const badges = capturebadges(namelink && namelink.parentElement);
     const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
     const skipaction = /^\/settings\/(blocked|muted)/.test(location.pathname);
     return {handle, displayname: displayname || handle, avatarurl, badges, sourceurl: null, dimtargets, skipaction, source: "live"};
@@ -193,7 +193,7 @@
     const dimtargets = [avatar, namelink, handlelink, ...badgeels(namebox)].filter(Boolean);
     return {
       handle, displayname: displayname || handle, avatarurl: avatarimg ? avatarimg.src : null, 
-      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+      badges: capturebadges(namelink && namelink.parentElement), sourceurl: null, dimtargets, source: "live"
     };
   }
 
@@ -217,7 +217,7 @@
     const dimtargets = [av, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
     return {
       handle, displayname: displayname || handle, avatarurl: img ? img.src : null, 
-      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+      badges: capturebadges(namelink && namelink.parentElement), sourceurl: null, dimtargets, source: "live"
     };
   }
 
@@ -250,7 +250,7 @@
     const dimtargets = [avatar, namelink, handlelink, ...badgeels(namelink && namelink.parentElement)].filter(Boolean);
     return {
       handle, displayname: displayname || handle, avatarurl: img ? img.src : null, 
-      badges: capturebadges(namelink), sourceurl: null, dimtargets, source: "live"
+      badges: capturebadges(namelink && namelink.parentElement), sourceurl: null, dimtargets, source: "live"
     };
   }
 
@@ -325,7 +325,7 @@
       if (t.startsWith("@")) handlelink = handlelink || a;
       else if (t && !namelink) {displayname = nametext(a); namelink = a}
     }
-    const badges = capturebadges(namelink);
+    const badges = capturebadges(namelink && namelink.parentElement);
     const statuslink = article.querySelector('a[href*="/status/"]');
     const sourceurl = statuslink ? new URL(statuslink.getAttribute("href"), location.origin).href : null;
     const badgescope = namebox || (namelink && namelink.parentElement);
