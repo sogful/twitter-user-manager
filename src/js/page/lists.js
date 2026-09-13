@@ -47,6 +47,7 @@
     return null;
   }
 
+  const importstore = tum.storage.create("tum.importqueue");
   let importing = false, cancel = false, runtoken = 0;
   let bar = null;
 
@@ -124,7 +125,7 @@
     bar.className = "tumbatchbar";
     bar.innerHTML = '<div class="tumbatchfill"></div>' +
       '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + '</button></div>';
-    bar.querySelector(".tumbatchcancel").addEventListener("click", () => {cancel = true});
+    bar.querySelector(".tumbatchcancel").addEventListener("click", () => {cancel = true; try {importstore.set(null)} catch {}});
     try {tum.theme.paint(bar)} catch {}
     document.documentElement.appendChild(bar);
     return bar;
@@ -137,7 +138,7 @@
   }
   function removebar() {if (bar) {bar.remove(); bar = null}}
 
-  const mkmember = u => ({handle: u.handle, displayname: u.displayname, avatarurl: u.avatarurl, sourceurl: "https://x.com/" + u.handle, reason: "", badges: []});
+  const mkmember = u => ({...u, sourceurl: "https://x.com/" + u.handle, reason: "", badges: []});
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -150,7 +151,12 @@
         users.push({
           handle: o.core.screen_name,
           displayname: o.core.name || o.core.screen_name,
-          avatarurl: (o.avatar && o.avatar.image_url) || (o.legacy && o.legacy.profile_image_url_https) || null
+          avatarurl: (o.avatar && o.avatar.image_url) || (o.legacy && o.legacy.profile_image_url_https) || null,
+          userid: o.rest_id || null,
+          createdat: o.core.created_at || (o.legacy && o.legacy.created_at) || null,
+          followers: o.relationship_counts && o.relationship_counts.followers != null ? o.relationship_counts.followers : (o.legacy && o.legacy.followers_count),
+          following: o.relationship_counts && o.relationship_counts.following != null ? o.relationship_counts.following : (o.legacy && o.legacy.friends_count),
+          tweets: o.tweet_counts && o.tweet_counts.tweets != null ? o.tweet_counts.tweets : (o.legacy && o.legacy.statuses_count)
         });
       }
       if (o.cursorType === "Bottom" && o.value) cursor = o.value;
@@ -171,12 +177,15 @@
     return {ok, status: r.status, users: parsed.users, cursor: parsed.cursor};
   }
 
-  async function runimport(folder, name, expected, pagefn, fallback) {
+  async function runimport(folder, name, expected, pagefn, fallback, job) {
     const token = ++runtoken;
     importing = true; cancel = false; ensureicons();
-    const seen = new Set(), built = [];
-    let cursor = null, saved = 0;
-    ensurebar(); renderbar(0, expected);
+    const built = Array.isArray(job && job.built) ? job.built : [];
+    const seen = new Set(built.map(member => (member.handle || "").toLowerCase()));
+    let cursor = job && job.cursor || null, saved = built.length;
+    const persistjob = () => {if (job) {job.cursor = cursor; job.built = built; job.ts = Date.now(); try {importstore.set(job)} catch {}}};
+    persistjob();
+    ensurebar(); renderbar(built.length, expected);
     while (!cancel && token === runtoken) {
       let page;
       try {page = await pagefn(cursor)} catch (e) {break}
@@ -198,11 +207,19 @@
       if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
       if (!page.cursor || added === 0 || page.cursor === cursor) break;
       cursor = page.cursor;
+      persistjob();
       await sleep(350);
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
-    if (built.length === 0 && !cancel && fallback) {importing = false; fallback(folder, name, expected); return}
+    if (cancel) {if (built.length) tum.folders.update(folder.id, {members: built}); removebar(); importing = false; return}
+    if (built.length === 0 && fallback) {try {importstore.set(null)} catch {}; importing = false; fallback(folder, name, expected); return}
     finishimport(folder, built, name);
+  }
+
+  async function startapiimport(folder, name, expected, endpoint, ctx, fallback) {
+    const job = {type: "api", folderid: folder.id, name, expected, endpoint, ctx, cursor: null, built: [], ts: Date.now()};
+    try {await importstore.set(job)} catch {}
+    runimport(folder, name, expected, cursor => eppage(EP[endpoint], ctx, cursor), fallback, job);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -266,12 +283,15 @@
       built.push(mkmember({handle, displayname: nm, avatarurl: img ? img.src : null}));
     }
   }
-  async function scrapeimport(folder, expected, name, mode) {
+  async function scrapeimport(folder, expected, name, mode, job) {
     const token = ++runtoken;
     importing = true; cancel = false; ensureicons();
-    const seen = new Set(), built = [];
+    const built = Array.isArray(job && job.built) ? job.built : [];
+    const seen = new Set(built.map(member => (member.handle || "").toLowerCase()));
+    const persistjob = () => {if (job) {job.built = built; job.ts = Date.now(); try {importstore.set(job)} catch {}}};
+    persistjob();
     const harvest = mode === "articles" ? harvestarticles : harvestcells;
-    ensurebar(); renderbar(0, expected);
+    ensurebar(); renderbar(built.length, expected);
     let last = 0, stagnant = 0, saved = 0;
     for (let w = 0; w < 30 && !cancel && token === runtoken; w++) {
       const s = memberscope() || document.querySelector('[data-testid="primaryColumn"]');
@@ -288,7 +308,8 @@
       await sleep(document.hidden ? 1300 : 650);
       harvest(seen, built);
       renderbar(built.length, expected);
-      if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length}
+      persistjob();
+      if (built.length - saved >= 300) {tum.folders.update(folder.id, {members: built.slice()}, true); saved = built.length; persistjob()}
 
       if (built.length === last) {if (!document.hidden) stagnant++} else stagnant = 0;
       last = built.length;
@@ -298,7 +319,14 @@
       if (++iters > 9000) break;
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
+    if (cancel) {if (built.length) tum.folders.update(folder.id, {members: built}); removebar(); importing = false; return}
     finishimport(folder, built, name);
+  }
+
+  async function startscrapeimport(folder, expected, name, mode) {
+    const job = {type: "scrape", folderid: folder.id, expected, name, mode, built: [], ts: Date.now()};
+    try {await importstore.set(job)} catch {}
+    scrapeimport(folder, expected, name, mode, job);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -319,11 +347,23 @@
       return;
     }
     try {pendingstore.set(null)} catch {}
-    scrapeimport(tum.folders.get(p.folderid) || {id: p.folderid}, p.expected, p.name, "usercells");
+    startscrapeimport(tum.folders.get(p.folderid) || {id: p.folderid}, p.expected, p.name, "usercells");
+  }
+  async function resumeapiimport() {
+    let job = null;
+    try {job = await importstore.get()} catch {}
+    if (!job || !job.folderid || !Array.isArray(job.built)) return;
+    const folder = tum.folders.get(job.folderid);
+    if (!folder) {try {importstore.set(null)} catch {}; return}
+    if (job.type === "scrape") {scrapeimport(folder, job.expected, job.name, job.mode, job); return}
+    if (job.type !== "api" || !EP[job.endpoint]) return;
+    const fallback = job.endpoint === "list" ? (f, n, e) => startscrapefallback(job.ctx.id, f.id, n, e) : (f, n, e) => startscrapeimport(f, e, n, "usercells");
+    runimport(folder, job.name, job.expected, cursor => eppage(EP[job.endpoint], job.ctx, cursor), fallback, job);
   }
 
   function finishimport(folder, built, name) {
     tum.folders.update(folder.id, {members: built});
+    try {importstore.set(null)} catch {}
     removebar();
     importing = false;
     autoaction(folder, built);
@@ -397,7 +437,7 @@
       match: () => {const m = /^\/i\/lists\/(\d+)$/.exec(location.pathname); return m ? {id: m[1]} : null},
       anchor: headerrow,
       meta: () => ({name: listname(), description: listdescription()}),
-      start: (folder, ctx) => runimport(folder, listname(), membercount(), c => eppage(EP.list, ctx, c), (f, n, e) => startscrapefallback(ctx.id, f.id, n, e))
+      start: (folder, ctx) => startapiimport(folder, listname(), membercount(), "list", ctx, (f, n, e) => startscrapefallback(ctx.id, f.id, n, e))
     },
     {
       key: "follows",
@@ -406,8 +446,8 @@
       meta: ctx => ({name: (headername() || "@" + ctx.user) + " " + FOLLOWLABEL[ctx.kind], description: "(@" + ctx.user + ")"}),
       start: async (folder, ctx, meta) => {
         const uid = await resolveuserid(ctx.user);
-        if (uid) {ctx.userid = uid; runimport(folder, meta.name, 0, c => eppage(EP[ctx.kind], ctx, c), (f, n, e) => scrapeimport(f, e, n, "usercells"))}
-        else scrapeimport(folder, 0, meta.name, "usercells");
+        if (uid) {ctx.userid = uid; startapiimport(folder, meta.name, 0, ctx.kind, ctx, (f, n, e) => startscrapeimport(f, e, n, "usercells"))}
+        else startscrapeimport(folder, 0, meta.name, "usercells");
       }
     },
     {
@@ -415,21 +455,21 @@
       match: () => {const m = /^\/i\/communities\/(\d+)\/(members|moderators)$/.exec(location.pathname); return m ? {id: m[1], kind: m[2]} : null},
       anchor: headerrow,
       meta: async ctx => {const nm = await communityname(ctx.id); return {name: (nm || "Community") + " " + cap(ctx.kind), description: "(" + ctx.id + ")"}},
-      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "usercells")
+      start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "usercells")
     },
     {
       key: "reposts",
       match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/(retweets|reposts)$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
       anchor: () => dialogrow() || headerrow(),
       meta: ctx => ({name: "@" + ctx.user + " reposters", description: "(" + ctx.id + ")"}),
-      start: (folder, ctx, meta) => runimport(folder, meta.name, 0, c => eppage(EP.reposts, ctx, c), (f, n, e) => scrapeimport(f, e, n, "usercells"))
+      start: (folder, ctx, meta) => startapiimport(folder, meta.name, 0, "reposts", ctx, (f, n, e) => startscrapeimport(f, e, n, "usercells"))
     },
     {
       key: "quotes",
       match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/quotes$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
       anchor: headerrow,
       meta: ctx => ({name: "@" + ctx.user + " quoters", description: "(" + ctx.id + ")"}),
-      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "articles")
+      start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "articles")
     },
     {
       key: "replies",
@@ -437,7 +477,7 @@
       anchor: replyfilterrow,
       variant: "tumimportgrey",
       meta: ctx => ({name: "@" + ctx.user + " repliers", description: "(" + ctx.id + ")"}),
-      start: (folder, ctx, meta) => scrapeimport(folder, 0, meta.name, "articles")
+      start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "articles")
     }
   ];
 
@@ -489,7 +529,7 @@
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
       schedule();
-      setTimeout(() => {try {resumescrape()} catch {}}, 1500);
+      setTimeout(() => {try {resumescrape(); resumeapiimport()} catch {}}, 1500);
     }
   };
 })();

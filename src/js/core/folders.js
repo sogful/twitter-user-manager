@@ -67,6 +67,22 @@
     return c;
   }
 
+  function mergedmember(existing, user) {
+    const entry = {
+      handle: user.handle || (existing && existing.handle),
+      displayname: user.displayname !== undefined ? user.displayname : (existing && existing.displayname),
+      avatarurl: user.avatarurl != null ? user.avatarurl : (existing && existing.avatarurl),
+      sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
+      reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
+      badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || []
+    };
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected"]) {
+      if (user[key] !== undefined && user[key] !== null) entry[key] = user[key];
+      else if (existing && existing[key] !== undefined) entry[key] = existing[key];
+    }
+    return entry;
+  }
+
   window.tum.folders = {
     ACTIONS, COLORS,
     ready,
@@ -126,16 +142,10 @@
       const key = (user.handle || "").toLowerCase();
       const existing = f.members.find(m => m.handle.toLowerCase() === key);
       f.members = f.members.filter(m => m.handle.toLowerCase() !== key);
-      f.members.unshift({
-        handle: user.handle,
-        displayname: user.displayname,
-        avatarurl: user.avatarurl,
-        sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
-        reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
-        badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || []
-      });
+      f.members.unshift(mergedmember(existing, user));
       persist();
       emit();
+      if (!f.members[0].userid && tum.accountdata) tum.accountdata.enrich(f.members[0].handle);
       return f;
     },
     removemember(id, handle) {
@@ -156,6 +166,20 @@
       if (sourceurl !== undefined) m.sourceurl = sourceurl;
       persist();
       emit();
+    },
+    refreshmember(handle, user) {
+      const key = (handle || "").toLowerCase();
+      let changed = false;
+      for (const f of list) if (Array.isArray(f.members)) {
+        f.members = f.members.map(m => {
+          const sameid = user.userid && m.userid && String(user.userid) === String(m.userid);
+          if (!sameid && m.handle.toLowerCase() !== key) return m;
+          changed = true;
+          return mergedmember(m, user);
+        });
+      }
+      if (changed) {persist(); emit()}
+      return changed;
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };

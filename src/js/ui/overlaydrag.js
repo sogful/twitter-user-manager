@@ -87,8 +87,7 @@
         if (!dragging) {
           if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < THRESHOLD) return;
           dragging = true;
-          const user = {handle: m.handle, displayname: m.displayname, avatarurl: m.avatarurl, 
-                        sourceurl: m.sourceurl, reason: m.reason, badges: m.badges || []};
+          const user = {...m, badges: m.badges || []};
           begindrag(user, ev.clientX, ev.clientY, source);
         }
         updatedrag(ev.clientX, ev.clientY);

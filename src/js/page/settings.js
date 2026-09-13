@@ -162,6 +162,208 @@
     if (!h) {const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'); const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || ""); if (m) h = m[1]}
     return h ? "@" + h : "this account";
   }
+  const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+  const FEATURES = '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}';
+  const REFRESHBATCHSIZE = 120;
+  const REFRESHPAUSE = 16 * 60 * 1000;
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  function profilefromresult(result) {
+    if (!result || typeof result !== "object") return null;
+    const core = result.core || {}, legacy = result.legacy || {}, rel = result.relationship_counts || {}, tweets = result.tweet_counts || {};
+    const handle = core.screen_name || legacy.screen_name;
+    if (!handle || !result.rest_id) return null;
+    return {
+      handle,
+      displayname: core.name || legacy.name || handle,
+      avatarurl: (result.avatar && result.avatar.image_url) || legacy.profile_image_url_https || null,
+      userid: String(result.rest_id),
+      createdat: core.created_at || legacy.created_at || null,
+      followers: rel.followers != null ? rel.followers : legacy.followers_count,
+      following: rel.following != null ? rel.following : legacy.friends_count,
+      tweets: tweets.tweets != null ? tweets.tweets : legacy.statuses_count,
+      mediatweets: tweets.media_tweets != null ? tweets.media_tweets : legacy.media_count,
+      favorites: result.action_counts && result.action_counts.favorites_count != null ? result.action_counts.favorites_count : legacy.favourites_count,
+      highlights: result.highlights_info && result.highlights_info.can_highlight_tweets ? Number(result.highlights_info.highlighted_tweets || 0) : null,
+      verifiedtype: result.verification && result.verification.verified_type || result.verified_type || null,
+      blueverified: !!result.is_blue_verified,
+      protected: !!(result.privacy && result.privacy.protected || legacy.protected)
+    };
+  }
+  function finduser(value, budget) {
+    if (!value || typeof value !== "object" || budget.n-- <= 0) return null;
+    if (value.rest_id && value.core && value.core.screen_name) return value;
+    for (const child of Object.values(value)) {
+      const found = finduser(child, budget);
+      if (found) return found;
+    }
+    return null;
+  }
+  function headers() {
+    const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+    return {authorization: PUBBEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes", "x-twitter-client-language": "en"};
+  }
+  async function requestprofile(member) {
+    const byid = member.userid ? {qid: "VQfQ9wwYdk6j_u2O4vt64Q", operation: "UserByRestId", variables: {userId: String(member.userid), withGrokTranslatedBio: true}} :
+      {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}};
+    const url = "/i/api/graphql/" + byid.qid + "/" + byid.operation + "?variables=" + encodeURIComponent(JSON.stringify(byid.variables)) + "&features=" + encodeURIComponent(FEATURES);
+    let response;
+    try {response = await fetch(url, {credentials: "include", headers: headers()})} catch {return {ok: false, retry: false}}
+    if (!response.ok) return {ok: false, retry: response.status === 429};
+    let json = null;
+    try {json = await response.json()} catch {}
+    const user = profilefromresult(finduser(json, {n: 30000}));
+    return user ? {ok: true, user} : {ok: false, retry: false};
+  }
+  function saveprofile(oldhandle, user) {
+    const folders = tum.folders.refreshmember(oldhandle, user);
+    const unsorted = tum.unsorted.refreshmember(oldhandle, user);
+    return folders || unsorted;
+  }
+  const pendingenrichment = new Set();
+  async function enrichprofile(handle) {
+    const key = String(handle || "").toLowerCase();
+    if (!key || pendingenrichment.has(key)) return;
+    pendingenrichment.add(key);
+    const result = await requestprofile({handle});
+    if (result.ok) saveprofile(handle, result.user);
+    pendingenrichment.delete(key);
+  }
+  window.tum.accountdata = {enrich: enrichprofile};
+  function storedprofile(data) {
+    if (!data || !data.handle || !data.restId) return null;
+    return {
+      handle: data.handle,
+      displayname: data.displayname || data.handle,
+      avatarurl: data.avatar || null,
+      userid: String(data.restId),
+      createdat: data.createdAt || null,
+      followers: data.followers,
+      following: data.following,
+      tweets: data.tweets,
+      mediatweets: data.mediaTweets,
+      favorites: data.favorites,
+      highlights: data.highlights,
+      verifiedtype: data.verifiedType,
+      blueverified: data.blueVerified,
+      protected: data.isProtected
+    };
+  }
+  const repopulatestore = tum.storage.create("tum.repopulation");
+  let repopulation = null, repopulating = false, repopulatecancel = false, repopulatebar = null;
+  function removerepopulatebar() {if (repopulatebar) {repopulatebar.remove(); repopulatebar = null}}
+  function ensurerepopulatebar() {
+    if (repopulatebar && document.documentElement.contains(repopulatebar)) return repopulatebar;
+    repopulatebar = document.createElement("div");
+    repopulatebar.className = "tumbatchbar tumrepopulatebar";
+    repopulatebar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + "</button></div>";
+    repopulatebar.querySelector(".tumbatchcancel").addEventListener("click", cancelrepopulate);
+    try {tum.theme.paint(repopulatebar)} catch {}
+    document.documentElement.appendChild(repopulatebar);
+    return repopulatebar;
+  }
+  function renderrepopulate(note) {
+    if (!repopulation) {removerepopulatebar(); return}
+    const bar = ensurerepopulatebar();
+    const total = repopulation.members.length;
+    bar.querySelector(".tumbatchfill").style.width = Math.round(repopulation.index / total * 100) + "%";
+    bar.querySelector(".tumbatchlabel").textContent = note || T("settings.repopulate.progress", Math.min(repopulation.index + 1, total), total);
+  }
+  function persistrepopulation() {return repopulatestore.set(repopulation)}
+  function cancelrepopulate() {
+    repopulatecancel = true;
+    repopulation = null;
+    persistrepopulation();
+    removerepopulatebar();
+  }
+  async function waitrepopulate(until, label) {
+    renderrepopulate(label);
+    await sleep(Math.max(0, until - Date.now()));
+  }
+  async function runrepopulate() {
+    if (repopulating || !repopulation) return;
+    repopulating = true;
+    repopulatecancel = false;
+    try {
+      while (repopulation && !repopulatecancel && repopulation.index < repopulation.members.length) {
+        if (repopulation.waituntil && repopulation.waituntil > Date.now()) {
+          await waitrepopulate(repopulation.waituntil, T("settings.repopulate.ratelimited", Math.ceil((repopulation.waituntil - Date.now()) / 60000)));
+          if (!repopulation || repopulatecancel) break;
+          repopulation.waituntil = 0;
+          await persistrepopulation();
+        }
+        const member = repopulation.members[repopulation.index];
+        renderrepopulate();
+        let result = await requestprofile(member);
+        if (!repopulation || repopulatecancel) break;
+        if (result.retry) {
+          repopulation.waituntil = Date.now() + REFRESHPAUSE;
+          await persistrepopulation();
+          continue;
+        }
+        if (result.ok && saveprofile(member.handle, result.user)) repopulation.updated++;
+        else repopulation.missing++;
+        repopulation.index++;
+        if (repopulation.index < repopulation.members.length && repopulation.index % REFRESHBATCHSIZE === 0) {
+          repopulation.waituntil = Date.now() + REFRESHPAUSE;
+          await persistrepopulation();
+          await waitrepopulate(repopulation.waituntil, T("settings.repopulate.pause", REFRESHBATCHSIZE, Math.round(REFRESHPAUSE / 60000)));
+          if (!repopulation || repopulatecancel) break;
+          repopulation.waituntil = 0;
+        }
+        await persistrepopulation();
+        if (repopulation && !repopulatecancel && repopulation.index < repopulation.members.length) await sleep(700);
+      }
+      if (repopulation && !repopulatecancel && repopulation.index >= repopulation.members.length) {
+        try {tum.overlay.toast(T("settings.repopulate.done", repopulation.updated, repopulation.missing))} catch {}
+        repopulation = null;
+        await persistrepopulation();
+        removerepopulatebar();
+      }
+    } finally {repopulating = false}
+  }
+  async function repopulate(button) {
+    if (repopulating) return;
+    if (repopulation) {runrepopulate(); return}
+    const unique = new Map();
+    for (const member of [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()]) {
+      if (!member || !member.handle) continue;
+      unique.set(member.userid ? "id:" + member.userid : "handle:" + member.handle.toLowerCase(), member);
+    }
+    if (!unique.size) {button.textContent = T("settings.repopulate.empty"); return}
+    repopulation = {members: [...unique.values()].map(member => ({handle: member.handle, userid: member.userid || null})), index: 0, updated: 0, missing: 0, waituntil: 0};
+    await persistrepopulation();
+    runrepopulate();
+  }
+  async function loadrepopulation() {
+    if (repopulating) return;
+    let saved = null;
+    try {saved = await repopulatestore.get()} catch {}
+    if (!saved || !Array.isArray(saved.members) || !saved.members.length || typeof saved.index !== "number") return;
+    repopulation = saved;
+    runrepopulate();
+  }
+  function buildrepulaterow(primary, sec) {
+    const row = document.createElement("div");
+    row.className = "tumsetrow";
+    const txt = document.createElement("div");
+    txt.className = "tumsetrowtext";
+    const title = document.createElement("div");
+    title.className = "tumsettitle";
+    title.style.color = primary;
+    title.textContent = T("settings.repopulate.title");
+    const desc = document.createElement("div");
+    desc.className = "tumsetdesc";
+    desc.style.color = sec;
+    desc.textContent = T("settings.repopulate.desc");
+    txt.append(title, desc);
+    const button = document.createElement("button");
+    button.className = "tumsetdangerbtn";
+    button.textContent = T("settings.repopulate.button");
+    button.addEventListener("click", () => repopulate(button));
+    row.append(txt, button);
+    return row;
+  }
   function builddangerrow(primary, sec) {
     const row = document.createElement("div");
     row.className = "tumsetrow";
@@ -228,6 +430,7 @@
     dh.style.color = primary;
     dh.textContent = T("settings.section.danger");
     pane.appendChild(dh);
+    pane.appendChild(buildrepulaterow(primary, sec));
     pane.appendChild(builddangerrow(primary, sec));
     const ver = document.createElement("div");
     ver.className = "tumsetversion";
@@ -270,6 +473,13 @@
     get(key) {return key in vals ? vals[key] : DEFAULTS[key]},
     onchange(cb) {listeners.add(cb); return () => listeners.delete(cb)},
     init() {
+      loadrepopulation();
+      window.addEventListener("tumaccountchange", loadrepopulation);
+      window.addEventListener("message", e => {
+        if (e.source !== window || !e.data || !e.data.__tumuser) return;
+        const user = storedprofile(e.data.data);
+        if (user) saveprofile(user.handle, user);
+      });
       document.addEventListener("click", e => {
         if (e.target.closest && e.target.closest('[data-testid="usermanagerLink"]')) {
           e.preventDefault();

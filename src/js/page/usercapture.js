@@ -12,6 +12,7 @@
     if (!handle) return null;
     return {
       handle,
+      displayname: core.name || legacy.name || handle,
       restId: u.rest_id || null,
       createdAt: core.created_at || legacy.created_at || null,
       followers: rel.followers != null ? rel.followers : legacy.followers_count,

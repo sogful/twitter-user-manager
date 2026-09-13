@@ -14,6 +14,27 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
 
+  function mergedmember(existing, user, x, y) {
+    const entry = {
+      handle: user.handle || (existing && existing.handle),
+      displayname: user.displayname !== undefined ? user.displayname : (existing && existing.displayname),
+      avatarurl: user.avatarurl != null ? user.avatarurl : (existing && existing.avatarurl),
+      sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
+      reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
+      badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || [],
+      placed: user.placed !== undefined ? user.placed : (typeof x === "number" || !existing || existing.placed !== false),
+      cat: user.cat !== undefined ? user.cat : (existing && existing.cat) || null,
+      pos: "px",
+      x: typeof x === "number" ? x : (existing ? existing.x : 80),
+      y: typeof y === "number" ? y : (existing ? existing.y : 80)
+    };
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected"]) {
+      if (user[key] !== undefined && user[key] !== null) entry[key] = user[key];
+      else if (existing && existing[key] !== undefined) entry[key] = existing[key];
+    }
+    return entry;
+  }
+
   function migratepositions() {
     let changed = false;
     const w = window.innerWidth || 1280, h = window.innerHeight || 800;
@@ -49,24 +70,12 @@
     add(user, x, y) {
       const key = (user.handle || "").toLowerCase();
       const existing = list.find(m => m.handle.toLowerCase() === key);
-      const placed = user.placed !== undefined ? user.placed : (typeof x === "number" || !existing || existing.placed !== false);
-      const entry = {
-        handle: user.handle,
-        displayname: user.displayname,
-        avatarurl: user.avatarurl,
-        sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
-        reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
-        badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || [],
-        placed,
-        cat: user.cat !== undefined ? user.cat : (existing && existing.cat) || null,
-        pos: "px",
-        x: typeof x === "number" ? x : (existing ? existing.x : 80),
-        y: typeof y === "number" ? y : (existing ? existing.y : 80)
-      };
+      const entry = mergedmember(existing, user, x, y);
       list = list.filter(m => m.handle.toLowerCase() !== key);
       list.push(entry);
       persist();
       emit();
+      if (!entry.userid && tum.accountdata) tum.accountdata.enrich(entry.handle);
       return entry;
     },
     remove(handle) {
@@ -92,6 +101,18 @@
       if (sourceurl !== undefined) m.sourceurl = sourceurl;
       persist();
       emit();
+    },
+    refreshmember(handle, user) {
+      const key = (handle || "").toLowerCase();
+      let changed = false;
+      list = list.map(m => {
+        const sameid = user.userid && m.userid && String(user.userid) === String(m.userid);
+        if (!sameid && m.handle.toLowerCase() !== key) return m;
+        changed = true;
+        return mergedmember(m, user);
+      });
+      if (changed) {persist(); emit()}
+      return changed;
     },
     subscribe: cb => {listeners.add(cb); return () => listeners.delete(cb)}
   };
