@@ -187,7 +187,8 @@
       highlights: result.highlights_info && result.highlights_info.can_highlight_tweets ? Number(result.highlights_info.highlighted_tweets || 0) : null,
       verifiedtype: result.verification && result.verification.verified_type || result.verified_type || null,
       blueverified: !!result.is_blue_verified,
-      protected: !!(result.privacy && result.privacy.protected || legacy.protected)
+      protected: !!(result.privacy && result.privacy.protected || legacy.protected),
+      unfindable: false
     };
   }
   function finduser(value, budget) {
@@ -219,6 +220,11 @@
     const folders = tum.folders.refreshmember(oldhandle, user);
     const unsorted = tum.unsorted.refreshmember(oldhandle, user);
     return folders || unsorted;
+  }
+  function markunfindable(handle) {
+    const user = {handle, unfindable: true};
+    tum.folders.refreshmember(handle, user);
+    tum.unsorted.refreshmember(handle, user);
   }
   const pendingenrichment = new Set();
   async function enrichprofile(handle) {
@@ -256,8 +262,9 @@
     if (repopulatebar && document.documentElement.contains(repopulatebar)) return repopulatebar;
     repopulatebar = document.createElement("div");
     repopulatebar.className = "tumbatchbar tumrepopulatebar";
-    repopulatebar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + "</button></div>";
+    repopulatebar.innerHTML = '<div class="tumbatchfill"></div><span class="tumbatchdrag" title="Drag"></span><div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + "</button></div>";
     repopulatebar.querySelector(".tumbatchcancel").addEventListener("click", cancelrepopulate);
+    wiredrag(repopulatebar);
     try {tum.theme.paint(repopulatebar)} catch {}
     document.documentElement.appendChild(repopulatebar);
     return repopulatebar;
@@ -276,9 +283,36 @@
     persistrepopulation();
     removerepopulatebar();
   }
+  function wiredrag(bar) {
+    const handle = bar.querySelector(".tumbatchdrag");
+    handle.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      const rect = bar.getBoundingClientRect();
+      const startx = event.clientX - rect.left, starty = event.clientY - rect.top;
+      bar.style.left = rect.left + "px";
+      bar.style.top = rect.top + "px";
+      bar.style.right = "auto";
+      bar.style.bottom = "auto";
+      const move = moveevent => {
+        bar.style.left = Math.max(0, Math.min(window.innerWidth - rect.width, moveevent.clientX - startx)) + "px";
+        bar.style.top = Math.max(0, Math.min(window.innerHeight - rect.height, moveevent.clientY - starty)) + "px";
+      };
+      const end = () => {document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", end)};
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", end);
+    });
+  }
+  function formatwait(milliseconds) {
+    const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  }
   async function waitrepopulate(until, label) {
-    renderrepopulate(label);
-    await sleep(Math.max(0, until - Date.now()));
+    while (repopulation && !repopulatecancel) {
+      const remaining = until - Date.now();
+      if (remaining <= 0) return;
+      renderrepopulate(label(formatwait(remaining)));
+      await sleep(Math.min(1000, remaining));
+    }
   }
   async function runrepopulate() {
     if (repopulating || !repopulation) return;
@@ -287,7 +321,7 @@
     try {
       while (repopulation && !repopulatecancel && repopulation.index < repopulation.members.length) {
         if (repopulation.waituntil && repopulation.waituntil > Date.now()) {
-          await waitrepopulate(repopulation.waituntil, T("settings.repopulate.ratelimited", Math.ceil((repopulation.waituntil - Date.now()) / 60000)));
+          await waitrepopulate(repopulation.waituntil, remaining => T("settings.repopulate.ratelimited", remaining));
           if (!repopulation || repopulatecancel) break;
           repopulation.waituntil = 0;
           await persistrepopulation();
@@ -302,12 +336,12 @@
           continue;
         }
         if (result.ok && saveprofile(member.handle, result.user)) repopulation.updated++;
-        else repopulation.missing++;
+        else {markunfindable(member.handle); repopulation.missing++}
         repopulation.index++;
         if (repopulation.index < repopulation.members.length && repopulation.index % REFRESHBATCHSIZE === 0) {
           repopulation.waituntil = Date.now() + REFRESHPAUSE;
           await persistrepopulation();
-          await waitrepopulate(repopulation.waituntil, T("settings.repopulate.pause", REFRESHBATCHSIZE, Math.round(REFRESHPAUSE / 60000)));
+          await waitrepopulate(repopulation.waituntil, remaining => T("settings.repopulate.pause", remaining, REFRESHBATCHSIZE));
           if (!repopulation || repopulatecancel) break;
           repopulation.waituntil = 0;
         }

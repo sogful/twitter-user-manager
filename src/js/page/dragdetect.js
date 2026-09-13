@@ -35,15 +35,19 @@
   }
   function capturebadges(root) {
     if (!root) return [];
-    return [...root.querySelectorAll("img, svg")].filter(b => !isemojiimg(b)).map(b => {
-      const clone = b.cloneNode(true);
-      try {
-        const cs = getComputedStyle(b);
-        clone.style.color = cs.color;
-        if (b.tagName.toLowerCase() === "svg" && cs.fill && cs.fill !== "none") clone.style.fill = cs.fill;
-      } catch {}
-      return clone.outerHTML;
-    });
+    const badges = new Set();
+    const affiliations = new Map();
+    for (const badge of root.querySelectorAll("img, svg")) {
+      if (isemojiimg(badge)) continue;
+      const text = [badge.getAttribute("aria-label"), badge.getAttribute("data-testid"), badge.getAttribute("alt"), badge.getAttribute("title")].join(" ").toLowerCase();
+      if (/verified|icon-verified/.test(text)) badges.add("verified");
+      else if (/translator/.test(text)) badges.add(/moderator|mod/.test(text) ? "translatormod" : "translator");
+      else if (/protected|lock/.test(text)) badges.add("protected");
+      const link = badge.closest('a[href^="/"]');
+      const handle = link && /^\/([A-Za-z0-9_]+)\/?$/.exec(link.getAttribute("href") || "");
+      if (handle && badge.tagName === "IMG") affiliations.set(handle[1].toLowerCase(), {type: "affiliation", handle: handle[1], avatarurl: badge.src || null});
+    }
+    return [...badges, ...affiliations.values()];
   }
 
   function badgeels(scope) {

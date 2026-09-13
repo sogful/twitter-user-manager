@@ -2,7 +2,7 @@
   "use strict";
 
   const O = window.tum._ov;
-  const {el, escapehtml, linkify, iconhtml, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const {el, escapehtml, linkify, iconhtml, avatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
   const T = (...a) => tum.strings.t(...a);
 
   function launchdestroyer(user) {
@@ -15,7 +15,7 @@
     const frame = document.createElement("iframe");
     frame.className = "tumdestroyerframe";
     frame.allow = "autoplay";
-    frame.src = durl + "#url=" + encodeURIComponent(user.avatarurl || "") + "&bg=" + encodeURIComponent(bg);
+    frame.src = durl + "#url=" + encodeURIComponent(avatarurl(user.avatarurl) || "") + "&bg=" + encodeURIComponent(bg);
 
     const exit = document.createElement("button");
     exit.className = "tumdestroyerexit";
@@ -70,9 +70,38 @@
     input.click();
   }
   const stamp = () => new Date().toISOString().slice(0, 10);
+  function exporticon(icon) {return (icon || "").replace(/^assets\/svgs/, "")}
+  function importicon(icon) {return icon && icon.startsWith("/") ? "assets/svgs" + icon : icon}
+  function compactavatar(value) {
+    const match = /^https:\/\/pbs\.twimg\.com\/profile_images\/(.+)$/i.exec(value || "");
+    return match ? match[1] : value;
+  }
+  function compactdate(value) {
+    if (typeof value === "number") return value > 100000000000 ? Math.floor(value / 1000) : value;
+    const time = Date.parse(value || "");
+    return isNaN(time) ? value : Math.floor(time / 1000);
+  }
+  function exportmember(member) {
+    const out = {};
+    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "unfindable"]) {
+      if (member[key] !== undefined && member[key] !== null && member[key] !== "") out[key] = key === "createdat" ? compactdate(member[key]) : member[key];
+    }
+    if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);
+    const badges = (Array.isArray(member.badges) ? member.badges : []).flatMap(badge => {
+      if (typeof badge === "string" && /^(verified|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
+      return [];
+    });
+    if (member.protected) badges.push("protected");
+    if (badges.length) out.badges = [...new Set(badges)];
+    return out;
+  }
+  function exportfolderdata(folder) {
+    return {id: folder.id, name: folder.name, action: folder.action, color: folder.color, description: folder.description || "", icon: exporticon(folder.icon), members: (folder.members || []).map(exportmember)};
+  }
 
   function exportdata() {
-    downloadjson({version: 1, folders: tum.folders.list(), unsorted: tum.unsorted.list()}, "＠" + ownhandle() + ".json");
+    downloadjson({folders: tum.folders.list().map(exportfolderdata), unsorted: tum.unsorted.list().map(exportmember)}, "＠" + ownhandle() + ".json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
@@ -84,7 +113,7 @@
     let nf = 0, nu = 0;
     for (const f of folders) {
       if (!f || typeof f !== "object") continue;
-      const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon, x: f.x, y: f.y});
+      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), x: f.x, y: f.y});
       for (const m of (Array.isArray(f.members) ? f.members : [])) if (m && m.handle) tum.folders.addmember(created.id, m);
       nf++;
     }
@@ -101,7 +130,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function exportfolder(f) {
-    downloadjson({version: 1, folder: {name: f.name, action: f.action, color: f.color, icon: f.icon, members: f.members || []}},
+    downloadjson({folder: exportfolderdata(f)},
       fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
@@ -132,7 +161,7 @@
   function finishfolderimport(f) {
     const members = (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle);
     const doimport = () => {
-      const created = tum.folders.create({name: f.name, action: f.action, color: f.color, icon: f.icon});
+      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon)});
       for (const m of members) tum.folders.addmember(created.id, m);
       state.open = true;
       render();

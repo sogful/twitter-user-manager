@@ -14,24 +14,42 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
 
+  function compactavatar(value) {
+    const match = /^https:\/\/pbs\.twimg\.com\/profile_images\/(.+)$/i.exec(value || "");
+    return match ? match[1] : value;
+  }
+  function compactdate(value) {
+    if (typeof value === "number") return value > 100000000000 ? Math.floor(value / 1000) : value;
+    const time = Date.parse(value || "");
+    return isNaN(time) ? value : Math.floor(time / 1000);
+  }
+  function cleanbadges(badges) {
+    return (Array.isArray(badges) ? badges : []).flatMap(badge => {
+      if (typeof badge === "string" && /^(verified|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
+      return [];
+    });
+  }
+
   function mergedmember(existing, user, x, y) {
     const entry = {
       handle: user.handle || (existing && existing.handle),
       displayname: user.displayname !== undefined ? user.displayname : (existing && existing.displayname),
-      avatarurl: user.avatarurl != null ? user.avatarurl : (existing && existing.avatarurl),
+      avatarurl: compactavatar(user.avatarurl != null ? user.avatarurl : (existing && existing.avatarurl)),
       sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
       reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
-      badges: Array.isArray(user.badges) ? user.badges : (existing && existing.badges) || [],
+      badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
       placed: user.placed !== undefined ? user.placed : (typeof x === "number" || !existing || existing.placed !== false),
       cat: user.cat !== undefined ? user.cat : (existing && existing.cat) || null,
       pos: "px",
       x: typeof x === "number" ? x : (existing ? existing.x : 80),
       y: typeof y === "number" ? y : (existing ? existing.y : 80)
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable"]) {
       if (user[key] !== undefined && user[key] !== null) entry[key] = user[key];
       else if (existing && existing[key] !== undefined) entry[key] = existing[key];
     }
+    entry.createdat = compactdate(entry.createdat);
     return entry;
   }
 

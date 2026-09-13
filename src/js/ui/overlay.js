@@ -5,6 +5,7 @@
   const O = window.tum._ov = {};
   const T = (...a) => tum.strings.t(...a);
   const DEFAULT_AVATAR = "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
+  const AVATARPATH = "https://pbs.twimg.com/profile_images/";
 
   const ICONS = {
     follow: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>',
@@ -68,9 +69,22 @@
     return escapehtml(text).replace(URLRE, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
   }
   function clamp(v, a, b) {return Math.max(a, Math.min(b, v))}
-  function badgeshtml(badges) {
-    const b = (Array.isArray(badges) ? badges : []).filter(h => !/\/emoji\//.test(h));
-    return b.length ? `<span class="tumbadges">${b.join("")}</span>` : "";
+  function avatarurl(value) {
+    return value && !/^https?:\/\//i.test(value) ? AVATARPATH + value : value;
+  }
+  function badgeshtml(badges, user) {
+    const values = new Set((Array.isArray(badges) ? badges : []).filter(badge => typeof badge === "string" && /^(verified|translator|translatormod|protected)$/.test(badge)));
+    const affiliations = (Array.isArray(badges) ? badges : []).filter(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""));
+    if (user && user.protected) values.add("protected");
+    const icons = {
+      verified: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path d="M20.4 11a5.1 5.1 0 0 0-2-4.1 5.1 5.1 0 0 0-4.1-2 5.1 5.1 0 0 0-6.6 0 5.1 5.1 0 0 0-2 4.1 5.1 5.1 0 0 0 0 6.6 5.1 5.1 0 0 0 2 4.1 5.1 5.1 0 0 0 6.6 0 5.1 5.1 0 0 0 4.1-2 5.1 5.1 0 0 0 2-4.1zm-11 3.8-3.2-3.2 1.3-1.3 1.9 1.9 4.2-4.6L15 8.9z"/></svg>',
+      translator: '<svg viewBox="0 0 24 24" aria-label="Translator" role="img"><path d="M4 5h8M8 3v2m-4 0c1.1 3 3 5.5 6 7m-3 0c-1.2 1.4-2.6 2.5-4 3.3M14 19l3-8 3 8m-5-3h4"/></svg>',
+      translatormod: '<svg viewBox="0 0 24 24" aria-label="Translation moderator" role="img"><path d="M4 5h8M8 3v2m-4 0c1.1 3 3 5.5 6 7m-3 0c-1.2 1.4-2.6 2.5-4 3.3M14 19l3-8 3 8m-5-3h4"/><circle cx="19" cy="5" r="3"/></svg>',
+      protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
+    };
+    const standard = [...values].map(value => `<span class="tumbadge tumbadge${value}">${icons[value]}</span>`).join("");
+    const linked = affiliations.map(badge => `<a class="tumbadgeaffiliation" href="/${escapehtml(badge.handle)}"><img src="${escapehtml(avatarurl(badge.avatarurl) || "")}">@${escapehtml(badge.handle)}</a>`).join("");
+    return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }
   function readablefg(hex) {
     const n = parseInt(hex.replace("#", ""), 16);
@@ -87,7 +101,7 @@
   function iconhtml(icon) {
     if (!icon) return "";
     if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
-    if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon);
+    if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon.startsWith("/") ? "assets/svgs" + icon : icon);
     return escapehtml(icon);
   }
 
@@ -542,6 +556,7 @@
     const members = sortedmembers(f);
     const node = el("div", "tumfolder");
     if (f.collapsed) node.classList.add("tumcollapsed");
+    if (f.description) node.classList.add("tumfolderhasdesc");
     node.style.setProperty("--tumcolor", f.color);
     const fg = readablefg(f.color);
     node.style.setProperty("--tumheaderfg", fg);
@@ -561,7 +576,7 @@
               <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
               ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
             </div>
-            ${f.description ? `<div class="tumfolderdesc"><span class="tummqinner">${escapehtml(f.description)}</span></div>` : ""}
+            ${f.description ? `<div class="tumfolderdesc">${escapehtml(f.description)}</div>` : ""}
           </div>
         </div>
         <div class="tumfolderheadbtns">
@@ -645,16 +660,18 @@
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
+    const unfindable = m.unfindable || !m.userid;
+    if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
-      <img class="tumfoldermemberavatar" src="${m.avatarurl || ""}">
+      <img class="tumfoldermemberavatar" src="${avatarurl(m.avatarurl) || ""}">
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
           <span class="tumcopy tumfoldermembername"><span class="tummqinner">${escapehtml(m.displayname || m.handle)}</span></span>
-          ${badgeshtml(m.badges)}
+          ${badgeshtml(m.badges, m)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}</span>
+        <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}${unfindable ? " (can't find)" : ""}</span>
       </div>
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
@@ -676,20 +693,22 @@
   function buildloosechip(u) {
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
+    const unfindable = u.unfindable || !u.userid;
+    if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
     chip.style.left = (u.x || 0) + "px";
     chip.style.top = (u.y || 0) + "px";
     chip.style.background = tum.theme.css();
     chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
-      <img class="tumloosechipavatar" src="${u.avatarurl || ""}">
+      <img class="tumloosechipavatar" src="${avatarurl(u.avatarurl) || ""}">
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
           <span class="tumcopy tumloosechipname"><span class="tummqinner">${escapehtml(u.displayname || u.handle)}</span></span>
-          ${badgeshtml(u.badges)}
+          ${badgeshtml(u.badges, u)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}</span>
+        <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}${unfindable ? " · unfindable" : ""}</span>
       </div>
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
@@ -1190,7 +1209,7 @@
   }
 
   Object.assign(O, {
-    state, pan, ICONS, el, escapehtml, linkify, iconhtml,
+    state, pan, ICONS, el, escapehtml, linkify, iconhtml, avatarurl,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,

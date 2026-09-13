@@ -71,7 +71,6 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumtoolsright {left: auto; right: 16px}
 
-/* faint pan-direction hints on the viewport edges, behind everything, gone mid-drag */
 .tumedgearrows {
   position: absolute; inset: 0;
   pointer-events: none; z-index: 2;
@@ -231,11 +230,12 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  height: 42px; padding: 5px 8px 5px 12px;
+  height: 42px; padding: 5px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   cursor: grab; flex-shrink: 0; box-sizing: border-box
 }
+.tumfolder.tumfolderhasdesc .tumfolderhead {height: 56px}
 .tumfolderdragging .tumfolderhead {cursor: grabbing}
 .tumfoldertitle {
   flex: 1; display: flex;
@@ -257,9 +257,10 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderdesc {
   color: var(--tumheaderfg, white); opacity: .7;
-  font-size: 11px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-  max-width: 100%
+  font-size: 9px; line-height: 10px;
+  overflow: hidden; max-width: 100%;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2
 }
 .tumfolderauto {
   display: flex; align-items: center; gap: 4px;
@@ -352,7 +353,6 @@ img {-webkit-user-drag: none; user-drag: none}
   overscroll-behavior: contain;
   scrollbar-width: none
 }
-/* hidden scrollbars: they still scroll, but no longer flash on every folder when one is focused */
 .tumfolderlist::-webkit-scrollbar {width: 0; height: 0; display: none}
 .tumfolderempty {
   color: var(--tummuted,#71767b); font-size: 12px;
@@ -403,9 +403,8 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcopy:hover {text-decoration: underline}
 
 .tummqinner {display: inline-block; white-space: nowrap}
-/* folder name + description always scroll; member/loose names only on hover (there can be many) */
+
 .tumfoldername.tummarqueeon .tummqinner,
-.tumfolderdesc.tummarqueeon .tummqinner,
 .tumfoldermember:hover .tumfoldermembername.tummarqueeon .tummqinner,
 .tumloosechip:hover .tumloosechipname.tummarqueeon .tummqinner {animation: tummarquee var(--mqdur,6s) ease-in-out infinite}
 @keyframes tummarquee {
@@ -422,6 +421,26 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 15px; height: 15px;
   display: inline-block; vertical-align: middle
 }
+.tumbadge svg {
+  fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round;
+  stroke-linejoin: round
+}
+.tumbadgeverified {color: #1d9bf0}
+.tumbadgeprotected {color: #71767b}
+.tumbadgeaffiliation {
+  display: inline-flex; align-items: center;
+  gap: 2px; color: var(--tummuted,#71767b);
+  font-size: 10px; text-decoration: none
+}
+.tumbadgeaffiliation img {
+  width: 15px; height: 15px;
+  border-radius: 50%; object-fit: cover
+}
+.tumunfindable {
+  background: rgba(249,24,128,0.12); color: #f91880
+}
+.tumunfindable .tumfoldermemberhandle, .tumunfindable .tumloosechiphandle {color: #f91880}
 .tumreasonbadge {
   flex-shrink: 0; display: inline-flex;
   cursor: pointer
@@ -910,7 +929,6 @@ img {-webkit-user-drag: none; user-drag: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
-/* theme-adaptive via the host's --tum* vars, so it reads right on light/dim/dark */
 .tumcontextmenu {
   position: fixed; z-index: 8;
   min-width: 220px; max-width: 320px;

@@ -179,7 +179,7 @@
     const DEFAULT_AVATAR = "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
     O.els.chipavatar.onerror = () => {if (O.els.chipavatar.src !== DEFAULT_AVATAR) O.els.chipavatar.src = DEFAULT_AVATAR};
     O.els.chipavatar.style.visibility = "visible";
-    O.els.chipavatar.src = user.avatarurl || DEFAULT_AVATAR;
+    O.els.chipavatar.src = O.avatarurl(user.avatarurl) || DEFAULT_AVATAR;
     O.els.chipname.textContent = user.displayname || user.handle;
     O.els.chiphandle.textContent = "@" + user.handle;
     O.els.chipbadges.innerHTML = (user.badges || []).join("");

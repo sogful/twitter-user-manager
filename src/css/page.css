@@ -260,13 +260,13 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* actions.js - batch action progress bar (page-level, survives overlay close) */
 
-/* colors come from --tum* vars painted on by tum.theme.paint (light/dim/dark aware); no drop shadow */
 .tumbatchbar {
-  position: fixed; left: 50%; bottom: 20px;
-  transform: translateX(-50%); z-index: 2147483647;
+  position: fixed; right: 20px;
+  bottom: 20px; left: auto;
+  transform: none; z-index: 2147483647;
   width: 320px; max-width: calc(100vw - 32px);
+  height: 61px; box-sizing: border-box;
   background: var(--tumelev,#16181c); border: 1px solid var(--tumborder,#2f3336);
   border-radius: 12px; overflow: hidden;
   font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -276,18 +276,28 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
   background: #1d9bf0; transition: width 0.25s ease}
 .tumbatchrow {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 10px 14px}
-.tumbatchlabel {font-size: 13px; font-weight: 700}
+  gap: 12px; padding: 10px 14px;
+  height: 56px; box-sizing: border-box}
+.tumbatchlabel {
+  font-size: 13px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap
+}
 .tumbatchcancel {
   flex: 0 0 auto; border: 1px solid var(--tumcancelborder,#536471);
   background: transparent; color: var(--tumtext,#e7e9ea);
   border-radius: 999px; padding: 4px 14px;
   font-size: 13px; font-weight: 700; cursor: pointer;
   font-family: inherit}
-.tumbatchcancel:hover {background: rgba(244,33,46,0.12); border-color: #f4212e; color: #f4212e}
+.tumbatchcancel:hover {background: rgba(29,155,240,0.12); border-color: #1d9bf0; color: #1d9bf0}
+.tumbatchdrag {
+  position: absolute; top: 3px;
+  right: 0; width: 30px;
+  height: 7px; cursor: grab
+}
+.tumbatchdrag:active {cursor: grabbing}
 
 /*//////////////////////////////////////////////////////////////////////*/
-/* lists.js - icon-only "import as folder" button, blends into a page's header/action icons */
 
 .tumimportfolder {
   display: inline-flex; align-items: center; justify-content: center;
@@ -299,7 +309,7 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 .tumimportfolder:hover {background: rgba(29,155,240,0.1)}
 .tumimportfolder svg {display: block}
 .tumimportfolder.tumbusy {opacity: 0.55}
-/* smaller grey variant for the reply filter row */
+
 .tumimportgrey {
   width: 26px; height: 26px;
   color: #71767b; margin-left: 4px}
