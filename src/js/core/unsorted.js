@@ -51,11 +51,12 @@
       x: typeof x === "number" ? x : (existing ? existing.x : 80),
       y: typeof y === "number" ? y : (existing ? existing.y : 80)
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable", "pending"]) {
       if (user[key] !== undefined && user[key] !== null) entry[key] = user[key];
       else if (existing && existing[key] !== undefined) entry[key] = existing[key];
     }
     entry.createdat = compactdate(entry.createdat);
+    if (entry.userid || entry.unfindable) delete entry.pending;
     return entry;
   }
 

@@ -562,7 +562,7 @@
       if (!desc.isConnected || desc.scrollWidth <= desc.clientWidth + 2) return;
       desc.classList.add("tumfolderdesctwo");
       requestAnimationFrame(() => {
-        if (!desc.isConnected || desc.scrollHeight <= desc.clientHeight + 1) return;
+        if (!desc.isConnected || Math.ceil(desc.scrollHeight / 8.5) <= 2) return;
         desc.classList.remove("tumfolderdesctwo");
         desc.classList.add("tumfolderdescscroll");
         enablemarquee(desc);
@@ -703,7 +703,7 @@
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
-    const unfindable = m.unfindable === true;
+    const unfindable = m.unfindable === true || (!m.userid && !m.pending);
     const missing = unfindable || !m.userid;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
@@ -737,7 +737,7 @@
   function buildloosechip(u) {
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
-    const unfindable = u.unfindable === true;
+    const unfindable = u.unfindable === true || (!u.userid && !u.pending);
     const missing = unfindable || !u.userid;
     if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";

@@ -61,6 +61,7 @@
 
   function addtotarget(user) {
     if (!target) return;
+    if (!user.userid) user.pending = true;
     const replaced = target.replace;
     if (replaced) {
       user.reason = replaced.m.reason || "";

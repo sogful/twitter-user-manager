@@ -248,6 +248,7 @@
   }
 
   function fileinfolder(folder, user, source) {
+    if (source.type === "page" && !user.userid) user.pending = true;
     removefromsource(source, user.handle);
     tum.folders.addmember(folder.id, user);
     if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
@@ -401,7 +402,7 @@
       const c = O.categorydrop(prevcat, (x - pan.x) / z, (y - pan.y) / z, cw, ch);
       const adj = O.nooverlapadjustbox(c.x - cw / 2, c.y - ch / 2, cw, ch, null);
       
-      tum.unsorted.add(Object.assign({}, user, {cat: c.cat}), adj.left + cw / 2, adj.top + ch / 2);
+      tum.unsorted.add(Object.assign({}, user, {cat: c.cat, pending: source.type === "page" && !user.userid}), adj.left + cw / 2, adj.top + ch / 2);
       state.open = true;
       render();
       return;

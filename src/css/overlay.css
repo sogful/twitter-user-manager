@@ -230,7 +230,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  height: 40px; padding: 5px;
+  height: 56px; padding: 5px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   cursor: grab; flex-shrink: 0; box-sizing: border-box
@@ -248,7 +248,8 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldertitlelines {
   flex: 1; display: flex;
-  flex-direction: column; gap: 1px; min-width: 0
+  flex-direction: column; gap: 0; min-width: 0;
+  justify-content: center
 }
 .tumfoldertoprow {
   display: flex; align-items: center;
@@ -266,7 +267,6 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderdesc.tumfolderdesctwo .tummqinner {white-space: normal}
 .tumfolderdesc.tumfolderdescscroll {font-size: 10px; line-height: 11px}
-}
 .tumfolderauto {
   display: flex; align-items: center; gap: 4px;
   color: var(--tumheaderfg, white); opacity: .85;
