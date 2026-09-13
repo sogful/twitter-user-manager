@@ -296,8 +296,10 @@
 
     const overtarget = !!target || !!zone || !!act;
     edgexy = {x, y};
-    if (overtarget) {stopedge()}
-    else {edgevel(x, y); if (edgevx || edgevy) startedge()}
+    // release controls must not create dead strips at the viewport edge.
+    // A folder itself remains a stable drop target, so it still pauses panning.
+    if (target) {stopedge()}
+    else {edgevel(x, y); if (edgevx || edgevy) startedge(); else stopedge()}
     if (!overtarget) {const z = O.zoom(); O.categoryhover((x - pan.x) / z, (y - pan.y) / z)}
     else O.categoryhover(null);
   }

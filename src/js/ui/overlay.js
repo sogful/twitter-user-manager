@@ -715,7 +715,7 @@
           ${badgeshtml(m.badges, m)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumfoldermemberhandle">@${escapehtml(m.handle)}${missing ? " (can't find)" : ""}</span>
+        <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${missing ? " (can't find)" : ""}</span>
       </div>
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
@@ -753,7 +753,7 @@
           ${badgeshtml(u.badges, u)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumloosechiphandle">@${escapehtml(u.handle)}${missing ? " · can't find" : ""}</span>
+        <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${missing ? " · can't find" : ""}</span>
       </div>
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
@@ -787,7 +787,7 @@
     for (const t of container.querySelectorAll(".tumcopy")) {
       t.addEventListener("click", e => {
         e.stopPropagation();
-        const text = t.textContent || "";
+        const text = t.dataset.copy || t.textContent || "";
         navigator.clipboard.writeText(text).then(() => toast(T("toast.copied", text))).catch(() => {});
       });
     }

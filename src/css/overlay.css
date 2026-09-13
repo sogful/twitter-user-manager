@@ -511,10 +511,12 @@ img {-webkit-user-drag: none; user-drag: none}
   align-items: center; gap: 8px;
   height: 56px; box-sizing: border-box;
   padding: 0 28px; border-radius: 999px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.5);
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
-  user-select: none
+  user-select: none;
+  box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
+  backdrop-filter: blur(5px)
 }
 .tumquick.tumdisabled {opacity: .35; pointer-events: none}
 .tumquick.tumover {
@@ -549,10 +551,12 @@ img {-webkit-user-drag: none; user-drag: none}
   justify-content: center; gap: 8px;
   height: 56px; box-sizing: border-box;
   padding: 0 14px; border-radius: 999px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.5);
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
-  user-select: none
+  user-select: none;
+  box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
+  backdrop-filter: blur(5px)
 }
 
 .tumdestroytext {

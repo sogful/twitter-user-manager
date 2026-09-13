@@ -96,6 +96,10 @@
     if (badges.length) out.badges = [...new Set(badges)];
     return out;
   }
+
+  function isunfindable(member) {
+    return !!member && (member.unfindable === true || (!member.userid && !member.pending));
+  }
   function exportfolderdata(folder) {
     return {id: folder.id, name: folder.name, action: folder.action, color: folder.color, description: folder.description || "", icon: exporticon(folder.icon), members: (folder.members || []).map(exportmember)};
   }
@@ -541,7 +545,7 @@
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
       items = [
-        ...(info.m.unfindable === true ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
+        ...(isunfindable(info.m) ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
         {label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)},
         {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
