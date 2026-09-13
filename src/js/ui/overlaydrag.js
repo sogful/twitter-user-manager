@@ -180,11 +180,10 @@
     O.els.chipavatar.onerror = () => {if (O.els.chipavatar.src !== DEFAULT_AVATAR) O.els.chipavatar.src = DEFAULT_AVATAR};
     O.els.chipavatar.style.visibility = "visible";
     O.els.chipavatar.src = O.avatarurl(user.avatarurl) || DEFAULT_AVATAR;
-    O.els.chipname.textContent = user.displayname || user.handle;
+    O.els.chipname.innerHTML = O.emojihtml(user.displayname || user.handle);
     O.els.chiphandle.textContent = "@" + user.handle;
-    O.els.chipbadges.innerHTML = (user.badges || []).join("");
-
-    O.els.chipbadges.style.display = (user.badges && user.badges.length) ? "" : "none";
+    O.els.chipbadges.innerHTML = O.badgeshtml(user.badges, user);
+    O.els.chipbadges.style.display = O.els.chipbadges.children.length ? "" : "none";
     O.els.chipreason.style.display = user.reason ? "" : "none";
 
     O.els.chip.style.background = tum.theme.css();

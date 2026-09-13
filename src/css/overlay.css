@@ -230,12 +230,11 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  height: 42px; padding: 5px;
+  height: 40px; padding: 5px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   cursor: grab; flex-shrink: 0; box-sizing: border-box
 }
-.tumfolder.tumfolderhasdesc .tumfolderhead {height: 56px}
 .tumfolderdragging .tumfolderhead {cursor: grabbing}
 .tumfoldertitle {
   flex: 1; display: flex;
@@ -257,7 +256,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderdesc {
   color: var(--tumheaderfg, white); opacity: .7;
-  font-size: 9px; line-height: 10px;
+  font-size: 8px; line-height: 8.5px;
   overflow: hidden; max-width: 100%;
   display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: 2
@@ -421,12 +420,16 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 15px; height: 15px;
   display: inline-block; vertical-align: middle
 }
+.tumnameemoji {
+  width: 1em; height: 1em; display: inline-block;
+  vertical-align: -0.15em; object-fit: contain
+}
 .tumbadge svg {fill: currentColor}
 .tumbadgeverified {color: #1d9bf0}
-.tumbadgetranslator svg, .tumbadgetranslatormod svg {
-  fill: none; stroke: currentColor; stroke-width: 1.8;
-  stroke-linecap: round; stroke-linejoin: round
-}
+.tumbadgeverifiedgovernment {color: #829aab}
+.tumbadgeprotected {color: var(--tumfg, currentColor)}
+.tumbadgetranslator {color: #1d9bf0}
+.tumbadgetranslatormod {color: #829aab}
 .tumbadgeaffiliation {
   display: inline-flex; align-items: center;
   gap: 2px; color: var(--tummuted,#71767b);
@@ -437,7 +440,7 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 50%; object-fit: cover
 }
 .tumunfindable {
-  background: rgba(249,24,128,0.12); color: #f91880
+  background: rgba(249,24,128,0.12); color: #f91880; opacity: .82
 }
 .tumunfindable .tumfoldermemberhandle, .tumunfindable .tumloosechiphandle {color: #f91880}
 .tumreasonbadge {

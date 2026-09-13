@@ -25,12 +25,12 @@
   }
   function cleanbadges(badges) {
     return (Array.isArray(badges) ? badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (typeof badge === "string" && /<svg\b/i.test(badge)) {
         const label = badge.toLowerCase();
-        if (/icon-verified|verified account/.test(label)) return ["verified"];
+        if (/icon-verified|verified account/.test(label)) return [/lineargradient/.test(label) ? "verifiedbusiness" : /#829aab/.test(label) ? "verifiedgovernment" : "verified"];
         if (/icon-lock|protected account/.test(label)) return ["protected"];
-        if (/translator/.test(label)) return [/moderator|\bmod\b/.test(label) ? "translatormod" : "translator"];
+        if (/translator/.test(label)) return [/moderator|\bmod\b|r-1cvl2hr/.test(label) ? "translatormod" : "translator"];
       }
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];

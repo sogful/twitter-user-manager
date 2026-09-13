@@ -16,15 +16,18 @@
   border-radius: 50%; z-index: 9999;
   pointer-events: auto; cursor: pointer;
   box-sizing: border-box; border: 2px solid transparent;
-  display: flex; align-items: center; justify-content: center
+  display: flex; align-items: center; justify-content: center;
+  line-height: 0
 }
 .tumpagefolderdot svg {
   width: 11px; height: 11px; 
-  display: block
+  display: block; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%,-50%)
 }
 .tumpagefolderdot img {
   width: 12px; height: 12px; 
-  display: block
+  display: block; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%,-50%)
 }
 
 /*//////////////////////////////////////////////////////////////////////*/

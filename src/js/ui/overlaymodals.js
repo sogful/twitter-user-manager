@@ -513,6 +513,11 @@
     if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
     else toast("Adding users from search is coming soon");
   }
+  function replaceuser(info) {
+    const old = info.m;
+    const target = info.source.type === "folder" ? {type: "folder", id: info.source.id, replace: info} : {type: "canvas", cx: old.x, cy: old.y, cat: old.cat, replace: info};
+    newuser(target);
+  }
 
   function oncontextmenu(e) {
     if (!O.root.classList.contains("tumactive") || state.drag) return;
@@ -532,7 +537,7 @@
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
       items = [
-        {label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)},
+        ...(info.m.unfindable === true ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
         {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
@@ -544,7 +549,6 @@
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
-        {label: T("menu.import"), icon: ICONS.upload, onclick: () => importintofolder(f)},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)}
       ];
     } else if (catnode) {
@@ -563,7 +567,8 @@
       items = [
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal()},
-        {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)}
+        {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)},
+        {label: T("menu.import"), icon: ICONS.upload, onclick: () => importdata()}
       ];
     }
     openctx(e.clientX, e.clientY, items);

@@ -140,7 +140,7 @@
     const stats = [];
     if (typeof u.highlights === "number") stats.push(T(u.highlights === 1 ? "profile.highlight" : "profile.highlights", u.highlights));
     if (typeof u.favorites === "number") stats.push(T("profile.likes", fmtnum(u.favorites)));
-    if (typeof u.seedTweets === "number") stats.push(T("profile.seedposts", u.seedTweets));
+    if (typeof u.seedTweets === "number" && u.seedTweets > 0) stats.push(T("profile.seedposts", u.seedTweets));
     if (!pd && !stats.length) return;
     if (pd) {const rate = document.createElement("span"); rate.className = "tumperday"; rate.textContent = T("profile.postrate", pd); el.appendChild(rate)}
     if (stats.length) {const details = document.createElement("span"); details.className = "tumprofilepostdetails"; details.textContent = ", " + stats.join(", "); el.appendChild(details)}

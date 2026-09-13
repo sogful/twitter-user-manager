@@ -61,6 +61,13 @@
 
   function addtotarget(user) {
     if (!target) return;
+    const replaced = target.replace;
+    if (replaced) {
+      user.reason = replaced.m.reason || "";
+      user.sourceurl = replaced.m.sourceurl || null;
+      if (replaced.source.type === "folder") tum.folders.removemember(replaced.source.id, replaced.m.handle);
+      else tum.unsorted.remove(replaced.m.handle);
+    }
     if (target.type === "folder") {
       tum.folders.addmember(target.id, user);
       const f = tum.folders.get(target.id);
@@ -68,7 +75,7 @@
     } else {
       const px = typeof target.cx === "number" ? target.cx : 200;
       const py = typeof target.cy === "number" ? target.cy : 200;
-      tum.unsorted.add(Object.assign({}, user, {cat: target.type === "category" ? target.id : null}), px, py);
+      tum.unsorted.add(Object.assign({}, user, {cat: target.type === "category" ? target.id : target.cat || null}), px, py);
     }
     try {tum.overlay.toast(T("toast.added", user.handle))} catch {}
   }

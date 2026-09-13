@@ -35,6 +35,7 @@
   "toast.destroyer.unavailable": "Not available in the userscript, sorrgy...",
 
   "menu.openprofile": "Open profile",
+  "menu.replace": "Replace",
   "menu.customnote": "Custom note",
   "menu.editnote": "Edit note",
   "menu.delete": "Delete",
