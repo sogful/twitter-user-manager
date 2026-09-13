@@ -659,7 +659,7 @@
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
     wirecopy(row);
-    hidebrokenavatar(row);
+    hidebrokenavatar(row, source, m);
     wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
@@ -694,7 +694,7 @@
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
     wirecopy(chip);
-    hidebrokenavatar(chip);
+    hidebrokenavatar(chip, {type: "unsorted"}, u);
     wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
@@ -708,10 +708,15 @@
     return chip;
   }
 
-  function hidebrokenavatar(container) {
+  function hidebrokenavatar(container, source, user) {
     for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
       if (!img.getAttribute("src")) img.src = DEFAULT_AVATAR;
-      img.addEventListener("error", () => {if (img.src !== DEFAULT_AVATAR) img.src = DEFAULT_AVATAR}, {once: true});
+      img.addEventListener("error", () => {
+        if (img.src === DEFAULT_AVATAR) return;
+        img.src = DEFAULT_AVATAR;
+        if (source && source.type === "folder") tum.folders.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
+        else if (source && source.type === "unsorted") tum.unsorted.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
+      }, {once: true});
     }
   }
   function wirecopy(container) {
