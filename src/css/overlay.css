@@ -423,11 +423,18 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumbadges {
   display: inline-flex; align-items: center;
   gap: 2px; flex-shrink: 0;
+  height: 15px; line-height: 0;
   position: relative; top: 1px
+}
+.tumbadge {
+  display: flex; align-items: center;
+  justify-content: center;
+  width: 15px; height: 15px;
+  flex: 0 0 15px; line-height: 0
 }
 .tumbadges svg, .tumbadges img {
   width: 15px; height: 15px;
-  display: inline-block; vertical-align: middle
+  display: block; vertical-align: middle
 }
 .tumnameemoji {
   width: 1em; height: 1em; display: inline-block;
@@ -517,7 +524,6 @@ img {-webkit-user-drag: none; user-drag: none}
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
   user-select: none;
-  box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
 }
 .tumquick.tumdisabled {opacity: .35; pointer-events: none}
 .tumquick.tumover {
@@ -556,7 +562,6 @@ img {-webkit-user-drag: none; user-drag: none}
   border: 2px dashed rgba(255,255,255,0.4);
   pointer-events: auto; cursor: default;
   user-select: none;
-  box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
 }
 
 .tumdestroytext {

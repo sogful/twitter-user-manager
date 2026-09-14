@@ -173,6 +173,24 @@
       if (!f.members[0].userid && tum.accountdata) tum.accountdata.enrich(f.members[0].handle);
       return f;
     },
+    addmembers(id, users) {
+      const f = list.find(x => x.id === id);
+      if (!f || !Array.isArray(users) || !users.length) return 0;
+      if (!Array.isArray(f.members)) f.members = [];
+      let added = 0;
+      for (const user of users) {
+        const key = (user && user.handle || "").toLowerCase();
+        if (!key) continue;
+        const existing = f.members.find(m => m.handle.toLowerCase() === key);
+        f.members = f.members.filter(m => m.handle.toLowerCase() !== key);
+        f.members.unshift(mergedmember(existing, user));
+        added++;
+      }
+      if (!added) return 0;
+      persist();
+      emit();
+      return added;
+    },
     removemember(id, handle) {
       const f = list.find(x => x.id === id);
       if (!f || !Array.isArray(f.members)) return null;

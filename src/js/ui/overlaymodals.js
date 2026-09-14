@@ -118,7 +118,7 @@
     for (const f of folders) {
       if (!f || typeof f !== "object") continue;
       const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), x: f.x, y: f.y});
-      for (const m of (Array.isArray(f.members) ? f.members : [])) if (m && m.handle) tum.folders.addmember(created.id, m);
+      tum.folders.addmembers(created.id, (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle));
       nf++;
     }
     for (const u of unsorted) {
@@ -148,14 +148,14 @@
       if (!members.length) {toast(T("folder.import.empty")); return}
       const cur = tum.folders.get(folder.id);
       const have = new Set((cur && cur.members || []).map(m => (m.handle || "").toLowerCase()));
-      let added = 0;
+      const add = [];
       for (const m of members) {
         const k = (m.handle || "").toLowerCase();
         if (have.has(k)) continue;
         have.add(k);
-        tum.folders.addmember(folder.id, m);
-        added++;
+        add.push(m);
       }
+      const added = tum.folders.addmembers(folder.id, add);
       state.open = true;
       render();
       const dupes = members.length - added;
@@ -166,7 +166,7 @@
     const members = (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle);
     const doimport = () => {
       const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon)});
-      for (const m of members) tum.folders.addmember(created.id, m);
+      tum.folders.addmembers(created.id, members);
       state.open = true;
       render();
       toast(T("toast.imported.folder", created.name, members.length));

@@ -1100,26 +1100,29 @@
   function scheduleminimap() {if (!minimapraf) minimapraf = requestAnimationFrame(() => {minimapraf = 0; try {drawminimap()} catch {}})}
   function drawminimap() {
     if (!els.minimap || !els.minimapcanvas) return;
-    const has = tum.folders.list().length > 0;
+    const folders = tum.folders.list();
+    const loose = tum.unsorted.list().filter(u => u.placed !== false);
+    const has = folders.length > 0;
     els.minimap.hidden = !has;
     if (!has || !state.open) return;
     const cv = els.minimapcanvas, ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
 
-    const rects = tum.folders.list().map(f => ({
-      r: {left: f.x || 0, top: f.y || 0, w: 200, h: f.collapsed ? 40 : 288},
-      col: f.color || "#1d9bf0"
-    }));
-    if (!rects.length) return;
+    const rects = folders.map(f => ({r: {left: f.x || 0, top: f.y || 0, w: 200, h: f.collapsed ? 40 : 288}, col: f.color || "#1d9bf0"}));
     let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
     for (const {r} of rects) {minx = Math.min(minx, r.left); miny = Math.min(miny, r.top); maxx = Math.max(maxx, r.left + r.w); maxy = Math.max(maxy, r.top + r.h)}
+    for (const u of loose) {
+      const x = u.x || 0, y = u.y || 0;
+      minx = Math.min(minx, x); miny = Math.min(miny, y);
+      maxx = Math.max(maxx, x); maxy = Math.max(maxy, y);
+    }
 
     const pad = Math.max(maxx - minx, maxy - miny) * 0.05 + 20;
     let s = Math.min(W / (maxx - minx + pad * 2), H / (maxy - miny + pad * 2));
     const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
-    s = Math.min(s, (W * 0.5) / vw, (H * 0.5) / vh);
     const ccx = (window.innerWidth / 2 - pan.x) / zoom, ccy = (window.innerHeight / 2 - pan.y) / zoom;
-    const ox = W / 2 - ccx * s, oy = H / 2 - ccy * s;
+    const ox = (W - (maxx - minx) * s) / 2 - minx * s;
+    const oy = (H - (maxy - miny) * s) / 2 - miny * s;
 
     cv._map = {s, ox, oy};
     for (const {r, col} of rects) {
@@ -1129,6 +1132,28 @@
       if (ctx.roundRect) ctx.roundRect(x, y, w, h, 1.5); else ctx.rect(x, y, w, h);
       ctx.fill();
     }
+    ctx.strokeStyle = "rgba(231,233,234,0.7)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ox + (ccx - vw / 2) * s, oy + (ccy - vh / 2) * s, vw * s, vh * s);
+    const counts = {up: 0, down: 0, left: 0, right: 0};
+    const addcount = (x, y, amount) => {
+      if (x < ccx - vw / 2) counts.left += amount;
+      else if (x > ccx + vw / 2) counts.right += amount;
+      if (y < ccy - vh / 2) counts.up += amount;
+      else if (y > ccy + vh / 2) counts.down += amount;
+    };
+    for (const f of folders) addcount((f.x || 0) + 100, (f.y || 0) + (f.collapsed ? 20 : 144), (f.members || []).length);
+    for (const u of loose) addcount(u.x || 0, u.y || 0, 1);
+    ctx.fillStyle = tum.theme.palette().text;
+    ctx.font = "700 10px Chirp, sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText("↑ " + counts.up, W / 2, 7);
+    ctx.fillText("↓ " + counts.down, W / 2, H - 7);
+    ctx.textAlign = "left";
+    ctx.fillText("← " + counts.left, 4, H / 2);
+    ctx.textAlign = "right";
+    ctx.fillText(counts.right + " →", W - 4, H / 2);
   }
   function onminimapclick(e) {
     const map = els.minimapcanvas._map;
@@ -1138,16 +1163,21 @@
   }
   function attachminimapdrag() {
     const cv = els.minimapcanvas;
-    let moved = false;
     cv.addEventListener("pointerdown", e => {
       if (e.button !== 0) return;
+      const map = cv._map;
+      if (!map) return;
       e.preventDefault();
-      moved = false;
+      const start = {x: e.clientX, y: e.clientY};
+      const center = {x: (window.innerWidth / 2 - pan.x) / zoom, y: (window.innerHeight / 2 - pan.y) / zoom};
+      let moved = false;
       cv.setPointerCapture(e.pointerId);
       cv.classList.add("tumdragging");
       const move = ev => {
+        const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+        if (!moved && Math.hypot(dx, dy) < 2) return;
         moved = true;
-        onminimapclick(ev);
+        centeron(center.x - dx / map.s, center.y - dy / map.s);
       };
       const up = ev => {
         cv.classList.remove("tumdragging");
