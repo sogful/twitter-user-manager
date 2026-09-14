@@ -515,7 +515,7 @@
   let scheduled = 0;
   function schedule() {
     if (scheduled) return;
-    scheduled = setTimeout(() => {scheduled = 0; scan()}, 120);
+    scheduled = setTimeout(() => {scheduled = 0; scan()}, 180);
   }
 
   window.tum.profileinfo = {

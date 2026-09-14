@@ -76,7 +76,7 @@
     refresh,
     init() {
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
-      setInterval(refresh, 1000);
+      window.addEventListener("popstate", schedule);
       schedule();
     }
   };

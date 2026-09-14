@@ -207,8 +207,8 @@
   }
 
   function foldertargetunderpoint(x, y) {
-    for (const n of O.els.freeform.querySelectorAll(".tumfolder")) {
-      const badge = n.querySelector(".tumfolderremove");
+    for (const n of O.foldernodes || []) {
+      const badge = n._tumremove;
       if (rectcontains(badge.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "remove"};
       if (rectcontains(n.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "body"};
     }
@@ -283,7 +283,7 @@
     const zone = quickzone(x, y);
     const act = actionbtnunderpoint(x, y);
     const target = (zone || act) ? null : foldertargetunderpoint(x, y);
-    for (const n of O.els.freeform.querySelectorAll(".tumfolder")) {
+    for (const n of O.foldernodes || []) {
       n.classList.toggle("tumover", !!target && target.zone === "body" && n.dataset.id === target.id);
       n.classList.toggle("tumoverremove", !!target && target.zone === "remove" && n.dataset.id === target.id);
     }
@@ -324,7 +324,7 @@
     O.root.classList.remove("tumdragging");
     state.drag = null;
 
-    for (const n of O.els.freeform.querySelectorAll(".tumfolder")) n.classList.remove("tumover", "tumoverremove");
+    for (const n of O.foldernodes || []) n.classList.remove("tumover", "tumoverremove");
     O.els.toolclose.classList.remove("tumdiscardover");
     O.els.toolgear.classList.remove("tumsettingsover");
     for (const b of O.els.actionbtns) b.classList.remove("tumover");

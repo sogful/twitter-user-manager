@@ -161,7 +161,7 @@
   let scheduled = 0;
   function schedulescan() {
     if (scheduled) return;
-    scheduled = setTimeout(() => {scheduled = 0; scan()}, 100);
+    scheduled = setTimeout(() => {scheduled = 0; scan()}, 180);
   }
 
   window.tum.badges = {

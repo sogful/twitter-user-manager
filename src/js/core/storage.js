@@ -124,7 +124,9 @@
     }
   }
 
-  setInterval(checkaccount, 1000);
+  window.addEventListener("focus", checkaccount);
+  document.addEventListener("visibilitychange", () => {if (!document.hidden) checkaccount()});
+  setInterval(checkaccount, 5000);
 
   /*//////////////////////////////////////////////////////////////////////*/
 

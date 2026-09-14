@@ -391,17 +391,12 @@
     return {handle: hit.handle, displayname: hit.name || hit.handle, avatarurl: img.src, badges: [], sourceurl: null, dimtargets: [av].filter(Boolean), source: "live"};
   }
   function avatarmapatpoint(x, y) {
-    let best = null, bestd = Infinity;
-    for (const img of document.querySelectorAll("img")) {
-      const src = img.currentSrc || img.src || "";
-      if (!/profile_images/.test(src) || !avatarmap.has(avatarkey(src))) continue;
-      const r = img.getBoundingClientRect();
-      if (r.width < 1) continue;
-      if (x < r.left - 4 || x > r.right + 4 || y < r.top - 4 || y > r.bottom + 4) continue;
-      const d = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y);
-      if (d < bestd) {best = img; bestd = d}
+    for (const target of document.elementsFromPoint(x, y)) {
+      const img = nearestavatarimg(target);
+      const src = img && (img.currentSrc || img.src || "");
+      if (src && /profile_images/.test(src) && avatarmap.has(avatarkey(src))) return img;
     }
-    return best;
+    return null;
   }
 
   function aggregatednotifavatar(target, article) {

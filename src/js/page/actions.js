@@ -4,7 +4,7 @@
   window.tum = window.tum || {};
 
   const T = (...a) => tum.strings.t(...a);
-  const LOG = true;
+  const LOG = false;
   const log = (...a) => {if (LOG) try {console.log("%c[tum]", "color:#1d9bf0;font-weight:700", ...a)} catch {}};
 
   const MENUTEXT = {

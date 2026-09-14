@@ -132,7 +132,8 @@ img {-webkit-user-drag: none; user-drag: none}
   background: var(--tumelev,#16181c);
   border: 1px solid var(--tumborder,#2f3336);
 }
-.tumminimapcanvas {display: block; cursor: pointer}
+.tumminimapcanvas {display: block; cursor: grab}
+.tumminimapcanvas.tumdragging {cursor: grabbing}
 
 .tumjumplist[hidden] {display: none}
 .tumjumplist {
@@ -230,7 +231,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderhead {
   background: var(--tumcolor);
-  height: 56px; padding: 5px;
+  height: 40px; padding: 5px;
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   cursor: grab; flex-shrink: 0; box-sizing: border-box
@@ -391,7 +392,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumloosechipinfo {gap: 1px}
 .tumfoldermembernamerow, .tumloosechipnamerow {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 2px;
   min-width: 0
 }
 .tumfoldermembername {
@@ -421,7 +422,8 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumbadges {
   display: inline-flex; align-items: center;
-  gap: 2px; flex-shrink: 0
+  gap: 2px; flex-shrink: 0;
+  position: relative; top: 1px
 }
 .tumbadges svg, .tumbadges img {
   width: 15px; height: 15px;
@@ -433,16 +435,16 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumbadge svg {fill: currentColor}
 .tumbadgeverified {color: #1d9bf0}
-.tumbadgeverifiedgovernment {color: #829aab}
-.tumbadgeprotected {color: var(--tumfg, currentColor)}
+.tumbadgegov {color: #829aab}
+.tumbadgelock {color: var(--tumfg,var(--tumtext,#e7e9ea))}
 .tumbadgetranslator {color: #1d9bf0}
-.tumbadgetranslatormod {color: #829aab}
-.tumbadgeaffiliation {
+.tumbadgemod {color: #829aab}
+.tumaffbadge {
   display: inline-flex; align-items: center;
   gap: 2px; color: var(--tummuted,#71767b);
   font-size: 10px; text-decoration: none
 }
-.tumbadgeaffiliation img {
+.tumaffbadge img {
   width: 15px; height: 15px;
   border-radius: 50%; object-fit: cover
 }
@@ -516,7 +518,6 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto; cursor: default;
   user-select: none;
   box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
-  backdrop-filter: blur(5px)
 }
 .tumquick.tumdisabled {opacity: .35; pointer-events: none}
 .tumquick.tumover {
@@ -556,7 +557,6 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: auto; cursor: default;
   user-select: none;
   box-shadow: 0 0 0 10px rgba(0,0,0,0.34);
-  backdrop-filter: blur(5px)
 }
 
 .tumdestroytext {

@@ -26,7 +26,6 @@
     safe("suggest", () => tum.suggest.init());
     safe("profileinfo", () => tum.profileinfo.init());
     safe("settings", () => tum.settings.init());
-    setInterval(() => {if (!document.getElementById("tum-host")) safe("overlay", () => tum.overlay.mount())}, 4000);
   }
 
   function boot() {
