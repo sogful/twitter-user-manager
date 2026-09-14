@@ -48,6 +48,7 @@
   "menu.newcategory": "New category",
   "menu.rename": "Rename",
   "menu.export": "Export",
+  "menu.share": "Share list",
   "menu.import": "Import",
 
   "confirm.import.title": "Import and %s all?",

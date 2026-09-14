@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitter user manager",
-  "version": "1.8",
+  "version": "1.8.1",
   "description": "sort and get additional info for accounts!",
   "author": "cv",
   "homepage_url": "https://coolsite.cv",
@@ -27,7 +27,11 @@
     }
   },
   "permissions": ["storage", "cookies"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*"],
+  "host_permissions": [
+    "https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", 
+    "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*", 
+    "https://list.coolsite.cv/*"
+  ],
   "background": {"service_worker": "src/js/background.js", "scripts": ["src/js/background.js"]},
   "content_scripts": [
     {

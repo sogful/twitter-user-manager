@@ -378,7 +378,7 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   gap: 3px; cursor: grab
 }
-.tumfoldermember {padding: 2px 5px; border-radius: 8px}
+.tumfoldermember {padding: 1px 5px; border-radius: 8px}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumfoldermemberavatar {
   width: 24px; height: 24px;

@@ -138,6 +138,24 @@
       fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
+  const sharestore = tum.storage.create("tum.shareconfig", {global: true});
+  async function sharefolder(f) {
+    let config = await sharestore.get() || {};
+    const endpoint = config.endpoint || prompt("shared list api endpoint", "https://list.coolsite.cv/api/lists");
+    if (!endpoint) return;
+    const token = config.token || prompt("shared list api token (stored locally)");
+    if (!token) return;
+    config = {endpoint: endpoint.replace(/\/$/, ""), token};
+    await sharestore.set(config);
+    let response, data;
+    try {
+      response = await fetch(config.endpoint, {method: "POST", headers: {authorization: "Bearer " + config.token, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
+      data = await response.json();
+    } catch {toast("couldn't create shared link"); return}
+    if (!response.ok || !data || !data.url) {toast(data && data.error || "couldn't create shared link"); return}
+    try {await navigator.clipboard.writeText(data.url)} catch {}
+    toast("shared link copied");
+  }
   function importintofolder(folder) {
     pickjson(data => {
       let members = [];
@@ -558,6 +576,7 @@
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
+        ...(f.action ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)}
       ];
     } else if (catnode) {
@@ -585,7 +604,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, openconfirm,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, openconfirm,
     oncontextmenu, closectx, ctxopen, newuser,
     opencreatemodal, openeditmodal, closemodal, savemodal, editfields,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
