@@ -1148,12 +1148,12 @@
     ctx.font = "700 10px Chirp, sans-serif";
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
-    ctx.fillText("↑ " + counts.up, W / 2, 7);
-    ctx.fillText("↓ " + counts.down, W / 2, H - 7);
+    if (counts.up) ctx.fillText("↑ " + counts.up, W / 2, 7);
+    if (counts.down) ctx.fillText("↓ " + counts.down, W / 2, H - 7);
     ctx.textAlign = "left";
-    ctx.fillText("← " + counts.left, 4, H / 2);
+    if (counts.left) ctx.fillText("← " + counts.left, 4, H / 2);
     ctx.textAlign = "right";
-    ctx.fillText(counts.right + " →", W - 4, H / 2);
+    if (counts.right) ctx.fillText(counts.right + " →", W - 4, H / 2);
   }
   function onminimapclick(e) {
     const map = els.minimapcanvas._map;

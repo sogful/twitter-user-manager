@@ -138,23 +138,16 @@
       fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
-  const sharestore = tum.storage.create("tum.shareconfig", {global: true});
   async function sharefolder(f) {
-    let config = await sharestore.get() || {};
-    const endpoint = config.endpoint || prompt("shared list api endpoint", "https://list.coolsite.cv/api/lists");
-    if (!endpoint) return;
-    const token = config.token || prompt("shared list api token (stored locally)");
-    if (!token) return;
-    config = {endpoint: endpoint.replace(/\/$/, ""), token};
-    await sharestore.set(config);
+    const endpoint = "https://list.coolsite.cv/api/lists";
+    const token = "305C55F8D294102DA05BC6F285BB7D278BA94400833812B6";
     let response, data;
     try {
-      response = await fetch(config.endpoint, {method: "POST", headers: {authorization: "Bearer " + config.token, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
+      response = await fetch(endpoint, {method: "POST", headers: {authorization: "Bearer " + token, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
       data = await response.json();
     } catch {toast("couldn't create shared link"); return}
     if (!response.ok || !data || !data.url) {toast(data && data.error || "couldn't create shared link"); return}
-    try {await navigator.clipboard.writeText(data.url)} catch {}
-    toast("shared link copied");
+    window.open(data.url, "_blank", "noopener,noreferrer");
   }
   function importintofolder(folder) {
     pickjson(data => {
