@@ -138,16 +138,33 @@
       fnsafe(f.name) + ".json");
     toast(T("toast.exported.folder", f.name));
   }
-  async function sharefolder(f) {
-    const endpoint = "https://list.coolsite.cv/api/lists";
-    const token = "305C55F8D294102DA05BC6F285BB7D278BA94400833812B6";
+  const shareendpoint = "https://list.coolsite.cv/api/lists";
+  const sharetoken = "305C55F8D294102DA05BC6F285BB7D278BA94400833812B6";
+  const validshareid = id => /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(id || "");
+  const shareurl = f => validshareid(f.sharedid) ? "https://list.coolsite.cv/" + f.sharedid : "";
+
+  async function sharefolder(f, sync = false) {
+    const id = sync && validshareid(f.sharedid) ? f.sharedid : "";
     let response, data;
     try {
-      response = await fetch(endpoint, {method: "POST", headers: {authorization: "Bearer " + token, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
+      response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers: {authorization: "Bearer " + sharetoken, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
       data = await response.json();
-    } catch {toast("couldn't create shared link"); return}
-    if (!response.ok || !data || !data.url) {toast(data && data.error || "couldn't create shared link"); return}
-    window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch {toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
+    if (!response.ok || !data || !data.url) {toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
+    tum.folders.update(f.id, {sharedid: data.id});
+    if (sync) toast(T("toast.share.synced"));
+    else window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function unsharefolder(f) {
+    if (!validshareid(f.sharedid)) return;
+    let response;
+    try {
+      response = await fetch(shareendpoint + "/" + f.sharedid, {method: "DELETE", headers: {authorization: "Bearer " + sharetoken}});
+    } catch {toast(T("toast.share.unpublishfailed")); return}
+    if (!response.ok && response.status !== 404) {toast(T("toast.share.unpublishfailed")); return}
+    tum.folders.update(f.id, {sharedid: null});
+    toast(T("toast.share.unpublished"));
   }
   function importintofolder(folder) {
     pickjson(data => {
@@ -500,6 +517,19 @@
   function closectx() {if (ctxel) ctxel.classList.remove("tumshow")}
 
   function ctxrow(item) {
+    if (item.type === "section") {
+      const section = el("div", "tumctxsection");
+      const label = el("div", "tumctxsectionlabel");
+      label.textContent = item.label;
+      const link = el("a", "tumctxlink");
+      link.href = item.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = item.href;
+      link.addEventListener("click", e => e.stopPropagation());
+      section.append(label, link);
+      return section;
+    }
     const r = el("button", "tumctxrow" + (item.danger ? " tumctxdanger" : ""));
     r.innerHTML = `<span class="tumctxicon">${item.icon || ""}</span><span class="tumctxlabel">${escapehtml(item.label)}</span>`;
     r.addEventListener("click", e => {e.stopPropagation(); closectx(); if (item.onclick) item.onclick()});
@@ -568,12 +598,18 @@
     } else if (foldernode) {
       const f = tum.folders.get(foldernode.dataset.id);
       if (!f) {closectx(); return}
+      const published = shareurl(f);
       items = [
         {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
-        ...(f.action ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
+        ...(f.action && !published ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
+        ...(published ? [
+          {type: "section", label: T("menu.sharedlist"), href: published},
+          {label: T("menu.syncshare"), icon: ICONS.upload, onclick: () => sharefolder(f, true)},
+          {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: () => unsharefolder(f)}
+        ] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)}
       ];
     } else if (catnode) {
@@ -601,7 +637,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, openconfirm,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
     oncontextmenu, closectx, ctxopen, newuser,
     opencreatemodal, openeditmodal, closemodal, savemodal, editfields,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,

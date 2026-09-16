@@ -971,6 +971,21 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumctxrow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumctxdanger {color: #f4212e}
+.tumctxsection {
+  padding: 9px 14px 7px;
+  border-top: 1px solid var(--tumborder,#2f3336)
+}
+.tumctxsectionlabel {
+  color: var(--tumtext,#e7e9ea);
+  font-size: 13px; font-weight: 700
+}
+.tumctxlink {
+  display: block; margin-top: 2px;
+  overflow: hidden; color: #1d9bf0;
+  font-size: 12px; line-height: 16px;
+  text-decoration: underline; text-overflow: ellipsis;
+  white-space: nowrap
+}
 .tumctxicon {
   display: flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; flex-shrink: 0
