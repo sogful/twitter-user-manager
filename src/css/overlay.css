@@ -988,6 +988,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumtoast {
   position: absolute; bottom: 32px; left: 50%;
   transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
   background: #1d9bf0; color: white;
   padding: 12px; border-radius: 4px;
   font-size: 15px; line-height: 20px;
@@ -997,5 +998,18 @@ img {-webkit-user-drag: none; user-drag: none}
   pointer-events: none; z-index: 4
 }
 .tumtoast.tumshow {
-  opacity: 1; visibility: visible
+  opacity: 1; visibility: visible;
+  pointer-events: auto
+}
+.tumtoastundo {
+  flex-shrink: 0; padding: 0;
+  border: 0; background: transparent;
+  color: white; font: inherit; font-weight: 800;
+  cursor: pointer
+}
+.tumtoastundo:hover {text-decoration: underline}
+.tumtoastundo:disabled {opacity: 0.65; cursor: default}
+.tumtoastundo:disabled:hover {text-decoration: none}
+.tumtoasttext {
+  min-width: 0
 }

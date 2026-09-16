@@ -22,8 +22,10 @@
     block: "blocks/create.json", unblock: "blocks/destroy.json"
   };
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+  const INVERSE = {follow: "unfollow", mute: "unmute", block: "unblock"};
 
   const successmsg = (action, h) => T("action.success." + action, h);
+  const actionlabel = action => action.charAt(0).toUpperCase() + action.slice(1);
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -56,11 +58,54 @@
     hidden.delete(h);
     for (const art of document.querySelectorAll('article[data-tumhidden="' + h + '"]')) {art.style.display = ""; delete art.dataset.tumhidden}
   }
-  function notify(action, handle) {
-    try {tum.overlay.toast(successmsg(action, handle))} catch {}
+  function applypostvisibility(action, handle) {
     const hide = !tum.settings || tum.settings.get("hideposts");
     if (hide && (action === "mute" || action === "block")) hideposts(handle);
     else if (action === "unmute" || action === "unblock") showposts(handle);
+  }
+
+  async function undoaction(action, handle) {
+    const inverse = INVERSE[action];
+    if (!inverse) return;
+    if (await apiaction(inverse, handle)) {
+      applypostvisibility(inverse, handle);
+      tum.overlay.toast(successmsg(inverse, handle));
+    } else {
+      tum.overlay.toast(T("action.undo.failed", action, handle));
+    }
+  }
+
+  function notify(action, handle) {
+    const inverse = INVERSE[action];
+    try {
+      tum.overlay.toast(successmsg(action, handle), inverse ? {
+        label: T("action.undo"),
+        onclick: () => undoaction(action, handle)
+      } : null);
+    } catch {}
+    applypostvisibility(action, handle);
+  }
+
+  function confirmindividual(action, handle) {
+    if (!INVERSE[action] || !tum.settings || !tum.settings.get("confirmactions")) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = answer => {
+        if (settled) return;
+        settled = true;
+        resolve(answer);
+      };
+      const label = actionlabel(action);
+      try {
+        tum.overlay.confirm({
+          title: T("action.confirm.single.title", label, handle),
+          body: T("action.confirm.single.body", action, handle),
+          oklabel: label,
+          onok: () => finish(true),
+          oncancel: () => finish(false)
+        });
+      } catch {finish(true)}
+    });
   }
 
   async function apiraw(action, handle) {
@@ -305,6 +350,7 @@
     async run(action, user) {
       if (!action) {log("no action set on this folder, just adding", user.handle); return true}
       if (await alreadydone(action, user.handle)) {log("already", action, user.handle); return true}
+      if (!await confirmindividual(action, user.handle)) {log("cancelled", action, user.handle); return false}
       log("running", action, "on", user.handle);
       try {
         let ok = await apiaction(action, user.handle);

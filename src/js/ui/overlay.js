@@ -50,7 +50,7 @@
   const campos = tum.storage.create("tum.campos");
   let campostimer = 0;
   function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
-  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null};
+  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null};
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -425,7 +425,7 @@
     els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) O.closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
       const fn = state.confirmaction;
-      O.closeconfirmsheet();
+      O.closeconfirmsheet(false);
       if (fn) fn();
     });
 
@@ -1309,11 +1309,29 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   let toasttimer = 0;
-  function toast(msg) {
-    els.toast.textContent = msg;
+  function toast(msg, options) {
+    els.toast.replaceChildren();
+    const text = document.createElement("span");
+    text.className = "tumtoasttext";
+    text.textContent = msg;
+    els.toast.appendChild(text);
+    if (options && options.label && typeof options.onclick === "function") {
+      const button = document.createElement("button");
+      button.className = "tumtoastundo";
+      button.type = "button";
+      button.textContent = options.label;
+      button.addEventListener("click", async event => {
+        event.stopPropagation();
+        if (button.disabled) return;
+        button.disabled = true;
+        clearTimeout(toasttimer);
+        await options.onclick();
+      });
+      els.toast.appendChild(button);
+    }
     els.toast.classList.add("tumshow");
     clearTimeout(toasttimer);
-    toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), 2600);
+    toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), options ? 5000 : 2600);
   }
 
   Object.assign(O, {

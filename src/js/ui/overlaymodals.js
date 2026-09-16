@@ -444,6 +444,7 @@
   function openconfirm(opts) {
     state.confirmopen = true;
     state.confirmaction = typeof opts.onok === "function" ? opts.onok : null;
+    state.confirmcancel = typeof opts.oncancel === "function" ? opts.oncancel : null;
     O.els.confirmtitle.textContent = opts.title || "Are you sure?";
     O.els.confirmbody.textContent = opts.body || "";
     O.els.confirmok.textContent = opts.oklabel || "Confirm";
@@ -476,11 +477,14 @@
     });
   }
 
-  function closeconfirmsheet() {
+  function closeconfirmsheet(cancelled = true) {
+    const oncancel = state.confirmcancel;
     O.els.confirmsheet.classList.remove("tumshow");
     state.confirmopen = false;
     state.confirmaction = null;
+    state.confirmcancel = null;
     hidebackdrop();
+    if (cancelled && oncancel) oncancel();
   }
 
   /*//////////////////////////////////////////////////////////////////////*/

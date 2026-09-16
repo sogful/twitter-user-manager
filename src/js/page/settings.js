@@ -12,7 +12,7 @@
   const DEFAULTS = {
     keepopen: true, nooverlap: false, startcollapsed: false, 
     autoopen: false, pagepencils: true, avatardots: true, 
-    extrainfo: true, hideposts: false, confirmdelete: false, destroyoption: false
+    extrainfo: true, hideposts: false, confirmactions: false, confirmdelete: false, destroyoption: false
   };
 
   const SECTIONS = [
@@ -23,7 +23,7 @@
       {key: "pagepencils"}, {key: "avatardots"}, {key: "extrainfo"}
     ]},
     {title: "settings.section.actions", items: [
-      {key: "hideposts"}, {key: "confirmdelete"}
+      {key: "hideposts"}, {key: "confirmactions"}, {key: "confirmdelete"}
     ]},
     {title: "settings.section.extras", items: [
       {key: "destroyoption", img: "assets/images/yeah.png"}
