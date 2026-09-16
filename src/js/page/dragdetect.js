@@ -3,7 +3,7 @@
 
   window.tum = window.tum || {};
 
-  const THRESHOLD = 6;
+  const userthreshold = 10;
   const AVATARSEL = '[data-testid="Tweet-User-Avatar"], [data-testid^="UserAvatar-Container-"]';
   const ARTICLESEL = 'article[data-testid="tweet"], article[role="article"], div[data-testid="HoverCard"]';
   const NAMEBOXSEL = '[data-testid="User-Name"]';
@@ -471,7 +471,7 @@
     if (!tracking) return;
     const dx = e.clientX - tracking.startx, dy = e.clientY - tracking.starty;
     if (!tracking.dragging) {
-      if (Math.hypot(dx, dy) < THRESHOLD) return;
+      if (Math.hypot(dx, dy) < userthreshold) return;
       tracking.dragging = true;
       tum.overlay.begindrag(tracking.user, e.clientX, e.clientY);
       document.body.style.userSelect = "none";

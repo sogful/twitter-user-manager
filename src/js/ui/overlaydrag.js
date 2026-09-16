@@ -6,6 +6,7 @@
   const T = (...a) => tum.strings.t(...a);
 
   const THRESHOLD = 6;
+  const userthreshold = 10;
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -85,7 +86,7 @@
       const move = ev => {
         if (!tracking) return;
         if (!dragging) {
-          if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < THRESHOLD) return;
+          if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < userthreshold) return;
           dragging = true;
           const user = {...m, badges: m.badges || []};
           begindrag(user, ev.clientX, ev.clientY, source);

@@ -306,7 +306,14 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 .tumbatchdrag {
   position: absolute; top: 3px;
   right: 0; width: 30px;
-  height: 7px; cursor: grab
+  height: 9px; cursor: grab
+}
+.tumbatchdrag::after {
+  content: ""; position: absolute;
+  top: 1px; right: 5px;
+  width: 15px; height: 5px;
+  background: radial-gradient(circle,currentColor 1px,transparent 1.5px) center / 5px 5px;
+  opacity: 0.45; pointer-events: none
 }
 .tumbatchdrag:active {cursor: grabbing}
 

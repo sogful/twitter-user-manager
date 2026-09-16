@@ -139,31 +139,35 @@
     toast(T("toast.exported.folder", f.name));
   }
   const shareendpoint = "https://list.coolsite.cv/api/lists";
-  const sharetoken = "305C55F8D294102DA05BC6F285BB7D278BA94400833812B6";
   const validshareid = id => /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(id || "");
-  const shareurl = f => validshareid(f.sharedid) ? "https://list.coolsite.cv/" + f.sharedid : "";
+  const validsharekey = key => /^[0-9a-f]{32}$/i.test(key || "");
+  const hasshare = f => validshareid(f.sharedid) && validsharekey(f.sharedkey);
+  const shareurl = f => hasshare(f) ? "https://list.coolsite.cv/" + f.sharedid : "";
 
   async function sharefolder(f, sync = false) {
-    const id = sync && validshareid(f.sharedid) ? f.sharedid : "";
+    const managed = hasshare(f);
+    const id = managed ? f.sharedid : "";
+    const headers = {"content-type": "application/json"};
+    if (managed) headers["x-list-key"] = f.sharedkey;
     let response, data;
     try {
-      response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers: {authorization: "Bearer " + sharetoken, "content-type": "application/json"}, body: JSON.stringify({folder: exportfolderdata(f)})});
+      response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers, body: JSON.stringify({folder: exportfolderdata(f)})});
       data = await response.json();
     } catch {toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
     if (!response.ok || !data || !data.url) {toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
-    tum.folders.update(f.id, {sharedid: data.id});
+    tum.folders.update(f.id, {sharedid: data.id, sharedkey: data.key || f.sharedkey, sharedpublished: true});
     if (sync) toast(T("toast.share.synced"));
     else window.open(data.url, "_blank", "noopener,noreferrer");
   }
 
   async function unsharefolder(f) {
-    if (!validshareid(f.sharedid)) return;
+    if (!hasshare(f)) return;
     let response;
     try {
-      response = await fetch(shareendpoint + "/" + f.sharedid, {method: "DELETE", headers: {authorization: "Bearer " + sharetoken}});
+      response = await fetch(shareendpoint + "/" + f.sharedid, {method: "DELETE", headers: {"x-list-key": f.sharedkey}});
     } catch {toast(T("toast.share.unpublishfailed")); return}
-    if (!response.ok && response.status !== 404) {toast(T("toast.share.unpublishfailed")); return}
-    tum.folders.update(f.id, {sharedid: null});
+    if (!response.ok) {toast(T("toast.share.unpublishfailed")); return}
+    tum.folders.update(f.id, {sharedpublished: false});
     toast(T("toast.share.unpublished"));
   }
   function importintofolder(folder) {
@@ -598,19 +602,23 @@
     } else if (foldernode) {
       const f = tum.folders.get(foldernode.dataset.id);
       if (!f) {closectx(); return}
-      const published = shareurl(f);
+      const knownshare = shareurl(f);
+      const published = knownshare && f.sharedpublished !== false;
       items = [
         {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
-        ...(f.action && !published ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
-        ...(published ? [
-          {type: "section", label: T("menu.sharedlist"), href: published},
-          {label: T("menu.syncshare"), icon: ICONS.upload, onclick: () => sharefolder(f, true)},
-          {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: () => unsharefolder(f)}
-        ] : []),
-        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)}
+        ...(f.action && !knownshare ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
+        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
+        ...(knownshare ? [
+          {type: "section", label: T("menu.sharedlist"), href: knownshare},
+          ...(!published ? [{label: T("menu.republish"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
+          ...(published ? [
+            {label: T("menu.syncshare"), icon: ICONS.upload, onclick: () => sharefolder(f, true)},
+            {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: () => unsharefolder(f)}
+          ] : [])
+        ] : [])
       ];
     } else if (catnode) {
       const cid = catnode.dataset.id;
