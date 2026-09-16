@@ -708,7 +708,6 @@
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
     const unfindable = m.unfindable === true || (!m.userid && !m.pending);
-    const missing = unfindable || !m.userid;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
@@ -719,7 +718,7 @@
           ${badgeshtml(m.badges, m)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${missing ? " (can't find)" : ""}</span>
+        <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${unfindable ? " (can't find)" : ""}</span>
       </div>
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
@@ -742,7 +741,6 @@
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
     const unfindable = u.unfindable === true || (!u.userid && !u.pending);
-    const missing = unfindable || !u.userid;
     if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
     chip.style.left = (u.x || 0) + "px";
@@ -757,7 +755,7 @@
           ${badgeshtml(u.badges, u)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${missing ? " · can't find" : ""}</span>
+        <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${unfindable ? " · can't find" : ""}</span>
       </div>
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
