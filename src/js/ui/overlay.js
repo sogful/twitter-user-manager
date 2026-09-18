@@ -69,7 +69,8 @@
     const text = value == null ? "" : String(value);
     const parts = typeof Intl !== "undefined" && Intl.Segmenter ? [...new Intl.Segmenter(undefined, {granularity: "grapheme"}).segment(text)].map(x => x.segment) : Array.from(text);
     return parts.map(part => {
-      if (!/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}]/u.test(part)) return escapehtml(part);
+      const emoji = /\p{Emoji_Presentation}/u.test(part) || (/\p{Emoji}/u.test(part) && part.includes("\ufe0f"));
+      if (!emoji && !/[\u{1F1E6}-\u{1F1FF}]/u.test(part)) return escapehtml(part);
       const points = [...part].map(c => c.codePointAt(0).toString(16));
       const id = (part.includes("\u200d") ? points : points.filter(c => c !== "fe0f")).join("-");
       return `<img class="tumnameemoji" draggable="false" alt="${escapehtml(part)}" src="https://abs.twimg.com/emoji/v2/svg/${id}.svg">`;
@@ -386,7 +387,11 @@
       els.modalcolors.appendChild(sw);
     }
     tum.iconpicker.mount(root);
-    tum.iconpicker.onload(() => {render(); if (state.modalopen) O.refreshiconbtn()});
+    tum.iconpicker.onload(ids => {
+      const loaded = new Set(ids || []);
+      if (tum.folders.list().some(folder => folder.icon && loaded.has(folder.icon))) render();
+      if (state.modalopen) O.refreshiconbtn();
+    });
 
     attachpan();
     setupscrolllock();
@@ -403,8 +408,6 @@
     els.modalclose.addEventListener("click", O.closemodal);
     els.modal.addEventListener("click", e => {if (e.target === els.modal) O.closemodal()});
     els.modalsave.addEventListener("click", O.savemodal);
-    els.modalname.addEventListener("input", O.editfields);
-    els.modaldesc.addEventListener("input", O.editfields);
     els.modaliconbtn.addEventListener("click", e => {e.stopPropagation(); tum.iconpicker.open(els.modaliconbtn, id => O.selecticon(id))});
     els.modaliconclear.addEventListener("click", e => {e.stopPropagation(); O.selecticon("")});
 
@@ -477,7 +480,7 @@
   function showbackdrop() {
     applytheme();
     root.classList.add("tumactive");
-    refreshmarquees();
+    schedulemarquees([els.freeform]);
   }
   function hidebackdrop() {
     if (state.drag || state.open || state.modalopen || state.reasonopen || state.confirmopen) return;
@@ -487,7 +490,7 @@
   function closeoverlay() {
     state.open = false;
     if (O.closectx) O.closectx();
-    O.closemodal();
+    if (O.closemodal()) {state.open = true; showbackdrop(); return}
     O.closereasonmodal();
     O.closeconfirmsheet();
     hidebackdrop();
@@ -528,48 +531,101 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  function render() {
+  function rendersignature(value, extra) {
+    try {return JSON.stringify(value) + (extra || "")} catch {return String(Date.now())}
+  }
+  function restorefolderview(node, view) {
+    if (!view) return;
+    const search = node.querySelector(".tumfoldersearch");
+    const list = node.querySelector(".tumfolderlist");
+    if (search && view.query) {
+      search.value = view.query;
+      const query = view.query.toLowerCase();
+      for (const row of list.querySelectorAll(".tumfoldermember")) row.style.display = row.textContent.toLowerCase().includes(query) ? "" : "none";
+    }
+    if (list) list.scrollTop = view.scroll;
+  }
+  function syncfreeform(nodes) {
+    const keep = new Set(nodes);
+    let cursor = els.freeform.firstElementChild;
+    for (const node of nodes) {
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else els.freeform.insertBefore(node, cursor);
+    }
+    for (const node of [...els.freeform.children]) if (!keep.has(node)) node.remove();
+  }
+  function render(force) {
     if (!els.freeform) return;
-    els.freeform.innerHTML = "";
-    for (const c of tum.categories.list()) els.freeform.appendChild(buildcategorynode(c));
-    O.categorynodes = [...els.freeform.querySelectorAll(".tumcategory")];
-    for (const f of tum.folders.list()) els.freeform.appendChild(buildfoldernode(f));
-    O.foldernodes = [...els.freeform.querySelectorAll(".tumfolder")];
-    for (const u of tum.unsorted.list()) if (u.placed !== false) els.freeform.appendChild(buildloosechip(u));
+    force = force === true;
+    const categories = new Map([...els.freeform.querySelectorAll(".tumcategory")].map(node => [node.dataset.id, node]));
+    const folders = new Map([...els.freeform.querySelectorAll(".tumfolder")].map(node => [node.dataset.id, node]));
+    const loose = new Map([...els.freeform.querySelectorAll(".tumloosechip")].map(node => [(node.dataset.handle || "").toLowerCase(), node]));
+    const changed = [], nodes = [];
+    O.categorynodes = tum.categories.list().map(category => {
+      const signature = rendersignature(category);
+      let node = categories.get(category.id);
+      if (force || !node || node._tumsignature !== signature) {node = buildcategorynode(category); node._tumsignature = signature; changed.push(node)}
+      nodes.push(node);
+      return node;
+    });
+    O.foldernodes = tum.folders.list().map(folder => {
+      const dragging = state.drag && state.drag.source && state.drag.source.type === "folder" && state.drag.source.id === folder.id ? state.drag.user.handle : "";
+      const signature = rendersignature(folder, dragging + (folder.icon ? "|icon:" + iconhtml(folder.icon) : ""));
+      const old = folders.get(folder.id);
+      let node = old;
+      if (force || !node || node._tumsignature !== signature) {
+        const list = old && old.querySelector(".tumfolderlist");
+        const search = old && old.querySelector(".tumfoldersearch");
+        const view = old ? {scroll: list ? list.scrollTop : 0, query: search ? search.value.trim() : ""} : null;
+        node = buildfoldernode(folder);
+        node._tumsignature = signature;
+        node._tumrestore = view;
+        changed.push(node);
+      }
+      nodes.push(node);
+      return node;
+    });
+    for (const user of tum.unsorted.list()) if (user.placed !== false) {
+      const key = (user.handle || "").toLowerCase();
+      const dragging = state.drag && state.drag.source && state.drag.source.type === "unsorted" && (state.drag.user.handle || "").toLowerCase() === key ? "dragging" : "";
+      const signature = rendersignature(user, dragging);
+      let node = loose.get(key);
+      if (force || !node || node._tumsignature !== signature) {node = buildloosechip(user); node._tumsignature = signature; changed.push(node)}
+      nodes.push(node);
+    }
+    syncfreeform(nodes);
+    for (const node of O.foldernodes) if (node._tumrestore) {restorefolderview(node, node._tumrestore); delete node._tumrestore}
     updatequickstate();
-    refreshmarquees();
+    if (changed.length) schedulemarquees(changed);
     scheduleminimap();
     if (els.jumplist && !els.jumplist.hidden) buildjumprows(els.jumpsearch.value);
   }
 
-  function enablemarquee(outer) {
-    const inner = outer.querySelector(".tummqinner");
-    if (!inner) return;
-    const dist = inner.scrollWidth - outer.clientWidth;
-    if (dist > 2) {
-      outer.style.setProperty("--mqshift", -dist + "px");
-      outer.style.setProperty("--mqdur", Math.max(4, dist / 25).toFixed(1) + "s");
-      outer.classList.add("tummarqueeon");
-    } else {
-      outer.classList.remove("tummarqueeon");
-    }
-  }
-  function refreshmarquees() {
-    if (!els.freeform) return;
-    for (const outer of els.freeform.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) enablemarquee(outer);
-  }
-  function layoutfolderdesc(node) {
-    const desc = node.querySelector(".tumfolderdesc");
-    if (!desc) return;
-    requestAnimationFrame(() => {
-      if (!desc.isConnected || desc.scrollWidth <= desc.clientWidth + 2) return;
-      desc.classList.add("tumfolderdesctwo");
-      requestAnimationFrame(() => {
-        if (!desc.isConnected || Math.ceil(desc.scrollHeight / 8.5) <= 2) return;
-        desc.classList.remove("tumfolderdesctwo");
-        desc.classList.add("tumfolderdescscroll");
-        enablemarquee(desc);
+  let marqueeraf = 0;
+  const marqueeroots = new Set();
+  function schedulemarquees(nodes) {
+    for (const node of nodes || []) if (node) marqueeroots.add(node);
+    if (marqueeraf) return;
+    marqueeraf = requestAnimationFrame(() => {
+      marqueeraf = 0;
+      const targets = new Set();
+      for (const node of marqueeroots) {
+        if (!node.isConnected) continue;
+        if (node.matches && node.matches(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) targets.add(node);
+        for (const outer of node.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) targets.add(outer);
+      }
+      marqueeroots.clear();
+      const measured = [...targets].map(outer => {
+        const inner = outer.querySelector(".tummqinner");
+        return {outer, dist: inner ? inner.scrollWidth - outer.clientWidth : 0};
       });
+      for (const {outer, dist} of measured) {
+        if (dist > 2) {
+          outer.style.setProperty("--mqshift", -dist + "px");
+          outer.style.setProperty("--mqdur", Math.max(4, dist / 25).toFixed(1) + "s");
+          outer.classList.add("tummarqueeon");
+        } else outer.classList.remove("tummarqueeon");
+      }
     });
   }
 
@@ -674,7 +730,6 @@
         row.style.display = !q || text.includes(q) ? "" : "none";
       }
     });
-    layoutfolderdesc(node);
     return node;
   }
 
@@ -1074,7 +1129,7 @@
     if (!f) return;
     centeron((f.x || 0) + 100, (f.y || 0) + 144);
     const node = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
-    if (node) {node.classList.remove("tumflash"); void node.offsetWidth; node.classList.add("tumflash"); setTimeout(() => node.classList.remove("tumflash"), 1200)}
+    flashfolder(node);
     togglejumplist(false);
   }
   function togglejumplist(force) {
@@ -1298,10 +1353,26 @@
     showbackdrop();
     render();
     const n = els.freeform.querySelector('.tumfolder[data-id="' + folderid + '"]');
-    if (!n) return;
-    void n.offsetWidth;
-    n.classList.add("tumflash");
-    setTimeout(() => n.classList.remove("tumflash"), 1200);
+    flashfolder(n);
+  }
+
+  function flashfolder(node) {
+    if (!node) return;
+    if (node.getAnimations) for (const animation of node.getAnimations()) {
+      if (animation.id === "tumfolderflash") animation.cancel();
+    }
+    if (node.animate) {
+      const animation = node.animate([
+        {outlineColor: "transparent"},
+        {outlineColor: "#1d9bf0"},
+        {outlineColor: "transparent"}
+      ], {duration: 500, iterations: 2, easing: "ease-in-out"});
+      animation.id = "tumfolderflash";
+      return;
+    }
+    node.classList.remove("tumflash");
+    requestAnimationFrame(() => node.classList.add("tumflash"));
+    setTimeout(() => node.classList.remove("tumflash"), 1200);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/

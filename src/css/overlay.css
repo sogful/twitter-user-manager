@@ -49,7 +49,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumroot.tumactive .tumbackdrop {
   opacity: 1; visibility: visible;
-  pointer-events: auto;
+  pointer-events: auto; contain: layout paint;
   cursor: move
 }
 .tumroot.tumpanning .tumbackdrop {cursor: grabbing}
@@ -215,6 +215,7 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; flex-direction: column;
   border-radius: 14px; overflow: hidden;
   pointer-events: auto;
+  contain: layout paint;
   --tumcolor: #1d9bf0
 }
 
@@ -261,13 +262,6 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 10px; line-height: 11px;
   overflow: hidden; max-width: 100%; white-space: nowrap
 }
-.tumfolderdesc.tumfolderdesctwo {
-  font-size: 8px; line-height: 8.5px; white-space: normal;
-  display: -webkit-box; -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2
-}
-.tumfolderdesc.tumfolderdesctwo .tummqinner {white-space: normal}
-.tumfolderdesc.tumfolderdescscroll {font-size: 10px; line-height: 11px}
 .tumfolderauto {
   display: flex; align-items: center; gap: 4px;
   color: var(--tumheaderfg, white); opacity: .85;

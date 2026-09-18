@@ -15,11 +15,15 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   let notifyraf = 0;
-  function notifyloaded() {
+  const loadedids = new Set();
+  function notifyloaded(id) {
+    if (id) loadedids.add(id);
     if (notifyraf) return;
     notifyraf = requestAnimationFrame(() => {
       notifyraf = 0;
-      for (const cb of loadlisteners) try {cb()} catch {}
+      const ids = [...loadedids];
+      loadedids.clear();
+      for (const cb of loadlisteners) try {cb(ids)} catch {}
     });
   }
 
@@ -32,7 +36,7 @@
     const p = fetch(iconurl(id)).then(r => r.text()).catch(() => "").then(text => {
       svgcache.set(id, text);
       svgpending.delete(id);
-      notifyloaded();
+      notifyloaded(id);
       return text;
     });
     svgpending.set(id, p);

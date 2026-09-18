@@ -138,6 +138,7 @@
     update(id, patch, silent) {
       const f = list.find(x => x.id === id);
       if (!f) return null;
+      if (!patch || !Object.keys(patch).some(key => f[key] !== patch[key])) return f;
       Object.assign(f, patch);
       persist();
       if (!silent) emit();

@@ -217,24 +217,10 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   let modalcolor = "#1d9bf0", modalaction = null, modalicon = "";
-  let suppressautosave = false;
-
-  function autosave(patch) {
-    if (!state.editing || suppressautosave) return;
-    tum.folders.update(state.editing, patch);
-  }
-  function editfields() {
-    const name = (O.els.modalname.value || "").trim();
-    const description = (O.els.modaldesc.value || "").trim();
-    const patch = {description};
-    if (name) patch.name = name;
-    autosave(patch);
-  }
 
   function selectcolor(c) {
     modalcolor = c;
     for (const sw of O.els.modalcolors.children) sw.classList.toggle("tumselected", sw.dataset.color === c);
-    autosave({color: c});
   }
   function selectaction(a) {
     modalaction = a;
@@ -244,17 +230,10 @@
   function toggleaction(a) {
     const next = a === modalaction ? null : a;
     selectaction(next);
-    if (state.editing) applyeditaction(next);
   }
   
-  function applyeditaction(action) {
-    const fid = state.editing;
-    const f = tum.folders.get(fid);
-    if (!f) return;
-    const prevaction = f.action;
-    const members = Array.isArray(f.members) ? f.members.slice() : [];
-    tum.folders.update(fid, {action});
-    if (!action || action === prevaction) return;
+  function applyeditaction(action, prevaction, members) {
+    if (!action || action === prevaction) return false;
     const cap = action.charAt(0).toUpperCase() + action.slice(1);
     if (members.length > 3) {
       openconfirm({
@@ -263,9 +242,28 @@
         oklabel: cap + " all",
         onok: () => {tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
       });
+      return true;
     } else if (members.length) {
       tum.actions.enqueue(action, members.map(m => m.handle));
     }
+    return false;
+  }
+  function commitedit() {
+    const fid = state.editing;
+    const folder = fid && tum.folders.get(fid);
+    if (!folder) return false;
+    const patch = {
+      name: (O.els.modalname.value || "").trim() || "unnamed",
+      description: (O.els.modaldesc.value || "").trim(),
+      icon: modalicon,
+      action: modalaction,
+      color: modalcolor
+    };
+    const changed = Object.keys(patch).some(key => folder[key] !== patch[key]);
+    const prevaction = folder.action;
+    const members = Array.isArray(folder.members) ? folder.members.slice() : [];
+    if (changed) tum.folders.update(fid, patch);
+    return changed && applyeditaction(modalaction, prevaction, members);
   }
   function refreshiconbtn() {
     O.els.modaliconbtn.innerHTML = iconhtml(modalicon) || ICONS[modalaction] || ICONS.folder;
@@ -274,7 +272,6 @@
   function selecticon(id) {
     modalicon = id;
     refreshiconbtn();
-    autosave({icon: id});
   }
 
   function opencreatemodal(opts) {
@@ -287,7 +284,6 @@
     state.pendingpos = (typeof opts.x === "number" && typeof opts.y === "number") ? {x: opts.x, y: opts.y} : null;
     state.pendingoncreate = typeof opts.oncreate === "function" ? opts.oncreate : null;
    
-    suppressautosave = true;
     modalicon = "";
 
     O.els.modalname.value = opts.name || "";
@@ -299,15 +295,12 @@
     selectcolor(tum.folders.COLORS[tum.folders.list().length % tum.folders.COLORS.length]);
 
     O.els.modalactionsrow.style.display = "";
-    suppressautosave = false;
-
     showbackdrop();
     O.els.modal.classList.add("tumshow");
     O.els.modalname.focus();
   }
 
   function openeditmodal(f) {
-    suppressautosave = true;
     state.editing = f.id;
     state.modalopen = true;
     modalicon = f.icon || "";
@@ -319,13 +312,12 @@
     selectcolor(f.color);
 
     O.els.modalactionsrow.style.display = "";
-    suppressautosave = false;
-
     showbackdrop();
     O.els.modal.classList.add("tumshow");
   }
 
   function closemodal() {
+    const actionprompted = commitedit();
     O.els.modal.classList.remove("tumshow");
     tum.iconpicker.close();
 
@@ -339,6 +331,7 @@
     
     hidebackdrop();
     if (pendinghandle) {restorehidden(pendinghandle); render()}
+    return actionprompted;
   }
 
   function savemodal() {
@@ -647,7 +640,7 @@
 
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
     oncontextmenu, closectx, ctxopen, newuser,
-    opencreatemodal, openeditmodal, closemodal, savemodal, editfields,
+    opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, confirmcategorydelete, closeconfirmsheet});
 })();

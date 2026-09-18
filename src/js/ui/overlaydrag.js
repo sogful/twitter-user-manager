@@ -19,7 +19,16 @@
       if (e.target.closest(".tumfolderremove")) return;
       const rect = node.getBoundingClientRect();
       const z = O.zoom();
-      tracking = {startx: e.clientX, starty: e.clientY, offsetx: e.clientX - rect.left, offsety: e.clientY - rect.top, dragging: false};
+      tracking = {
+        startx: e.clientX,
+        starty: e.clientY,
+        offsetx: e.clientX - rect.left,
+        offsety: e.clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+        deleterect: O.els.quickdelete.getBoundingClientRect(),
+        dragging: false
+      };
       const move = ev => {
         if (!tracking) return;
         const dx = ev.clientX - tracking.startx, dy = ev.clientY - tracking.starty;
@@ -32,14 +41,14 @@
         }
         const px = (ev.clientX - tracking.offsetx - pan.x) / z;
         const py = (ev.clientY - tracking.offsety - pan.y) / z;
-        const w = node.offsetWidth, h = node.offsetHeight;
+        const w = tracking.width, h = tracking.height;
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-        const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
+        const a = O.nooverlapadjustbox(c.x - w / 2, c.y - h / 2, w, h, node);
 
         node.style.left = Math.round(a.left) + "px";
         node.style.top = Math.round(a.top) + "px";
 
-        const overdel = rectcontains(O.els.quickdelete.getBoundingClientRect(), ev.clientX, ev.clientY);
+        const overdel = rectcontains(tracking.deleterect, ev.clientX, ev.clientY);
         O.els.quickdelete.classList.toggle("tumover", overdel);
         node.classList.toggle("tumoverremove", overdel);
         O.categoryhover(overdel ? null : c.x, overdel ? null : c.y);
@@ -52,7 +61,7 @@
         O.categoryhover(null);
         O.els.quickdelete.classList.remove("tumover");
         O.els.quickdelete.classList.add("tumdisabled"); 
-        if (tracking && tracking.dragging && rectcontains(O.els.quickdelete.getBoundingClientRect(), ev.clientX, ev.clientY)) {
+        if (tracking && tracking.dragging && rectcontains(tracking.deleterect, ev.clientX, ev.clientY)) {
           const s = tum.folders.get(f.id) || f;
           node.style.left = (s.x || 0) + "px";
           node.style.top = (s.y || 0) + "px";
@@ -60,9 +69,9 @@
         } else if (tracking && tracking.dragging) {
           const px = (ev.clientX - tracking.offsetx - pan.x) / z;
           const py = (ev.clientY - tracking.offsety - pan.y) / z;
-          const w = node.offsetWidth, h = node.offsetHeight;
+          const w = tracking.width, h = tracking.height;
           const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-          const a = O.nooverlapadjust(node, c.x - w / 2, c.y - h / 2);
+          const a = O.nooverlapadjustbox(c.x - w / 2, c.y - h / 2, w, h, node);
 
           node.style.left = Math.round(a.left) + "px";
           node.style.top = Math.round(a.top) + "px";
@@ -207,37 +216,57 @@
     return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
+  let hitrectcache = null, hitrectraf = 0;
+  function hitrects() {
+    if (hitrectcache && hitrectcache.folders.every(target => target.node.isConnected)) return hitrectcache;
+    hitrectcache = null;
+    hitrectcache = {
+      folders: (O.foldernodes || []).map(node => ({
+        node,
+        body: node.getBoundingClientRect(),
+        remove: node._tumremove && node._tumremove.getBoundingClientRect()
+      })),
+      close: O.els.toolclose.getBoundingClientRect(),
+      gear: O.els.toolgear.getBoundingClientRect(),
+      add: O.els.quickadd.getBoundingClientRect(),
+      delete: O.els.quickdelete.getBoundingClientRect(),
+      reason: O.els.quickreason.getBoundingClientRect(),
+      actions: O.els.actionbtns.map(node => ({node, rect: node.getBoundingClientRect()}))
+    };
+    if (!hitrectraf) hitrectraf = requestAnimationFrame(() => {hitrectraf = 0; hitrectcache = null});
+    return hitrectcache;
+  }
+
   function foldertargetunderpoint(x, y) {
-    for (const n of O.foldernodes || []) {
-      const badge = n._tumremove;
-      if (rectcontains(badge.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "remove"};
-      if (rectcontains(n.getBoundingClientRect(), x, y)) return {id: n.dataset.id, zone: "body"};
+    for (const target of hitrects().folders) {
+      if (rectcontains(target.remove, x, y)) return {id: target.node.dataset.id, zone: "remove"};
+      if (rectcontains(target.body, x, y)) return {id: target.node.dataset.id, zone: "body"};
     }
     return null;
   }
 
   function overclosetool(x, y) {
     if (!state.drag || state.drag.kind !== "user") return null;
-    return rectcontains(O.els.toolclose.getBoundingClientRect(), x, y) ? O.els.toolclose : null;
+    return rectcontains(hitrects().close, x, y) ? O.els.toolclose : null;
   }
   function overgear(x, y) {
     if (!state.drag || state.drag.kind !== "user") return null;
-    return rectcontains(O.els.toolgear.getBoundingClientRect(), x, y) ? O.els.toolgear : null;
+    return rectcontains(hitrects().gear, x, y) ? O.els.toolgear : null;
   }
 
   function actionbtnunderpoint(x, y) {
     if (!state.drag || state.drag.kind !== "user") return null;
-    const b = O.els.actionbtns.find(n => rectcontains(n.getBoundingClientRect(), x, y));
-    return b ? b.dataset.act : null;
+    const target = hitrects().actions.find(item => rectcontains(item.rect, x, y));
+    return target ? target.node.dataset.act : null;
   }
   function quickzone(x, y) {
     if (state.drag && state.drag.kind === "user") {
-      if (rectcontains(O.els.quickdelete.getBoundingClientRect(), x, y)) return "delete";
-      if (rectcontains(O.els.quickreason.getBoundingClientRect(), x, y)) return "reason";
+      if (rectcontains(hitrects().delete, x, y)) return "delete";
+      if (rectcontains(hitrects().reason, x, y)) return "reason";
       if (overclosetool(x, y)) return "discard";
       if (overgear(x, y)) return "settings";
     }
-    if (rectcontains(O.els.quickadd.getBoundingClientRect(), x, y)) return "add";
+    if (rectcontains(hitrects().add, x, y)) return "add";
     return null;
   }
 
