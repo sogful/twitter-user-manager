@@ -379,9 +379,10 @@
     for (const u of e.data.data) {const k = avatarkey(u.avatar); if (k) avatarmap.set(k, {handle: u.handle, name: u.name})}
   });
   function nearestavatarimg(target) {
-    if (target.matches && target.matches("img")) return target;
-    const scope = target.closest('[data-testid^="UserAvatar-Container-"], a[href^="/"], [role="link"]') || target;
-    return scope.querySelector ? scope.querySelector("img") : null;
+    if (!target || !target.matches) return null;
+    if (target.matches("img")) return target;
+    const avatar = target.closest(AVATARSEL);
+    return avatar ? avatar.querySelector("img") : null;
   }
   function extractfromavatarmap(target) {
     const img = nearestavatarimg(target);
