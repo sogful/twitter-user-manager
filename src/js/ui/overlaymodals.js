@@ -458,10 +458,14 @@
   function openconfirm(opts) {
     state.confirmopen = true;
     state.confirmaction = typeof opts.onok === "function" ? opts.onok : null;
+    state.confirmalternate = typeof opts.onalternate === "function" ? opts.onalternate : null;
     state.confirmcancel = typeof opts.oncancel === "function" ? opts.oncancel : null;
     O.els.confirmtitle.textContent = opts.title || "Are you sure?";
     O.els.confirmbody.textContent = opts.body || "";
     O.els.confirmok.textContent = opts.oklabel || "Confirm";
+    O.els.confirmsecondary.textContent = opts.altlabel || "";
+    O.els.confirmsecondary.hidden = !state.confirmalternate;
+    O.els.confirmcancel.textContent = opts.cancellabel || "Cancel";
     showbackdrop();
     O.els.confirmsheet.classList.add("tumshow");
   }
@@ -496,6 +500,7 @@
     O.els.confirmsheet.classList.remove("tumshow");
     state.confirmopen = false;
     state.confirmaction = null;
+    state.confirmalternate = null;
     state.confirmcancel = null;
     hidebackdrop();
     if (cancelled && oncancel) oncancel();

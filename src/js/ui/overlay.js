@@ -50,7 +50,7 @@
   const campos = tum.storage.create("tum.campos");
   let campostimer = 0;
   function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
-  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null};
+  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null, confirmalternate: null};
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -375,6 +375,7 @@
       confirmtitle: root.querySelector(".tumconfirmtitle"),
       confirmbody: root.querySelector(".tumconfirmbody"),
       confirmok: root.querySelector(".tumconfirmok"),
+      confirmsecondary: root.querySelector(".tumconfirmsecondary"),
       confirmcancel: root.querySelector(".tumconfirmcancel"),
       toast: root.querySelector(".tumtoast")
     };
@@ -428,6 +429,11 @@
     els.confirmsheet.addEventListener("click", e => {if (e.target === els.confirmsheet) O.closeconfirmsheet()});
     els.confirmok.addEventListener("click", () => {
       const fn = state.confirmaction;
+      O.closeconfirmsheet(false);
+      if (fn) fn();
+    });
+    els.confirmsecondary.addEventListener("click", () => {
+      const fn = state.confirmalternate;
       O.closeconfirmsheet(false);
       if (fn) fn();
     });

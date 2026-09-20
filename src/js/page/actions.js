@@ -347,10 +347,10 @@
   window.tum.actions = {
     enqueue, cancelbatch, batchstate,
     onbatch(cb) {blisteners.add(cb); return () => blisteners.delete(cb)},
-    async run(action, user) {
+    async run(action, user, options) {
       if (!action) {log("no action set on this folder, just adding", user.handle); return true}
       if (await alreadydone(action, user.handle)) {log("already", action, user.handle); return true}
-      if (!await confirmindividual(action, user.handle)) {log("cancelled", action, user.handle); return false}
+      if (!(options && options.confirmed) && !await confirmindividual(action, user.handle)) {log("cancelled", action, user.handle); return false}
       log("running", action, "on", user.handle);
       try {
         let ok = await apiaction(action, user.handle);

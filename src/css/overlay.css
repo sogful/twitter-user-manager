@@ -931,13 +931,14 @@ img {-webkit-user-drag: none; user-drag: none}
   font-weight: 700; font-size: 15px;
   cursor: pointer
 }
-.tumconfirmcancel {
+.tumconfirmsecondary, .tumconfirmcancel {
   width: 100%; margin-top: 10px;
   background: transparent; color: var(--tumtext,#e7e9ea);
   border: 1px solid var(--tumcancelborder,#536471); border-radius: 999px;
   padding: 12px; font-weight: 700;
   font-size: 15px; cursor: pointer
 }
+.tumconfirmsecondary[hidden] {display: none}
 
 /*//////////////////////////////////////////////////////////////////////*/
 

@@ -154,6 +154,9 @@
   "action.success.unblock": "@%s has been unblocked.",
   "action.confirm.single.title": "%s @%s?",
   "action.confirm.single.body": "This folder will %s @%s.",
+  "folder.drop.confirm.body": "Adding @%s to \"%s\" will %s them.",
+  "folder.drop.confirm.addonly": "Only add to folder",
+  "folder.drop.confirm.discard": "Discard",
   "action.undo": "Undo",
   "action.undo.failed": "Couldn't undo %s for @%s"
 }

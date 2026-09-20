@@ -277,11 +277,26 @@
     return relationship.followedBy === true ? T("confirm.blockfollow.mutual", user.handle) : T("confirm.blockfollow.following", user.handle);
   }
 
-  function fileinfolder(folder, user, source) {
+  function fileinfolder(folder, user, source, doaction = true, confirmed = false) {
     if (source.type === "page" && !user.userid) user.pending = true;
     removefromsource(source, user.handle);
     tum.folders.addmember(folder.id, user);
-    if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
+    if (doaction && source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user, {confirmed});
+  }
+
+  function finishfolderdrop(folder, user, source, doaction, confirmed) {
+    fileinfolder(folder, user, source, doaction, confirmed);
+    if (!O.keepopen()) {render(); closeoverlay(); return}
+    state.open = true;
+    showbackdrop();
+    render();
+  }
+
+  function discardfolderdrop(user, source) {
+    if (source.type === "page") restorehidden(user.handle);
+    state.open = false;
+    render();
+    hidebackdrop();
   }
 
   const EDGE = 38; // px zone
@@ -379,18 +394,21 @@
     } else if (target && target.zone === "body") {
       const folder = tum.folders.get(target.id);
       if (folder) {
-        const warning = folder.action === "block" && source.type !== "folder" ? followwarning(user) : null;
-        if (warning) {
+        const actionable = !!folder.action && source.type !== "folder" && !user.skipaction;
+        const warning = actionable && folder.action === "block" ? followwarning(user) : null;
+        const confirmsetting = actionable && !!(tum.settings && tum.settings.get("confirmactions"));
+        if (warning || confirmsetting) {
+          const label = folder.action.charAt(0).toUpperCase() + folder.action.slice(1);
+          const detail = T("folder.drop.confirm.body", user.handle, folder.name, folder.action);
           O.openconfirm({
-            title: T("confirm.blockfollow.title"),
-            body: T("confirm.blockfollow.body", warning),
-            oklabel: T("action.block"),
-            onok: () => {
-              fileinfolder(folder, user, source);
-              if (!O.keepopen()) {render(); closeoverlay(); return}
-              state.open = true;
-              render();
-            }
+            title: T("action.confirm.single.title", label, user.handle),
+            body: warning ? warning + " " + detail : detail,
+            oklabel: label,
+            altlabel: T("folder.drop.confirm.addonly"),
+            cancellabel: T("folder.drop.confirm.discard"),
+            onok: () => finishfolderdrop(folder, user, source, true, true),
+            onalternate: () => finishfolderdrop(folder, user, source, false, true),
+            oncancel: () => discardfolderdrop(user, source)
           });
           return;
         }
