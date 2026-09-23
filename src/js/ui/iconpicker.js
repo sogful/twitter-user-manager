@@ -42,13 +42,6 @@
     svgpending.set(id, p);
     return p;
   }
-  async function prefetchall() {
-    const batch = 24;
-    for (let i = 0; i < manifest.length; i += batch) {
-      await Promise.all(manifest.slice(i, i + batch).map(ic => getsvg(ic.id)));
-    }
-  }
-
   function loadmanifest() {
     if (ready) return ready;
     ready = new Promise(res => {
@@ -59,12 +52,10 @@
         for (const ic of manifest) byid.set(ic.id, ic);
         categories = [...new Set(manifest.map(ic => ic.category))].filter(Boolean);
         res();
-        prefetchall();
       }).catch(() => res());
     });
     return ready;
   }
-  loadmanifest();
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -97,8 +88,6 @@
     });
     return emojiready;
   }
-  loademoji();
-
   let panel = null, cats = null, emojicats = null, grid = null, searchinput = null;
   let onpickcb = null, outsideclick = null, hostroot = null;
   let issearching = false;
