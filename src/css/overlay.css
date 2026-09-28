@@ -9,7 +9,12 @@
   src: url("../../assets/fonts/chirpbold.woff2") format("woff2")
 }
 @font-face {
-  font-family: "Chirp"; font-weight: 800; font-display: swap; src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")}
+  font-family: "Chirp"; 
+  font-weight: 800; font-display: swap; 
+  src: url("../../assets/fonts/chirpheavy.woff2") format("woff2")
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
 
 :host {
   all: initial;
@@ -372,7 +377,7 @@ img {-webkit-user-drag: none; user-drag: none}
   display: flex; align-items: center;
   gap: 3px; cursor: grab
 }
-.tumfoldermember {padding: 1px 5px; border-radius: 8px}
+.tumfoldermember {padding: 0 5px; border-radius: 8px}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumfoldermemberavatar {
   width: 24px; height: 24px;
