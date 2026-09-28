@@ -117,7 +117,9 @@
     let nf = 0, nu = 0;
     for (const f of folders) {
       if (!f || typeof f !== "object") continue;
-      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), x: f.x, y: f.y});
+      const x = typeof f.x === "number" ? f.x : 60 + (nf % 5) * 240;
+      const y = typeof f.y === "number" ? f.y : 80 + Math.floor(nf / 5) * 340;
+      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), x, y});
       tum.folders.addmembers(created.id, (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle));
       nf++;
     }
@@ -128,6 +130,7 @@
     }
     state.open = true;
     render();
+    if (nf) setTimeout(O.fitall, 0);
     toast(T("toast.imported.all", nf, nu));
   }
 

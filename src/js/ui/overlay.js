@@ -1411,7 +1411,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan, fitall,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
