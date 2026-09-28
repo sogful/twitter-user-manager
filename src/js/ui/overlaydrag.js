@@ -27,6 +27,7 @@
         width: rect.width,
         height: rect.height,
         deleterect: O.els.quickdelete.getBoundingClientRect(),
+        pointerid: e.pointerId,
         dragging: false
       };
       const move = ev => {
@@ -54,8 +55,11 @@
         O.categoryhover(overdel ? null : c.x, overdel ? null : c.y);
       };
       const up = ev => {
+        if (!tracking || ev.button !== 0) return;
+        if (ev.type === "pointerup" && ev.pointerId !== tracking.pointerid) return;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
+        document.removeEventListener("mouseup", up);
         O.root.classList.remove("tumfolderdragging");
         node.classList.remove("tumdragactive", "tumoverremove");
         O.categoryhover(null);
@@ -84,6 +88,7 @@
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
+      document.addEventListener("mouseup", up);
     });
   }
 
