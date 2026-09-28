@@ -103,6 +103,23 @@
       if (!entry.userid && tum.accountdata) tum.accountdata.enrich(entry.handle);
       return entry;
     },
+    import(items, replace) {
+      const next = replace ? [] : list.slice();
+      const known = new Set(next.map(item => (item.handle || "").toLowerCase()));
+      const added = [];
+      for (const item of (Array.isArray(items) ? items : [])) {
+        const key = (item && item.handle || "").toLowerCase();
+        if (!key || known.has(key)) continue;
+        const entry = mergedmember(null, item, item.x, item.y);
+        next.push(entry);
+        known.add(key);
+        added.push(entry);
+      }
+      list = next;
+      persist();
+      emit();
+      return added;
+    },
     remove(handle) {
       list = list.filter(m => m.handle.toLowerCase() !== (handle || "").toLowerCase());
       persist();

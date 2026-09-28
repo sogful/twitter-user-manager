@@ -15,6 +15,19 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
 
+  function makecategory(partial, ids) {
+    const id = partial && partial.id && !ids.has(partial.id) ? partial.id : uid();
+    ids.add(id);
+    return {
+      id,
+      name: partial && partial.name || "Edit Me...",
+      x: partial && typeof partial.x === "number" ? partial.x : 120,
+      y: partial && typeof partial.y === "number" ? partial.y : 120,
+      w: partial && typeof partial.w === "number" ? partial.w : 480,
+      h: partial && typeof partial.h === "number" ? partial.h : 360
+    };
+  }
+
   async function load() {
     const version = ++loadversion;
     const v = await store.get();
@@ -32,18 +45,26 @@
     list: () => list.slice(),
     get: id => list.find(c => c.id === id),
     create(partial) {
-      const c = {
-        id: uid(),
-        name: partial && partial.name || "Edit Me...",
-        x: partial && typeof partial.x === "number" ? partial.x : 120,
-        y: partial && typeof partial.y === "number" ? partial.y : 120,
-        w: partial && typeof partial.w === "number" ? partial.w : 480,
-        h: partial && typeof partial.h === "number" ? partial.h : 360
-      };
+      const c = makecategory(partial, new Set(list.map(item => item.id)));
       list.push(c);
       persist();
       emit();
       return c;
+    },
+    import(items, replace) {
+      const next = replace ? [] : list.slice();
+      const ids = new Set(next.map(item => item.id));
+      const added = [];
+      for (const item of (Array.isArray(items) ? items : [])) {
+        if (!item || typeof item !== "object") continue;
+        const category = makecategory(item, ids);
+        next.push(category);
+        added.push(category);
+      }
+      list = next;
+      persist();
+      emit();
+      return added;
     },
     update(id, patch, silent) {
       const c = list.find(x => x.id === id);

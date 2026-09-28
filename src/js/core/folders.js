@@ -29,6 +29,32 @@
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {tum.storage.set(list)}
 
+  function makefolder(partial, ids) {
+    partial = partial || {};
+    createcount++;
+    const folder = {
+      id: partial.id && !ids.has(partial.id) ? partial.id : uid(),
+      name: (partial.name || "new folder").slice(0, 40),
+      action: ACTIONS.includes(partial.action) ? partial.action : null,
+      color: partial.color || nextcolor(),
+      icon: (partial.icon || "").slice(0, 64),
+      sort: partial.sort || "added",
+      collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
+      cat: partial.cat || null,
+      description: (partial.description || "").slice(0, 200),
+      pos: "px",
+      x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
+      y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
+      members: []
+    };
+    ids.add(folder.id);
+    for (const member of (Array.isArray(partial.members) ? partial.members : [])) {
+      if (!member || !member.handle) continue;
+      folder.members.unshift(mergedmember(null, member));
+    }
+    return folder;
+  }
+
   /*//////////////////////////////////////////////////////////////////////*/
 
   function migratepositions() {
@@ -114,26 +140,26 @@
     list: () => list.slice(),
     get: id => list.find(f => f.id === id),
     create(partial) {
-      createcount++;
-      const folder = {
-        id: partial.id && !list.some(folder => folder.id === partial.id) ? partial.id : uid(),
-        name: (partial.name || "new folder").slice(0, 40),
-        action: ACTIONS.includes(partial.action) ? partial.action : null,
-        color: partial.color || nextcolor(),
-        icon: (partial.icon || "").slice(0, 64),
-        sort: "added",
-        collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
-        cat: partial.cat || null,
-        description: (partial.description || "").slice(0, 200),
-        pos: "px",
-        x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
-        y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
-        members: []
-      };
+      const folder = makefolder(partial, new Set(list.map(item => item.id)));
       list.push(folder);
       persist();
       emit();
       return folder;
+    },
+    import(items, replace) {
+      const next = replace ? [] : list.slice();
+      const ids = new Set(next.map(item => item.id));
+      const added = [];
+      for (const item of (Array.isArray(items) ? items : [])) {
+        if (!item || typeof item !== "object") continue;
+        const folder = makefolder(item, ids);
+        next.push(folder);
+        added.push(folder);
+      }
+      list = next;
+      persist();
+      emit();
+      return added;
     },
     update(id, patch, silent) {
       const f = list.find(x => x.id === id);

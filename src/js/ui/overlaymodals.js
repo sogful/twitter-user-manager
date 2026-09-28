@@ -101,37 +101,81 @@
     return !!member && (member.unfindable === true || (!member.userid && !member.pending));
   }
   function exportfolderdata(folder) {
-    return {id: folder.id, name: folder.name, action: folder.action, color: folder.color, description: folder.description || "", icon: exporticon(folder.icon), members: (folder.members || []).map(exportmember)};
+    return {id: folder.id, name: folder.name, action: folder.action, color: folder.color, description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort, collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y, members: (folder.members || []).map(exportmember)};
+  }
+
+  function exportcategory(category) {
+    return {id: category.id, name: category.name, x: category.x, y: category.y, w: category.w, h: category.h};
+  }
+
+  function exportloosemember(member) {
+    return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false, x: member.x, y: member.y});
   }
 
   function exportdata() {
-    downloadjson({folders: tum.folders.list().map(exportfolderdata), unsorted: tum.unsorted.list().map(exportmember)}, "＠" + ownhandle() + ".json");
+    downloadjson({version: 2, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "＠" + ownhandle() + ".json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
 
+  function importposition(item, index) {
+    return {
+      x: typeof item.x === "number" ? item.x : 60 + (index % 5) * 240,
+      y: typeof item.y === "number" ? item.y : 80 + Math.floor(index / 5) * 340
+    };
+  }
+
+  function rightedge() {
+    let edge = 0;
+    for (const folder of tum.folders.list()) edge = Math.max(edge, (folder.x || 0) + 214);
+    for (const category of tum.categories.list()) edge = Math.max(edge, (category.x || 0) + (category.w || 480));
+    for (const member of tum.unsorted.list()) edge = Math.max(edge, (member.x || 0) + 90);
+    return edge;
+  }
+
+  function importprofile(data, replace) {
+    const sourcefolders = Array.isArray(data && data.folders) ? data.folders.filter(folder => folder && typeof folder === "object") : [];
+    const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object") : [];
+    const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle) : [];
+    const categoryids = new Set(replace ? [] : tum.categories.list().map(category => category.id));
+    const categorymap = new Map();
+    const categories = sourcecategories.map((category, index) => {
+      const id = category.id && !categoryids.has(category.id) ? category.id : "cimport" + Date.now().toString(36) + index.toString(36);
+      categoryids.add(id);
+      categorymap.set(category.id, id);
+      return Object.assign({}, category, {id});
+    });
+    const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, importposition(folder, index), {cat: categorymap.get(folder.cat) || null}));
+    const unsorted = sourceunsorted.map((member, index) => Object.assign({}, member, importposition(member, index), {cat: categorymap.get(member.cat) || null}));
+    if (!replace) {
+      const left = Math.min(0, ...folders.map(folder => folder.x), ...categories.map(category => category.x || 0), ...unsorted.map(member => member.x));
+      const shift = rightedge() - left + 80;
+      for (const category of categories) category.x = (category.x || 0) + shift;
+      for (const folder of folders) folder.x += shift;
+      for (const member of unsorted) member.x += shift;
+    }
+    tum.categories.import(categories, replace);
+    tum.folders.import(folders.map(folder => Object.assign({}, folder, {icon: importicon(folder.icon)})), replace);
+    tum.unsorted.import(unsorted, replace);
+    state.open = true;
+    render();
+    setTimeout(O.fitall, 0);
+    toast(T("toast.imported.all", folders.length, unsorted.length));
+  }
+
   function applyimport(data) {
     if (data && data.folder && !Array.isArray(data.folders)) {finishfolderimport(data.folder); return}
     const folders = Array.isArray(data && data.folders) ? data.folders : [];
-    const unsorted = Array.isArray(data && data.unsorted) ? data.unsorted : [];
-    let nf = 0, nu = 0;
-    for (const f of folders) {
-      if (!f || typeof f !== "object") continue;
-      const x = typeof f.x === "number" ? f.x : 60 + (nf % 5) * 240;
-      const y = typeof f.y === "number" ? f.y : 80 + Math.floor(nf / 5) * 340;
-      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), x, y});
-      tum.folders.addmembers(created.id, (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle));
-      nf++;
-    }
-    for (const u of unsorted) {
-      if (!u || !u.handle) continue;
-      tum.unsorted.add(u, u.x, u.y);
-      nu++;
-    }
-    state.open = true;
-    render();
-    if (nf) setTimeout(O.fitall, 0);
-    toast(T("toast.imported.all", nf, nu));
+    if (!folders.length) {toast(T("toast.import.failed")); return}
+    openconfirm({
+      title: "Import profile",
+      body: "Replace clears this overlay and restores the imported layout. Add keeps this overlay and places the import to its right.",
+      oklabel: "Replace overlay",
+      altlabel: "Add to the right",
+      cancellabel: "Cancel",
+      onok: () => importprofile(data, true),
+      onalternate: () => importprofile(data, false)
+    });
   }
 
   /*//////////////////////////////////////////////////////////////////////*/

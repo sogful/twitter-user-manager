@@ -3,7 +3,7 @@
 
   window.tum = window.tum || {};
 
-  const HASCHROME = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
+  const coolchromiumuser = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
 
   function accountid() {
     try {
@@ -103,7 +103,7 @@
   const MIGKEY = "tum.migrated.v2";
   const LEGACY = ["tum.folders", "tum.unsorted"];
   if (NS) {
-    if (HASCHROME) {
+    if (coolchromiumuser) {
       chrome.storage.local.get([MIGKEY, ...LEGACY, ...LEGACY.map(k => NS + k)], r => {
         void chrome.runtime.lastError;
         if (!r || r[MIGKEY]) return;
@@ -133,12 +133,15 @@
   function create(key, opts) {
     function storagekey() {return opts && opts.global ? key : currentscope + key}
     const listeners = new Set();
+    let writequeue = Promise.resolve();
+    let pendingwrites = 0;
+    let latestjson = "";
     function notify(v) {for (const cb of listeners) try {cb(v)} catch {}}
 
     function get() {
       return new Promise(res => {
         const rk = storagekey();
-        if (HASCHROME) {
+        if (coolchromiumuser) {
           chrome.storage.local.get([rk], r => {void chrome.runtime.lastError; res(r && r[rk] || null)});
         } else {
           let v = null;
@@ -149,21 +152,29 @@
     }
 
     function set(value) {
-      return new Promise(res => {
-        const rk = storagekey();
-        if (HASCHROME) {
-          chrome.storage.local.set({[rk]: value}, () => {void chrome.runtime.lastError; res()});
-        } else {
-          try {localStorage.setItem(rk, JSON.stringify(value))} catch {}
-          res();
-        }
-      });
+      const rk = storagekey();
+      let copy = value;
+      try {copy = JSON.parse(JSON.stringify(value))} catch {}
+      if (!coolchromiumuser) {
+        try {localStorage.setItem(rk, JSON.stringify(copy))} catch {}
+        return Promise.resolve();
+      }
+      try {latestjson = JSON.stringify(copy)} catch {latestjson = ""}
+      pendingwrites++;
+      writequeue = writequeue.catch(() => {}).then(() => new Promise(res => {
+        chrome.storage.local.set({[rk]: copy}, () => {void chrome.runtime.lastError; pendingwrites--; res()});
+      }));
+      return writequeue;
     }
 
-    if (HASCHROME) {
+    if (coolchromiumuser) {
       chrome.storage.onChanged.addListener((changes, area) => {
         const rk = storagekey();
-        if (area === "local" && changes[rk]) notify(changes[rk].newValue);
+        if (area !== "local" || !changes[rk]) return;
+        let incoming = "";
+        try {incoming = JSON.stringify(changes[rk].newValue)} catch {}
+        if (pendingwrites && incoming !== latestjson) return;
+        notify(changes[rk].newValue);
       });
     } else {
       window.addEventListener("storage", e => {
