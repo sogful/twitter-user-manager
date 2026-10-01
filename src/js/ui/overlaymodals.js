@@ -4,6 +4,7 @@
   const O = window.tum._ov;
   const {el, escapehtml, linkify, iconhtml, avatarurl, fullavatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
   const T = (...a) => tum.strings.t(...a);
+  const actionlabel = action => T("action.label." + action);
 
   function launchdestroyer(user) {
     const durl = chrome.runtime.getURL("desktopdestroyer/index.html");
@@ -174,11 +175,11 @@
     const folders = Array.isArray(data && data.folders) ? data.folders : [];
     if (!folders.length) {toast(T("toast.import.failed")); return}
     openconfirm({
-      title: "Import profile",
-      body: "Replace clears this overlay and restores the imported layout. Add keeps this overlay and places the import to its right.",
-      oklabel: "Replace overlay",
-      altlabel: "Add to the right",
-      cancellabel: "Cancel",
+      title: T("confirm.importprofile.title"),
+      body: T("confirm.importprofile.body"),
+      oklabel: T("confirm.importprofile.replace"),
+      altlabel: T("confirm.importprofile.add"),
+      cancellabel: T("common.cancel"),
       onok: () => importprofile(data, true),
       onalternate: () => importprofile(data, false)
     });
@@ -257,7 +258,7 @@
       toast(T("toast.imported.folder", created.name, members.length));
     };
     if (f.action && members.length) {
-      const cap = f.action.charAt(0).toUpperCase() + f.action.slice(1);
+      const cap = actionlabel(f.action);
       openconfirm({
         title: T("confirm.import.title", f.action),
         body: T("confirm.import.body", f.action, f.action, members.length),
@@ -287,12 +288,12 @@
   
   function applyeditaction(action, prevaction, members) {
     if (!action || action === prevaction) return false;
-    const cap = action.charAt(0).toUpperCase() + action.slice(1);
+    const cap = actionlabel(action);
     if (members.length > 3) {
       openconfirm({
-        title: cap + " " + members.length + " members?",
-        body: "Setting this folder's action to " + action + " will " + action + " all " + members.length + " users already in it, in the background. You can cancel while it runs.",
-        oklabel: cap + " all",
+        title: T("confirm.action.folder.title", cap, members.length),
+        body: T("confirm.action.folder.body", T("action.verb." + action), T("action.verb." + action), members.length),
+        oklabel: T("action.confirm.ok", cap),
         onok: () => {tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
       });
       return true;
@@ -341,7 +342,7 @@
 
     O.els.modalname.value = opts.name || "";
     O.els.modaldesc.value = opts.description || "";
-    O.els.modalsave.textContent = "Create";
+    O.els.modalsave.textContent = T("folder.create");
     O.els.modalsave.hidden = false;
 
     selectaction(null);
@@ -412,7 +413,9 @@
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
         tum.folders.addmember(folder.id, user);
-        if (source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user);
+        const actionhappened = !!(source.type !== "folder" && folder.action && !user.skipaction);
+        if (actionhappened) tum.actions.run(folder.action, user);
+        O.notifyfolderadd(folder, user, actionhappened);
         filed = true;
       }
       if (state.pendingoncreate) {const cb = state.pendingoncreate; setTimeout(() => {try {cb(folder)} catch {}}, 0)}
@@ -445,7 +448,7 @@
     const {user} = state.pendingcreate;
     state.reasonopen = true;
     state.reasontarget = null;
-    O.els.reasontitle.textContent = "Note for @" + user.handle;
+    O.els.reasontitle.textContent = T("confirm.note.title", user.handle);
     O.els.reasoninput.value = user.reason || "";
     O.els.reasonsourceinput.value = user.sourceurl || "";
     selectreasonaction(null);
@@ -457,7 +460,7 @@
   function openreasonview(source, m) {
     state.reasonopen = true;
     state.reasontarget = {source, handle: m.handle};
-    O.els.reasontitle.textContent = "Note for @" + m.handle;
+    O.els.reasontitle.textContent = T("confirm.note.title", m.handle);
     O.els.reasontext.innerHTML = linkify(m.reason || "");
     if (m.sourceurl) {O.els.reasonsource.href = m.sourceurl; O.els.reasonsource.style.display = ""}
     else O.els.reasonsource.style.display = "none";
@@ -513,12 +516,12 @@
     state.confirmaction = typeof opts.onok === "function" ? opts.onok : null;
     state.confirmalternate = typeof opts.onalternate === "function" ? opts.onalternate : null;
     state.confirmcancel = typeof opts.oncancel === "function" ? opts.oncancel : null;
-    O.els.confirmtitle.textContent = opts.title || "Are you sure?";
+    O.els.confirmtitle.textContent = opts.title || T("confirm.default.title");
     O.els.confirmbody.textContent = opts.body || "";
-    O.els.confirmok.textContent = opts.oklabel || "Confirm";
+    O.els.confirmok.textContent = opts.oklabel || T("confirm.default.ok");
     O.els.confirmsecondary.textContent = opts.altlabel || "";
     O.els.confirmsecondary.hidden = !state.confirmalternate;
-    O.els.confirmcancel.textContent = opts.cancellabel || "Cancel";
+    O.els.confirmcancel.textContent = opts.cancellabel || T("pick.cancel");
     showbackdrop();
     O.els.confirmsheet.classList.add("tumshow");
   }
@@ -528,11 +531,11 @@
     const always = !!(tum.settings && tum.settings.get("confirmdelete"));
     if (members.length <= 1 && !always) {tum.folders.remove(folder.id); return}
     const id = folder.id;
-    const memtext = members.length ? " and its " + members.length + " member" + (members.length > 1 ? "s" : "") : "";
+    const memtext = members.length ? T(members.length === 1 ? "confirm.folder.member.one" : "confirm.folder.member.many", members.length) : "";
     openconfirm({
-      title: "Delete " + folder.name + "?",
-      body: `This removes the folder${memtext}, this cannot be undone.` + (members.length ? " Note that actions done to users will stay active!" : ""),
-      oklabel: "Delete",
+      title: T("confirm.folder.delete.title", folder.name),
+      body: !members.length ? T("confirm.folder.delete.empty") : T(folder.action ? "confirm.folder.delete.members.action" : "confirm.folder.delete.members", memtext),
+      oklabel: T("overlay.delete"),
       onok: () => tum.folders.remove(id)
     });
   }
@@ -541,9 +544,9 @@
     const empty = !tum.folders.list().some(f => f.cat === c.id) && !tum.unsorted.list().some(u => u.cat === c.id);
     if (empty) {tum.categories.remove(c.id); return}
     openconfirm({
-      title: "Delete category?",
-      body: "This removes the \"" + (c.name || "Edit Me...") + "\" category outline. The folders and users will stay where they were.",
-      oklabel: "Delete",
+      title: T("confirm.category.delete.title"),
+      body: T("confirm.category.delete.body", c.name || T("confirm.category.default")),
+      oklabel: T("overlay.delete"),
       onok: () => tum.categories.remove(c.id)
     });
   }
@@ -615,7 +618,7 @@
 
   function newuser(target) {
     if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
-    else toast("Adding users from search is coming soon");
+    else toast(T("picker.addsoon"));
   }
   function replaceuser(info) {
     const old = info.m;
@@ -625,6 +628,40 @@
   function openavatar(user) {
     const url = fullavatarurl(user.avatarurl);
     if (url) window.open(url, "_blank", "noopener");
+  }
+  function uniquerefreshmembers(members) {
+    const unique = new Map();
+    for (const member of members || []) {
+      if (!member || (!member.handle && !member.userid)) continue;
+      const key = member.userid ? "id:" + String(member.userid) : "handle:" + String(member.handle || "").toLowerCase();
+      if (!unique.has(key)) unique.set(key, {handle: member.handle, userid: member.userid || null});
+    }
+    return [...unique.values()];
+  }
+  function refreshdata(members) {
+    const users = uniquerefreshmembers(members);
+    if (!users.length) {toast(T("toast.refresh.empty")); return}
+    const start = () => {
+      if (!tum.accountdata || typeof tum.accountdata.refresh !== "function") {toast(T("toast.refresh.unavailable")); return}
+      const result = tum.accountdata.refresh(users);
+      if (result === "busy") {toast(T("settings.repopulate.busy")); return}
+      if (!result) {toast(T("toast.refresh.empty")); return}
+      toast(T("settings.repopulate.started", users.length));
+    };
+    if (users.length > 20) {
+      openconfirm({
+        title: T("confirm.refresh.title", users.length),
+        body: T("confirm.refresh.body", users.length),
+        oklabel: T("confirm.refresh.ok"),
+        onok: start
+      });
+    } else start();
+  }
+  function categorymembers(category) {
+    return [
+      ...tum.folders.list().filter(folder => folder.cat === category.id).flatMap(folder => folder.members || []),
+      ...tum.unsorted.list().filter(member => member.cat === category.id)
+    ];
   }
 
   function oncontextmenu(e) {
@@ -647,6 +684,7 @@
       items = [
         ...(isunfindable(info.m) ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
         {label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)},
+        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata([info.m])},
         {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
@@ -658,6 +696,7 @@
       items = [
         {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
+        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(f.members || [])},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
         ...(f.action && !knownshare ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
@@ -678,6 +717,7 @@
       const {clientX, clientY} = e;
       items = [
         {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
+        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(c))},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})}
