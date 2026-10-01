@@ -2,6 +2,7 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   let manifest = [];
   const byid = new Map();
@@ -92,7 +93,9 @@
   let onpickcb = null, outsideclick = null, hostroot = null;
   let issearching = false;
 
-  const capitalize = s => s.replace(/\b\w/g, c => c.toUpperCase());
+  function categorylabel(category, type) {
+    return T("picker.category." + (type === "emoji" ? "emoji." : "icon.") + category);
+  }
 
   function matches(icon, q) {
     if (icon.name.toLowerCase().includes(q)) return true;
@@ -140,7 +143,7 @@
     section.dataset.type = type;
     const title = document.createElement("div");
     title.className = "tumipsectiontitle";
-    title.textContent = type === "emoji" ? cat.slice(6) : capitalize(cat);
+    title.textContent = categorylabel(type === "emoji" ? cat.slice(6) : cat, type);
     const row = document.createElement("div");
     row.className = type === "emoji" ? "tumipemojirow" : "tumiprow";
     section.appendChild(title);
@@ -186,7 +189,7 @@
     section.className = "tumipsection";
     const title = document.createElement("div");
     title.className = "tumipsectiontitle";
-    title.textContent = iconresults.length + " icon results";
+    title.textContent = T("picker.icons", iconresults.length);
     const row = document.createElement("div");
     row.className = "tumiprow";
     for (const ic of iconresults) row.appendChild(makeitem(ic));
@@ -200,7 +203,7 @@
       esection.className = "tumipsection";
       const etitle = document.createElement("div");
       etitle.className = "tumipsectiontitle";
-      etitle.textContent = emojiresults.length + " emoji results";
+      etitle.textContent = T("picker.emoji", emojiresults.length);
       const erow = document.createElement("div");
       erow.className = "tumipemojirow";
       for (const e of emojiresults) erow.appendChild(makeemojiitem(e));
@@ -212,7 +215,7 @@
     if (!iconresults.length && !emojiresults.length) {
       const empty = document.createElement("div");
       empty.className = "tumipempty";
-      empty.textContent = "No icons found";
+      empty.textContent = T("picker.empty");
       grid.appendChild(empty);
     }
   }
@@ -242,13 +245,13 @@
     cats.innerHTML = "";
     emojicats.innerHTML = "";
     for (const cat of categories) {
-      addcattab(cats, cat, cat, btn => {
+      addcattab(cats, cat, categorylabel(cat, "icon"), btn => {
         const first = manifest.find(ic => ic.category === cat);
         if (first) getsvg(first.id).then(svg => {if (svg) btn.innerHTML = svg});
       });
     }
     for (const cat of emojicategories) {
-      addcattab(emojicats, "emoji:" + cat, cat, btn => {
+      addcattab(emojicats, "emoji:" + cat, categorylabel(cat, "emoji"), btn => {
         const cp = CATICON[cat];
         const first = emojilist.find(e => e.category === cat);
         if (!cp && !first) return;
@@ -324,24 +327,18 @@
     panel.innerHTML = `
       <div class="tumipsearch">
         <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5"/><line x1="15" y1="15" x2="20.5" y2="20.5"/></svg>
-        <input class="tumipsearchinput" placeholder="Search icons and emoji" autocomplete="off">
+        <input class="tumipsearchinput" autocomplete="off">
       </div>
       <div class="tumipcats"></div>
       <div class="tumipcats tumipcatsemoji"></div>
       <div class="tumipgrid"></div>
-      <div class="tumipfooter">
-        <span>icon color</span>
-        <input class="tumipcolor" type="color" value="#71767b" title="tint the monochrome icons above (preview only)">
-      </div>
     `;
     root.appendChild(panel);
     cats = panel.querySelector(".tumipcats:not(.tumipcatsemoji)");
     emojicats = panel.querySelector(".tumipcatsemoji");
     grid = panel.querySelector(".tumipgrid");
     searchinput = panel.querySelector(".tumipsearchinput");
-    panel.querySelector(".tumipcolor").addEventListener("input", e => {
-      grid.style.setProperty("--tumipcolor", e.target.value);
-    });
+    searchinput.placeholder = T("picker.search");
     searchinput.addEventListener("input", () => {
       const q = searchinput.value.trim().toLowerCase();
       if (q) rendersearch(q);

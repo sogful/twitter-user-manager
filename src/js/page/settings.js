@@ -10,14 +10,14 @@
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {
-    keepopen: true, nooverlap: false, startcollapsed: false, 
+    keepopen: true, folderaddtoast: true, nooverlap: false, startcollapsed: false, 
     autoopen: false, pagepencils: true, avatardots: true, 
     extrainfo: true, hideposts: false, confirmactions: false, confirmdelete: false, destroyoption: false
   };
 
   const SECTIONS = [
     {title: "settings.section.overlay", items: [
-      {key: "keepopen"}, {key: "nooverlap"}, {key: "startcollapsed"}, {key: "autoopen"}
+      {key: "keepopen"}, {key: "folderaddtoast"}, {key: "nooverlap"}, {key: "startcollapsed"}, {key: "autoopen"}
     ]},
     {title: "settings.section.onpage", items: [
       {key: "pagepencils"}, {key: "avatardots"}, {key: "extrainfo"}
@@ -160,7 +160,7 @@
     const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
     let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
     if (!h) {const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'); const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || ""); if (m) h = m[1]}
-    return h ? "@" + h : "this account";
+    return h ? "@" + h : T("settings.currentaccount");
   }
   const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
   const FEATURES = '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}';
@@ -168,12 +168,40 @@
   const REFRESHPAUSE = 16 * 60 * 1000;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+  function profilebadges(result) {
+    const badges = [];
+    const legacy = result.legacy || {};
+    const verification = result.verification || {};
+    const verifiedtype = String(verification.verified_type || result.verified_type || "").toLowerCase();
+    if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
+    else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
+    else if (result.is_blue_verified) badges.push("verified");
+    const translatorflags = [result.is_translator, result.translator_enabled, result.translator, legacy.is_translator];
+    const translatorlabels = [result.translator_type, legacy.translator_type, result.profile_bio && result.profile_bio.translator_type].map(value => String(value || "").toLowerCase());
+    const istranslator = translatorflags.some(value => value === true) || result.is_translator_mod === true || translatorlabels.some(value => /translator|r-1cvl2hr|moderator|\bmod\b|badged/.test(value));
+    const istranslatormod = result.is_translator_mod === true || translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
+    if (istranslator) badges.push(istranslatormod ? "translatormod" : "translator");
+    const highlight = result.affiliates_highlighted_label;
+    const label = highlight && (highlight.label || highlight);
+    if (label && typeof label === "object") {
+      const url = label.url && (typeof label.url === "string" ? label.url : label.url.url);
+      const target = String(url || "");
+      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(target) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(target);
+      const linkeduser = label.user && (label.user.user_results && label.user.user_results.result || label.user.result || label.user);
+      const handle = label.handle || label.screen_name || label.username || linkeduser && (linkeduser.core && linkeduser.core.screen_name || linkeduser.legacy && linkeduser.legacy.screen_name || linkeduser.screen_name || linkeduser.username) || (match && match[1]);
+      const avatar = linkeduser && linkeduser.avatar;
+      const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge && label.badge.url || null;
+      const avatarurl = typeof avatarvalue === "string" ? avatarvalue : avatarvalue && (avatarvalue.url || avatarvalue.image_url) || null;
+      if (handle && /^[A-Za-z0-9_]+$/.test(handle)) badges.push({type: "affiliation", handle, avatarurl});
+    }
+    return badges.length ? badges : null;
+  }
   function profilefromresult(result) {
     if (!result || typeof result !== "object") return null;
     const core = result.core || {}, legacy = result.legacy || {}, rel = result.relationship_counts || {}, tweets = result.tweet_counts || {};
     const handle = core.screen_name || legacy.screen_name;
     if (!handle || !result.rest_id) return null;
-    return {
+    const user = {
       handle,
       displayname: core.name || legacy.name || handle,
       avatarurl: (result.avatar && result.avatar.image_url) || legacy.profile_image_url_https || null,
@@ -190,6 +218,9 @@
       protected: !!(result.privacy && result.privacy.protected || legacy.protected),
       unfindable: false
     };
+    const badges = profilebadges(result);
+    if (badges) user.badges = badges;
+    return user;
   }
   function finduser(value, budget) {
     if (!value || typeof value !== "object" || budget.n-- <= 0) return null;
@@ -209,22 +240,34 @@
       {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}};
     const url = "/i/api/graphql/" + byid.qid + "/" + byid.operation + "?variables=" + encodeURIComponent(JSON.stringify(byid.variables)) + "&features=" + encodeURIComponent(FEATURES);
     let response;
-    try {response = await fetch(url, {credentials: "include", headers: headers()})} catch {return {ok: false, retry: false}}
-    if (!response.ok) return {ok: false, retry: response.status === 429};
+    try {response = await fetch(url, {credentials: "include", headers: headers()})} catch {return {ok: false, retry: false, missing: false}}
+    if (!response.ok) return {ok: false, retry: response.status === 429, missing: response.status === 404};
     let json = null;
     try {json = await response.json()} catch {}
     const user = profilefromresult(finduser(json, {n: 30000}));
-    return user ? {ok: true, user} : {ok: false, retry: false};
+    return user ? {ok: true, user} : {ok: false, retry: false, missing: true};
   }
   function saveprofile(oldhandle, user) {
-    const folders = tum.folders.refreshmember(oldhandle, user);
-    const unsorted = tum.unsorted.refreshmember(oldhandle, user);
+    const members = [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()];
+    const key = String(oldhandle || "").toLowerCase();
+    const existing = members.filter(member => user.userid && member.userid
+      ? String(member.userid) === String(user.userid)
+      : String(member.handle || "").toLowerCase() === key);
+    const badges = new Map();
+    const newbadges = Array.isArray(user.badges) ? user.badges : [];
+    for (const badge of [...existing.flatMap(member => Array.isArray(member.badges) ? member.badges : []), ...newbadges]) {
+      const key = badge && typeof badge === "object" ? "affiliation:" + String(badge.handle || "").toLowerCase() : String(badge);
+      badges.set(key, badge);
+    }
+    const refreshed = Object.assign({}, user, badges.size ? {badges: [...badges.values()]} : {});
+    const folders = tum.folders.refreshmember(oldhandle, refreshed);
+    const unsorted = tum.unsorted.refreshmember(oldhandle, refreshed);
     return folders || unsorted;
   }
-  function markunfindable(handle) {
-    const user = {handle, unfindable: true};
-    tum.folders.refreshmember(handle, user);
-    tum.unsorted.refreshmember(handle, user);
+  function markunfindable(member) {
+    const user = {handle: member.handle, userid: member.userid, unfindable: true};
+    tum.folders.refreshmember(member.handle, user);
+    tum.unsorted.refreshmember(member.handle, user);
   }
   const pendingenrichment = new Set();
   async function enrichprofile(handle) {
@@ -235,7 +278,7 @@
     if (result.ok) saveprofile(handle, result.user);
     pendingenrichment.delete(key);
   }
-  window.tum.accountdata = {enrich: enrichprofile};
+  window.tum.accountdata = {enrich: enrichprofile, refresh: startrefresh};
   function storedprofile(data) {
     if (!data || !data.handle || !data.restId) return null;
     return {
@@ -262,7 +305,7 @@
     if (repopulatebar && document.documentElement.contains(repopulatebar)) return repopulatebar;
     repopulatebar = document.createElement("div");
     repopulatebar.className = "tumbatchbar tumrepopulatebar";
-    repopulatebar.innerHTML = '<div class="tumbatchfill"></div><span class="tumbatchdrag" title="Drag"></span><div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + "</button></div>";
+    repopulatebar.innerHTML = '<div class="tumbatchfill"></div><span class="tumbatchdrag" title="' + T("settings.repopulate.drag") + '"></span><div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">' + T("import.stop") + "</button></div>";
     repopulatebar.querySelector(".tumbatchcancel").addEventListener("click", cancelrepopulate);
     wiredrag(repopulatebar);
     try {tum.theme.paint(repopulatebar)} catch {}
@@ -335,8 +378,13 @@
           await persistrepopulation();
           continue;
         }
-        if (result.ok && saveprofile(member.handle, result.user)) repopulation.updated++;
-        else {markunfindable(member.handle); repopulation.missing++}
+        if (result.ok) {
+          if (saveprofile(member.handle, result.user)) repopulation.updated++;
+          else repopulation.failed = (repopulation.failed || 0) + 1;
+        } else if (result.missing) {
+          markunfindable(member);
+          repopulation.missing++;
+        } else repopulation.failed = (repopulation.failed || 0) + 1;
         repopulation.index++;
         if (repopulation.index < repopulation.members.length && repopulation.index % REFRESHBATCHSIZE === 0) {
           repopulation.waituntil = Date.now() + REFRESHPAUSE;
@@ -349,25 +397,31 @@
         if (repopulation && !repopulatecancel && repopulation.index < repopulation.members.length) await sleep(700);
       }
       if (repopulation && !repopulatecancel && repopulation.index >= repopulation.members.length) {
-        try {tum.overlay.toast(T("settings.repopulate.done", repopulation.updated, repopulation.missing))} catch {}
+        const done = repopulation.failed ? T("settings.repopulate.done.failed", repopulation.updated, repopulation.missing, repopulation.failed) : T("settings.repopulate.done", repopulation.updated, repopulation.missing);
+        try {tum.overlay.toast(done)} catch {}
         repopulation = null;
         await persistrepopulation();
         removerepopulatebar();
       }
     } finally {repopulating = false}
   }
+  function startrefresh(members) {
+    if (repopulating || repopulation) return "busy";
+    const unique = new Map();
+    for (const member of members || []) {
+      if (!member || (!member.handle && !member.userid)) continue;
+      unique.set(member.userid ? "id:" + String(member.userid) : "handle:" + member.handle.toLowerCase(), {handle: member.handle || "", userid: member.userid || null});
+    }
+    if (!unique.size) return false;
+    repopulation = {members: [...unique.values()], index: 0, updated: 0, missing: 0, failed: 0, waituntil: 0};
+    persistrepopulation().then(runrepopulate, () => {repopulation = null; removerepopulatebar()});
+    return true;
+  }
   async function repopulate(button) {
     if (repopulating) return;
     if (repopulation) {runrepopulate(); return}
-    const unique = new Map();
-    for (const member of [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()]) {
-      if (!member || !member.handle) continue;
-      unique.set(member.userid ? "id:" + member.userid : "handle:" + member.handle.toLowerCase(), member);
-    }
-    if (!unique.size) {button.textContent = T("settings.repopulate.empty"); return}
-    repopulation = {members: [...unique.values()].map(member => ({handle: member.handle, userid: member.userid || null})), index: 0, updated: 0, missing: 0, waituntil: 0};
-    await persistrepopulation();
-    runrepopulate();
+    const members = [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()];
+    if (!startrefresh(members)) button.textContent = T("settings.repopulate.empty");
   }
   async function loadrepopulation() {
     if (repopulating) return;
@@ -476,7 +530,8 @@
 
   function ensurepane() {
     if (!onus()) {const p = document.querySelector(".tumsettingspane"); if (p) p.remove(); return}
-    const wanted = "User Manager" + brandsuffix;
+    const brand = T("settings.brand");
+    const wanted = T("settings.brand.title", brand, brandsuffix);
     if (document.title !== wanted) document.title = wanted;
     markselected();
     const err = document.querySelector('[data-testid="error-detail"]');
@@ -492,7 +547,7 @@
   let brandsuffix = " / X";
   function tracktitle() {
     const t = document.title || "";
-    if (t.indexOf("User Manager") === 0) return;
+    if (t.indexOf(T("settings.brand")) === 0) return;
     const m = / \/ (X|Twitter)$/.exec(t);
     if (m) brandsuffix = m[0];
   }

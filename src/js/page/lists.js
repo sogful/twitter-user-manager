@@ -68,7 +68,7 @@
     const t = h2 && (h2.textContent || "").trim();
     if (t) return t;
     const dt = (document.title || "").replace(/ \/ (X|Twitter)\s*$/, "").replace(/ on (X|Twitter).*$/, "").trim();
-    return dt || "Imported list";
+    return dt || T("list.defaultname");
   }
   function membercount() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
@@ -104,7 +104,7 @@
     const h2 = col && col.querySelector('h2[role="heading"]');
     return h2 ? (h2.textContent || "").trim() : "";
   }
-  function cap(s) {return s ? s.charAt(0).toUpperCase() + s.slice(1) : s}
+  function cap(s) {return s ? T("action.label." + s) : s}
 
   async function communityname(id) {
     try {
@@ -380,7 +380,7 @@
       try {
         tum.overlay.confirm({
           title: T("action.confirm.title", cap(f.action), built.length),
-          body: T("action.confirm.body", f.action, built.length),
+          body: T("action.confirm.body", T("action.verb." + f.action), built.length),
           oklabel: T("action.confirm.ok", cap(f.action)),
           onok: run
         });
@@ -391,7 +391,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   const RESERVED = /^(i|home|explore|search|notifications|messages|settings|compose|hashtag)$/i;
-  const FOLLOWLABEL = {followers: "Followers", following: "Following", verified_followers: "Verified followers"};
+  const FOLLOWLABEL = {followers: "list.followers", following: "list.following", verified_followers: "list.verifiedfollowers"};
 
   function headerrow() {
     const col = document.querySelector('[data-testid="primaryColumn"]');
@@ -443,7 +443,7 @@
       key: "follows",
       match: () => {const m = /^\/([A-Za-z0-9_]+)\/(followers|following|verified_followers)$/.exec(location.pathname); return (m && !RESERVED.test(m[1])) ? {user: m[1], kind: m[2]} : null},
       anchor: headerrow,
-      meta: ctx => ({name: (headername() || "@" + ctx.user) + " " + FOLLOWLABEL[ctx.kind], description: "(@" + ctx.user + ")"}),
+      meta: ctx => ({name: (headername() || "@" + ctx.user) + " " + T(FOLLOWLABEL[ctx.kind]), description: "(@" + ctx.user + ")"}),
       start: async (folder, ctx, meta) => {
         const uid = await resolveuserid(ctx.user);
         if (uid) {ctx.userid = uid; startapiimport(folder, meta.name, 0, ctx.kind, ctx, (f, n, e) => startscrapeimport(f, e, n, "usercells"))}
@@ -454,21 +454,21 @@
       key: "community",
       match: () => {const m = /^\/i\/communities\/(\d+)\/(members|moderators)$/.exec(location.pathname); return m ? {id: m[1], kind: m[2]} : null},
       anchor: headerrow,
-      meta: async ctx => {const nm = await communityname(ctx.id); return {name: (nm || "Community") + " " + cap(ctx.kind), description: "(" + ctx.id + ")"}},
+      meta: async ctx => {const nm = await communityname(ctx.id); return {name: (nm || T("list.defaultcommunity")) + " " + T("list.community." + ctx.kind), description: "(" + ctx.id + ")"}},
       start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "usercells")
     },
     {
       key: "reposts",
       match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/(retweets|reposts)$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
       anchor: () => dialogrow() || headerrow(),
-      meta: ctx => ({name: "@" + ctx.user + " reposters", description: "(" + ctx.id + ")"}),
+      meta: ctx => ({name: T("list.reposters", ctx.user), description: "(" + ctx.id + ")"}),
       start: (folder, ctx, meta) => startapiimport(folder, meta.name, 0, "reposts", ctx, (f, n, e) => startscrapeimport(f, e, n, "usercells"))
     },
     {
       key: "quotes",
       match: () => {const m = /^\/([A-Za-z0-9_]+)\/status\/(\d+)\/quotes$/.exec(location.pathname); return m ? {user: m[1], id: m[2]} : null},
       anchor: headerrow,
-      meta: ctx => ({name: "@" + ctx.user + " quoters", description: "(" + ctx.id + ")"}),
+      meta: ctx => ({name: T("list.quoters", ctx.user), description: "(" + ctx.id + ")"}),
       start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "articles")
     },
     {
@@ -487,11 +487,11 @@
     const ctx = surface.match();
     if (!ctx) return;
     let meta;
-    try {meta = await surface.meta(ctx)} catch {meta = {name: "Imported", description: ""}}
+    try {meta = await surface.meta(ctx)} catch {meta = {name: T("list.imported"), description: ""}}
     let center = null;
     try {center = tum.overlay.canvascenter()} catch {}
     tum.overlay.opencreatemodal({
-      name: meta.name || "Imported",
+      name: meta.name || T("list.imported"),
       description: meta.description || "",
       x: center ? center.x - 100 : undefined,
       y: center ? center.y - 144 : undefined,

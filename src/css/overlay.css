@@ -347,6 +347,7 @@ img {-webkit-user-drag: none; user-drag: none}
   background: transparent; color: var(--tumtext,#e7e9ea);
   font-size: 11px; padding: 4px 0 4px 10px
 }
+
 .tumfolderclear {
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
@@ -376,29 +377,26 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfolderfilters[hidden] {display: none}
 .tumfolderfilters {
   position: fixed; z-index: 10;
-  display: grid; grid-template-columns: 100px minmax(0,1fr);
-  gap: 8px; width: 296px; max-width: calc(100vw - 16px);
-  max-height: min(60vh,320px); padding: 7px;
-  overflow: auto; pointer-events: auto;
-  background: var(--tumelev,#16181c);
-  border: 1px solid var(--tumborder,#2f3336);
-  border-radius: 11px; box-shadow: 0 8px 24px rgba(0,0,0,0.45)
-}
-.tumfolderfiltercolumn {min-width: 0}
-.tumfolderfilterheading {
-  padding: 1px 4px 5px;
-  color: var(--tummuted,#71767b);
-  font-size: 10px; font-weight: 700;
-  line-height: 14px
-}
-.tumfolderfilteroptions {
   display: flex; flex-direction: column;
-  gap: 1px
+  gap: 4px; width: 88px; max-width: calc(100vw - 16px);
+  max-height: min(60vh,320px); padding: 4px 2px;
+  overflow: auto; pointer-events: auto;
+  background: #131313; border: 0;
+  outline: none; border-radius: 0 11px 11px 0;
+  box-shadow: none
+}
+.tumfolderfilters.tumfolderfiltersleft {border-radius: 11px 0 0 11px}
+.tumfolderfiltercolumn {min-width: 0; width: 100%}
+
+.tumfolderfilteroptions {display: flex; flex-direction: column}
+.tumfolderfilterbadges {
+  display: grid; grid-template-columns: repeat(3,28px);
+  justify-content: start;
 }
 .tumfolderfilteroption {
   display: flex; align-items: center;
-  gap: 5px; width: 100%; min-height: 22px;
-  padding: 3px 4px; border: 0;
+  gap: 4px; width: 100%; min-height: 22px;
+  padding: 2px; border: 0;
   border-radius: 6px; background: transparent;
   color: var(--tumtext,#e7e9ea); font-size: 10px;
   font-weight: 600; text-align: left;
@@ -409,16 +407,37 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfolderchoicebox {
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
-  width: 13px; height: 13px;
+  width: 12px; height: 12px;
   border: 1px solid var(--tummuted,#71767b);
   border-radius: 3px; color: transparent
 }
 .tumfoldersortoption .tumfolderchoicebox {border-radius: 50%}
+.tumfolderbadgeoption {
+  justify-content: flex-start; gap: 2px;
+  width: 28px; height: 24px;
+  min-height: 0; padding: 0;
+  border-radius: 5px
+}
+.tumfolderbadgeoption .tumfolderchoicebox {width: 10px; height: 10px}
+.tumfolderbadgeicon {
+  display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+  width: 12px; height: 12px
+}
+.tumfolderbadgeicon svg, .tumfolderbadgeicon img,
+.tumfolderbadgeicon .tumbadges svg, .tumfolderbadgeicon .tumbadges img {
+  display: block; width: 12px; height: 12px
+}
+.tumfolderbadgeicon .tumbadges {height: 12px; top: 0}
 .tumfolderchoicebox svg {
   width: 10px; height: 10px;
   fill: none; stroke: currentColor;
   stroke-width: 2.5; stroke-linecap: round;
   stroke-linejoin: round
+}
+.tumfolderchoicebox svg {
+  transform-box: view-box; transform-origin: center;
+  transform: translateY(.5px) scaleX(.82)
 }
 .tumfolderfilteroption[aria-pressed="true"] .tumfolderchoicebox {
   border-color: #1d9bf0; background: #1d9bf0;
@@ -433,6 +452,19 @@ img {-webkit-user-drag: none; user-drag: none}
   scrollbar-width: none
 }
 .tumfolderlist::-webkit-scrollbar {width: 0; height: 0; display: none}
+
+.tumuserhover {
+  position: fixed; z-index: 12;
+  max-width: calc(100vw - 16px); max-height: min(40vh,240px);
+  overflow: auto; padding: 7px 8px;
+  border: 0; outline: none; border-radius: 11px;
+  background: #131313; color: var(--tumtext,#e7e9ea);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  font-size: 10px; line-height: 1.35;
+  pointer-events: auto; user-select: text
+}
+.tumuserhoverrow + .tumuserhoverrow {margin-top: 3px}
+.tumuserhoverid {overflow-wrap: anywhere; color: var(--tummuted,#aab0b6)}
 .tumfolderempty {
   color: var(--tummuted,#71767b); font-size: 12px;
   text-align: center; padding: 16px 8px
@@ -471,15 +503,19 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldermembername {
   color: var(--tumtext,#e7e9ea); font-weight: 700;
   font-size: 12px; white-space: nowrap;
+  width: fit-content; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis
 }
 .tumfoldermemberhandle {
   color: var(--tummuted,#71767b); font-size: 11px;
+  width: fit-content; max-width: 100%;
   white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis
 }
 .tumcopy {cursor: pointer}
 .tumcopy:hover {text-decoration: underline}
+.tumfoldermembername:hover, .tumloosechipname:hover,
+.tumfoldermemberhandle:hover, .tumloosechiphandle:hover {text-decoration: underline}
 
 .tummqinner {display: inline-block; white-space: nowrap}
 
@@ -574,11 +610,14 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumloosechipname {
   color: var(--tumfg); font-size: 14px;
   font-weight: 700; white-space: nowrap;
+  width: fit-content; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis
 }
 .tumloosechiphandle {
   color: var(--tumfg); opacity: .6;
-  font-size: 13px; white-space: nowrap
+  font-size: 13px; white-space: nowrap;
+  width: fit-content; max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis
 }
 
 /*//////////////////////////////////////////////////////////////////////*/
@@ -904,7 +943,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumipitem {
   padding: 0; margin: 0; width: 100%; height: 30px;
   background: transparent; border: none; cursor: pointer; border-radius: 4px;
-  color: var(--tumipcolor, var(--tummuted,#71767b)); display: flex;
+  color: var(--tummuted,#71767b); display: flex;
   align-items: center; justify-content: center
 }
 .tumipitem svg {width: 19px; height: 19px; flex-shrink: 0}
@@ -914,22 +953,6 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 100%; text-align: center; color: var(--tummuted,#71767b);
   font-size: 12px; padding: 20px 0
 }
-
-.tumipfooter {
-  display: flex; align-items: center; gap: 8px;
-  flex-shrink: 0; padding-top: 8px;
-  border-top: 1px solid var(--tumborder,#2f3336);
-  color: var(--tummuted,#71767b); font-size: 12px
-}
-
-.tumipcolor {
-  width: 24px; height: 24px; padding: 0;
-  border: none; border-radius: 50%;
-  background: none; cursor: pointer;
-  margin-left: auto
-}
-.tumipcolor::-webkit-color-swatch-wrapper {padding: 0}
-.tumipcolor::-webkit-color-swatch {border: 1px solid var(--tuminputborder,#37434d); border-radius: 50%}
 
 .tummodalcolors {
   display: flex; gap: 6px;
@@ -1024,8 +1047,8 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcontextmenu {
   position: fixed; z-index: 8;
   min-width: 220px; max-width: 320px;
-  background: var(--tumelev,#16181c);
-  border: 1px solid var(--tumborder,#2f3336);
+  background: #131313; border: 0;
+  outline: none;
   border-radius: 14px; padding: 2px 0;
   opacity: 0; visibility: hidden;
   pointer-events: none; overflow: hidden

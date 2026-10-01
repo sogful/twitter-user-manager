@@ -2,6 +2,7 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   const PENCIL = '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>';
   const NAMEBOXSEL = '[data-testid="User-Name"]';
@@ -44,7 +45,7 @@
     const badge = document.createElement("span");
     badge.className = "tumpagereasonbadge";
     badge.dataset.handle = handle;
-    badge.title = "Note: " + entry.reason.slice(0, 80);
+    badge.title = T("badge.note", entry.reason.slice(0, 80));
     badge.innerHTML = PENCIL;
     badge.addEventListener("click", e => {
       e.preventDefault();
@@ -65,7 +66,7 @@
       }
       if (existing) {
         existing.dataset.handle = handle;
-        existing.title = "Note: " + entry.reason.slice(0, 80);
+        existing.title = T("badge.note", entry.reason.slice(0, 80));
         continue;
       }
       const namelink = namebox.querySelector('a[role="link"][href^="/"]');
@@ -92,7 +93,7 @@
     }
     if (existing) {
       existing.dataset.handle = handle;
-      existing.title = "Note: " + entry.reason.slice(0, 80);
+      existing.title = T("badge.note", entry.reason.slice(0, 80));
       return;
     }
     const badge = makebadge(handle, entry);
@@ -106,7 +107,7 @@
     return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#000" : "white";
   }
   function filldot(dot, entry, pagebg) {
-    dot.title = "Filed in: " + entry.name + " (click to open)";
+    dot.title = T("badge.filedin", entry.name);
     dot.style.background = entry.color;
     dot.style.borderColor = pagebg;
     const fg = dotcontrast(entry.color);

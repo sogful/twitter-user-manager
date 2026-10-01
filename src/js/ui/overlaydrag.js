@@ -172,7 +172,7 @@
   }
   function setfollowbutton(act) {
     O.els.actionfollow.dataset.act = act;
-    O.els.actionfollow.querySelector("span").textContent = act.charAt(0).toUpperCase() + act.slice(1);
+    O.els.actionfollow.querySelector("span").textContent = tum.strings.t("action.label." + act);
     O.els.actionfollow.querySelector(".tumquickicon").innerHTML = act === "unfollow" ? ICONS.unfollow : ICONS.follow;
   }
 
@@ -286,7 +286,9 @@
     if (source.type === "page" && !user.userid) user.pending = true;
     removefromsource(source, user.handle);
     tum.folders.addmember(folder.id, user);
-    if (doaction && source.type !== "folder" && !user.skipaction) tum.actions.run(folder.action, user, {confirmed});
+    const actionhappened = !!(doaction && source.type !== "folder" && folder.action && !user.skipaction);
+    if (actionhappened) tum.actions.run(folder.action, user, {confirmed});
+    O.notifyfolderadd(folder, user, actionhappened);
   }
 
   function finishfolderdrop(folder, user, source, doaction, confirmed) {
@@ -403,8 +405,8 @@
         const warning = actionable && folder.action === "block" ? followwarning(user) : null;
         const confirmsetting = actionable && !!(tum.settings && tum.settings.get("confirmactions"));
         if (warning || confirmsetting) {
-          const label = folder.action.charAt(0).toUpperCase() + folder.action.slice(1);
-          const detail = T("folder.drop.confirm.body", user.handle, folder.name, folder.action);
+          const label = T("action.label." + folder.action);
+          const detail = T("folder.drop.confirm.body", user.handle, folder.name, T("action.verb." + folder.action));
           O.openconfirm({
             title: T("action.confirm.single.title", label, user.handle),
             body: warning ? warning + " " + detail : detail,

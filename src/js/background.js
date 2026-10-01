@@ -32,6 +32,7 @@ async function memorylol(q) {
   return null;
 }
 
+/*
 let commonset = null;
 async function loadcommon() {
   if (commonset) return commonset;
@@ -57,6 +58,7 @@ async function breachlookup(handle) {
     return {results};
   } catch {return {error: true}}
 }
+*/
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "tumemail" && msg.handle) {
@@ -67,8 +69,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     memorylol({id: msg.id, handle: msg.handle}).then(res => sendResponse(res || {}));
     return true;
   }
+  /* Disabled until the breach.vip API is available again.
   if (msg && msg.type === "tumbreach" && msg.handle) {
     breachlookup(msg.handle).then(res => sendResponse(res || {}));
     return true;
   }
+  */
 });

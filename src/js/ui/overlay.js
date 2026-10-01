@@ -21,6 +21,7 @@
     download: '<svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>',
     upload: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 4h16"/></svg>',
     sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3"/><path d="M17 20V4M14 17l3 3 3-3"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.93-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8 8 0 0 0 14.93 4L21 14"/><path d="M21 20v-6h-6"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
     profile: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
     category: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 3"/></svg>',
@@ -31,21 +32,21 @@
 
   const TEXTPNG = chrome.runtime.getURL("assets/images/text.png");
   const SORTMODES = ["az", "za", "new", "old"];
-  const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
+  const SORTLABEL = {az: "folder.sort.label.az", za: "folder.sort.label.za", new: "folder.sort.label.new", old: "folder.sort.label.old", added: "folder.sort.label.new"};
   const sortoptions = [
-    {value: "az", label: "Name A-Z"},
-    {value: "za", label: "Name Z-A"},
-    {value: "new", label: "Newest"},
-    {value: "old", label: "Oldest"}
+    {value: "az", labelkey: "folder.filter.sort.nameaz"},
+    {value: "za", labelkey: "folder.filter.sort.nameza"},
+    {value: "new", labelkey: "folder.filter.sort.newest"},
+    {value: "old", labelkey: "folder.filter.sort.oldest"}
   ];
   const badgefilteroptions = [
-    {value: "verified", label: "Verified"},
-    {value: "verifiedbusiness", label: "Verified business"},
-    {value: "verifiedgovernment", label: "Verified government"},
-    {value: "protected", label: "Protected"},
-    {value: "affiliated", label: "Affiliated"},
-    {value: "translator", label: "Translator"},
-    {value: "translatormod", label: "Translator mod"}
+    {value: "verified", labelkey: "folder.filter.badge.verified"},
+    {value: "verifiedbusiness", labelkey: "folder.filter.badge.verifiedbusiness"},
+    {value: "verifiedgovernment", labelkey: "folder.filter.badge.verifiedgovernment"},
+    {value: "protected", labelkey: "folder.filter.badge.protected"},
+    {value: "affiliated", labelkey: "folder.filter.badge.affiliated"},
+    {value: "translator", labelkey: "folder.filter.badge.translator"},
+    {value: "translatormod", labelkey: "folder.filter.badge.translatormod"}
   ];
 
   const MEMBERCAP = 200; // render cap per folder list
@@ -56,6 +57,7 @@
   let shadow = null, root = null, host = null;
   let els = {};
   let activefolderfilters = null;
+  let userhover = null;
 
   const settings = tum.storage.create("tum.settings", {global: true});
   let keepopen = true;
@@ -118,7 +120,13 @@
     }
     const values = new Set((Array.isArray(badges) ? badges : []).map(presetvalue).filter(Boolean));
     const affiliations = (Array.isArray(badges) ? badges : []).filter(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""));
-    if (user && user.protected) values.add("protected");
+    if (user) {
+      if (user.protected) values.add("protected");
+      const verifiedtype = String(user.verifiedtype || "").toLowerCase();
+      if (/government/.test(verifiedtype)) values.add("verifiedgovernment");
+      else if (/business/.test(verifiedtype)) values.add("verifiedbusiness");
+      else if (user.blueverified) values.add("verified");
+    }
     const icons = {
       verified: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>',
       verifiedbusiness: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><defs><linearGradient id="tumverifieda" gradientUnits="userSpaceOnUse" x1="4.411" x2="18.083" y1="2.495" y2="21.508"><stop offset="0" stop-color="#f4e72a"/><stop offset=".539" stop-color="#cd8105"/><stop offset=".68" stop-color="#cb7b00"/><stop offset="1" stop-color="#f4ec26"/></linearGradient><linearGradient id="tumverifiedb" gradientUnits="userSpaceOnUse" x1="5.355" x2="16.361" y1="3.395" y2="19.133"><stop offset="0" stop-color="#f9e87f"/><stop offset=".406" stop-color="#e2b719"/><stop offset=".989" stop-color="#e2b719"/></linearGradient></defs><path d="M13.324 3.848L11 1.6 8.676 3.848l-3.201-.453-.559 3.184L2.06 8.095 3.48 11l-1.42 2.904 2.856 1.516.559 3.184 3.201-.452L11 20.4l2.324-2.248 3.201.452.559-3.184 2.856-1.516L18.52 11l1.42-2.905-2.856-1.516-.559-3.184zm-7.09 7.575l3.428 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifieda)"/><path d="M13.101 4.533L11 2.5 8.899 4.533l-2.895-.41-.505 2.88-2.583 1.37L4.2 11l-1.284 2.627 2.583 1.37.505 2.88 2.895-.41L11 19.5l2.101-2.033 2.895.41.505-2.88 2.583-1.37L17.8 11l1.284-2.627-2.583-1.37-.505-2.88zm-6.868 6.89l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifiedb)"/><path d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" fill="#000"/></svg>',
@@ -127,6 +135,7 @@
       translatormod: '<svg viewBox="0 0 24 24" aria-label="Translator account" role="img"><path d="M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z"/></svg>',
       protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><path fill-rule="evenodd" d="M12 1.5c2.761 0 5 2.239 5 5v.745c.22.06.431.138.638.235 1.045.495 1.887 1.337 2.381 2.382.267.563.378 1.165.43 1.849.052.673.051 1.505.051 2.539 0 1.034 0 1.866-.05 2.54-.053.683-.164 1.285-.43 1.848-.495 1.045-1.337 1.887-2.382 2.381-.563.267-1.165.378-1.849.43-.673.052-1.505.051-2.539.051h-2.5c-1.034 0-1.866 0-2.54-.05-.683-.053-1.285-.164-1.848-.43-1.045-.495-1.887-1.337-2.382-2.382-.266-.563-.377-1.165-.43-1.849-.05-.673-.05-1.505-.05-2.539 0-1.034 0-1.866.05-2.54.053-.683.164-1.285.43-1.848.495-1.045 1.337-1.887 2.382-2.382.207-.097.419-.174.638-.235V6.5c0-2.761 2.239-5 5-5zM9.5 15h5v-2h-5v2zM12 3.5c-1.657 0-3 1.343-3 3v.515C9.508 7 10.088 7 10.75 7h2.5l1.405.006c.119.002.234.006.345.009V6.5c0-1.657-1.343-3-3-3z"/></svg>'
     };
+    for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
     const badgeclass = {verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
     const standard = [...values].map(value => `<span class="tumbadge ${badgeclass[value] || "tumbadge" + value}">${icons[value]}</span>`).join("");
     const linked = affiliations.map(badge => `<a class="tumaffbadge" href="/${escapehtml(badge.handle)}"><img src="${escapehtml(miniavatarurl(badge.avatarurl))}">@${escapehtml(badge.handle)}</a>`).join("");
@@ -201,7 +210,7 @@
       els.freeform.style.transformOrigin = "0 0";
       els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
     }
-    if (activefolderfilters) positionfolderfilters(folderfilterbutton(activefolderfilters));
+    if (activefolderfilters) positionfolderfilters(folderfilternode(activefolderfilters));
     scheduleminimap();
     if (els.gridlayer) {
       els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
@@ -240,7 +249,7 @@
     const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.16)";
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><path d='M${w - 0.5} 0V${h}M0 ${h - 0.5}H${w}' fill='none' stroke='${line}' stroke-width='1' stroke-dasharray='7 7'/></svg>`;
     els.gridlayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-    if (activefolderfilters) positionfolderfilters(folderfilterbutton(activefolderfilters));
+    if (activefolderfilters) positionfolderfilters(folderfilternode(activefolderfilters));
   }
   window.addEventListener("resize", updategrid);
 
@@ -320,11 +329,18 @@
     O.root = root;
     loadmarkup().then(html => {
       root.innerHTML = html;
+      localizemarkup(root);
       const tp = root.querySelector("[data-tumtextpng]");
       if (tp) tp.src = TEXTPNG;
       shadow.appendChild(root);
       wiremarkup();
     });
+  }
+  function localizemarkup(node) {
+    for (const item of node.querySelectorAll("[data-tum-text]")) item.textContent = T(item.dataset.tumText);
+    for (const item of node.querySelectorAll("[data-tum-title]")) item.title = T(item.dataset.tumTitle);
+    for (const item of node.querySelectorAll("[data-tum-placeholder]")) item.placeholder = T(item.dataset.tumPlaceholder);
+    for (const item of node.querySelectorAll("[data-tum-alt]")) item.alt = T(item.dataset.tumAlt);
   }
 
   let markuphtml = null;
@@ -534,7 +550,7 @@
   }
 
   const PEEKSEL = ".tumpagereasonbadge,.tumpageprofilereasonbadge,.tumpagefolderdot," +
-    ".tumextrablock,.tumbreachbadge,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday,.tumprofilepostdetails,.tumprofessionaldetail," +
+    ".tumextrablock,.tumbasedinitem,.tumbasedin,.tumhd,.tumperday,.tumprofilepostdetails,.tumprofessionaldetail," +
     '[data-testid="usermanagerLink"]';
   function ensurehidestyle() {
     if (document.getElementById("tumhideallstyle")) return;
@@ -631,6 +647,7 @@
       nodes.push(node);
     }
     syncfreeform(nodes);
+    if (userhover && !userhover.row.isConnected) clearuserhover();
     for (const node of O.foldernodes) if (node._tumrestore) {restorefolderview(node, node._tumrestore); delete node._tumrestore}
     updatequickstate();
     if (changed.length) schedulemarquees(changed);
@@ -713,28 +730,32 @@
     activefolderfilters = null;
   }
   function folderfilterbutton(folderid) {
-    const node = (O.foldernodes || []).find(folder => folder.dataset.id === folderid);
+    const node = folderfilternode(folderid);
     return node && node.querySelector(".tumfoldersort");
   }
-  function positionfolderfilters(button) {
-    if (!button || !els.folderfilters) return;
-    const rect = button.getBoundingClientRect();
+  function folderfilternode(folderid) {
+    return (O.foldernodes || []).find(folder => folder.dataset.id === folderid);
+  }
+  function positionfolderfilters(foldernode) {
+    if (!foldernode || !els.folderfilters) return;
+    const rect = foldernode.getBoundingClientRect();
     const menu = els.folderfilters;
+    menu.style.width = Math.max(0, Math.min(rect.width / 2, window.innerWidth - 16)) + "px";
     const width = menu.offsetWidth, height = menu.offsetHeight;
-    const maxleft = Math.max(8, window.innerWidth - width - 8);
-    const left = clamp(rect.right - width, 8, maxleft);
-    const maxtop = Math.max(8, window.innerHeight - height - 8);
-    const below = rect.bottom + 4;
-    const above = rect.top - height - 4;
-    const top = below + height <= window.innerHeight - 8 ? below : (above >= 8 ? above : clamp(below, 8, maxtop));
+    const stickleft = rect.right + width > window.innerWidth - 8;
+    const left = stickleft ? Math.max(8, rect.left - width) : rect.right;
+    menu.classList.toggle("tumfolderfiltersleft", stickleft);
+    const maxtop = Math.max(0, window.innerHeight - height);
+    const top = clamp(rect.top, 0, maxtop);
     menu.style.left = left + "px";
     menu.style.top = top + "px";
   }
   function refreshfolderfilters() {
     if (!activefolderfilters) return;
     const folder = tum.folders.get(activefolderfilters);
+    const foldernode = folderfilternode(activefolderfilters);
     const button = folderfilterbutton(activefolderfilters);
-    if (!folder || !button) {closefolderfilters(); return}
+    if (!folder || !foldernode || !button) {closefolderfilters(); return}
     const menu = els.folderfilters;
     let focus = null;
     if (menu.contains(shadow.activeElement)) {
@@ -743,12 +764,12 @@
     }
     const selectedsort = normalizedsort(folder);
     const selectedbadges = new Set(Array.isArray(folder.badgefilters) ? folder.badgefilters : []);
-    const sortrows = sortoptions.map(option => `<button type="button" class="tumfolderfilteroption tumfoldersortoption" data-sort="${option.value}" aria-pressed="${selectedsort === option.value}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${option.label}</span></button>`).join("");
-    const badgerows = badgefilteroptions.map(option => `<button type="button" class="tumfolderfilteroption tumfolderbadgeoption" data-badge="${option.value}" aria-pressed="${selectedbadges.has(option.value)}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${option.label}</span></button>`).join("");
-    menu.innerHTML = `<div class="tumfolderfiltercolumn"><div class="tumfolderfilterheading">Sort by</div><div class="tumfolderfilteroptions" role="group" aria-label="Sort by">${sortrows}</div></div><div class="tumfolderfiltercolumn"><div class="tumfolderfilterheading">User badge</div><div class="tumfolderfilteroptions" role="group" aria-label="Filter by user badge">${badgerows}</div></div>`;
+    const sortrows = sortoptions.map(option => `<button type="button" class="tumfolderfilteroption tumfoldersortoption" data-sort="${option.value}" aria-pressed="${selectedsort === option.value}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${T(option.labelkey)}</span></button>`).join("");
+    const badgerows = badgefilteroptions.map(option => `<button type="button" class="tumfolderfilteroption tumfolderbadgeoption" data-badge="${option.value}" aria-label="${T(option.labelkey)}" aria-pressed="${selectedbadges.has(option.value)}"><span class="tumfolderchoicebox">${ICONS.check}</span><span class="tumfolderbadgeicon" aria-hidden="true">${option.value === "affiliated" ? `<img src="${DEFAULT_AVATAR}" alt="">` : badgeshtml([option.value])}</span></button>`).join("");
+    menu.innerHTML = `<div class="tumfolderfiltercolumn"><div class="tumfolderfilteroptions" role="group" aria-label="${T("folder.filter.sortgroup")}">${sortrows}</div></div><div class="tumfolderfiltercolumn"><div class="tumfolderfilteroptions tumfolderfilterbadges" role="group" aria-label="${T("folder.filter.badgegroup")}">${badgerows}</div></div>`;
     menu.hidden = false;
     button.setAttribute("aria-expanded", "true");
-    positionfolderfilters(button);
+    positionfolderfilters(foldernode);
     if (focus) {
       const option = [...menu.querySelectorAll(".tumfolderfilteroption")].find(item => item.dataset[focus.type] === focus.value);
       if (option) option.focus({preventScroll: true});
@@ -759,7 +780,7 @@
     const menu = el("div", "tumfolderfilters");
     menu.hidden = true;
     menu.setAttribute("role", "group");
-    menu.setAttribute("aria-label", "Folder sorting and badge filters");
+    menu.setAttribute("aria-label", T("folder.filter.label"));
     menu.addEventListener("pointerdown", e => e.stopPropagation());
     menu.addEventListener("click", e => {
       const sortbutton = e.target.closest(".tumfoldersortoption");
@@ -813,7 +834,7 @@
           <div class="tumfoldertitlelines">
             <div class="tumfoldertoprow">
               <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
-              ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${f.action}</span>` : ""}
+              ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${T("action.label." + f.action)}</span>` : ""}
             </div>
             ${f.description ? `<div class="tumfolderdesc"><span class="tummqinner">${escapehtml(f.description)}</span></div>` : ""}
           </div>
@@ -825,16 +846,16 @@
       <div class="tumfoldertools">
         <div class="tumfoldersearchwrap">
           <input class="tumfoldersearch" placeholder="${T("folder.search")}">
-          <button type="button" class="tumfolderclear" aria-label="Clear search" hidden>${ICONS.close}</button>
+          <button type="button" class="tumfolderclear" aria-label="${T("folder.filter.clear")}" hidden>${ICONS.close}</button>
         </div>
-        <button type="button" class="tumfoldersort" aria-label="Folder sort and badge filters" aria-haspopup="true" aria-expanded="false">${SORTLABEL[normalizedsort(f)] || SORTLABEL.added}</button>
+        <button type="button" class="tumfoldersort" aria-label="${T("folder.filter.label")}" aria-haspopup="true" aria-expanded="false">${T(SORTLABEL[normalizedsort(f)] || SORTLABEL.added)}</button>
       </div>
       <div class="tumfolderlist"></div>
     `;
     node._tumremove = node.querySelector(".tumfolderremove");
     const list = node.querySelector(".tumfolderlist");
     if (!members.length) {
-      list.appendChild(el("div", "tumfolderempty", allmembers.length ? "No matching accounts" : T("folder.empty")));
+      list.appendChild(el("div", "tumfolderempty", allmembers.length ? T("folder.filter.empty") : T("folder.empty")));
     } else {
       const src = {type: "folder", id: f.id};
       const fill = shown => {
@@ -895,9 +916,9 @@
     const folder = source && source.type === "folder" ? tum.folders.get(source.id) : null;
     if (folder && folder.action === "block") {
       O.openconfirm({
-        title: "Open @" + m.handle + "?",
-        body: "This folder blocks its members, so @" + m.handle + " is likely blocked. Open their profile anyway?",
-        oklabel: "Open profile",
+        title: T("folder.openblocked.title", m.handle),
+        body: T("folder.openblocked.body", m.handle),
+        oklabel: T("folder.openprofile"),
         onok: go
       });
     } else go();
@@ -922,11 +943,12 @@
           ${badgeshtml(m.badges, m)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${unfindable ? " (can't find)" : ""}</span>
+        <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${unfindable ? " (" + T("user.unfindable") + ")" : ""}</span>
       </div>
       <button class="tumfoldermemberremove">${ICONS.close}</button>
     `;
     wirecopy(row);
+    wireuserhover(row, m);
     hidebrokenavatar(row, source, m);
     wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
@@ -959,11 +981,12 @@
           ${badgeshtml(u.badges, u)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
-        <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${unfindable ? " · can't find" : ""}</span>
+        <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${unfindable ? " · " + T("user.unfindable") : ""}</span>
       </div>
       <button class="tumloosechipremove">${ICONS.close}</button>
     `;
     wirecopy(chip);
+    wireuserhover(chip, u);
     hidebrokenavatar(chip, {type: "unsorted"}, u);
     wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
@@ -999,6 +1022,94 @@
     }
   }
 
+  function formatusercount(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toLocaleString("en-US") : String(value);
+  }
+  function formatuserdate(value) {
+    const n = Number(value);
+    const d = new Date(Number.isFinite(n) ? (n < 100000000000 ? n * 1000 : n) : value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
+  }
+  function userhoverlines(user) {
+    const lines = [];
+    const add = (key, value, format) => {
+      if (value === undefined || value === null || value === "") return;
+      lines.push({key, value: format ? format(value) : value});
+    };
+    add("profile.id", user.userid);
+    add("profile.joined", user.createdat, formatuserdate);
+    add("profile.posts", user.tweets, formatusercount);
+    add("profile.media", user.mediatweets, formatusercount);
+    add("profile.likes", user.favorites, formatusercount);
+    add("profile.followers", user.followers, formatusercount);
+    add("profile.following", user.following, formatusercount);
+    return lines;
+  }
+  function clearuserhover() {
+    if (!userhover) return;
+    clearTimeout(userhover.timer);
+    if (userhover.card) userhover.card.remove();
+    userhover = null;
+  }
+  function hideuserhover(later) {
+    if (!userhover) return;
+    clearTimeout(userhover.timer);
+    const active = userhover;
+    const remove = () => {if (userhover === active) clearuserhover()};
+    if (later) active.timer = setTimeout(remove, 180);
+    else remove();
+  }
+  function placeuserhover(row, card) {
+    const folder = row.closest(".tumfolder");
+    const source = folder || row;
+    const rect = source.getBoundingClientRect();
+    const width = Math.min(folder ? rect.width : 280, window.innerWidth - 16);
+    card.style.width = Math.max(0, width) + "px";
+    card.style.maxWidth = "calc(100vw - 16px)";
+    const left = rect.right + width <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width);
+    card.style.left = left + "px";
+    card.style.top = Math.min(Math.max(8, row.getBoundingClientRect().top), Math.max(8, window.innerHeight - card.offsetHeight - 8)) + "px";
+  }
+  function showuserhover(row, user) {
+    clearuserhover();
+    const lines = userhoverlines(user);
+    if (!lines.length || !root) return;
+    const card = el("div", "tumuserhover");
+    card.setAttribute("role", "tooltip");
+    for (const line of lines) {
+      const value = el("div", "tumuserhoverrow");
+      if (line.key === "profile.id") value.classList.add("tumuserhoverid");
+      value.textContent = T(line.key, line.value);
+      card.appendChild(value);
+    }
+    const state = userhover = {row, card, timer: 0};
+    card.addEventListener("pointerenter", () => clearTimeout(state.timer));
+    card.addEventListener("pointerleave", e => {
+      if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+      hideuserhover(true);
+    });
+    card.addEventListener("pointerdown", e => e.stopPropagation());
+    root.appendChild(card);
+    placeuserhover(row, card);
+  }
+  function wireuserhover(row, user) {
+    row.addEventListener("pointerenter", e => {
+      if (e.pointerType === "touch") return;
+      if (userhover && userhover.row === row) {clearTimeout(userhover.timer); return}
+      clearuserhover();
+      const state = userhover = {row, card: null, timer: 0};
+      state.timer = setTimeout(() => {
+        if (userhover === state && row.isConnected) showuserhover(row, user);
+      }, 420);
+    });
+    row.addEventListener("pointerleave", e => {
+      if (userhover && userhover.row === row && e.relatedTarget && userhover.card && userhover.card.contains(e.relatedTarget)) return;
+      hideuserhover(true);
+    });
+    row.addEventListener("pointerdown", () => clearuserhover());
+  }
+
   /*//////////////////////////////////////////////////////////////////////*/
 
   function toggledcollapse(id) {
@@ -1030,7 +1141,7 @@
     node.style.width = (c.w || 480) + "px";
     node.style.height = (c.h || 360) + "px";
     node.innerHTML =
-      `<div class="tumcategorytitle">${escapehtml(c.name || "Edit Me...")}</div>` +
+      `<div class="tumcategorytitle">${escapehtml(c.name || T("confirm.category.default"))}</div>` +
       `<div class="tumcatresize tumcatresizer"></div>` +
       `<div class="tumcatresize tumcatresizeb"></div>` +
       `<div class="tumcatresize tumcatresizebr"></div>`;
@@ -1142,7 +1253,7 @@
     const finish = () => {
       title.contentEditable = "false";
       title.classList.remove("tumediting");
-      const name = (title.textContent || "").trim() || "Edit Me...";
+      const name = (title.textContent || "").trim() || T("confirm.category.default");
       title.textContent = name;
       tum.categories.update(c.id, {name}, true);
     };
@@ -1150,7 +1261,7 @@
     title.addEventListener("keydown", e => {
       e.stopPropagation();
       if (e.key === "Enter") {e.preventDefault(); title.blur()}
-      else if (e.key === "Escape") {title.textContent = c.name || "Edit Me..."; title.blur()}
+      else if (e.key === "Escape") {title.textContent = c.name || T("confirm.category.default"); title.blur()}
     });
   }
 
@@ -1556,10 +1667,15 @@
     clearTimeout(toasttimer);
     toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), options ? 5000 : 2600);
   }
+  function notifyfolderadd(folder, user, actionhappened) {
+    if (!folder || !user || !user.handle || actionhappened) return;
+    if (tum.settings && !tum.settings.get("folderaddtoast")) return;
+    toast(T("toast.added", user.handle));
+  }
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, openprofile, applypan, fitall,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, applypan, fitall,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
@@ -1572,6 +1688,7 @@
     enddrag: (x, y) => O.enddrag(x, y),
     canceldrag: () => O.canceldrag(),
     toast,
+    notifyfolderadd,
     open: () => openoverlay(),
     canvascenter: () => ({x: Math.round((window.innerWidth / 2 - pan.x) / zoom), y: Math.round((window.innerHeight / 2 - pan.y) / zoom)}),
     opencreatemodal: opts => O.opencreatemodal(opts),

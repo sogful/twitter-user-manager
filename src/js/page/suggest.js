@@ -2,10 +2,11 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   const KINDS = {
-    blocked: {re: /^\/settings\/blocked/, label: "blocked"},
-    muted: {re: /^\/settings\/muted\/all/, label: "muted"}
+    blocked: {re: /^\/settings\/blocked/},
+    muted: {re: /^\/settings\/muted\/all/}
   };
 
   const dstore = tum.storage.create("tum.suggestdismissed", {global: true});
@@ -33,8 +34,8 @@
     b.style.background = pal.hover;
     b.style.color = pal.text;
     b.innerHTML =
-      '<span class="tumsuggesttext">You can sort your ' + KINDS[kind].label + ' tab into folders from here!</span>' +
-      '<button class="tumsuggestx">Dismiss</button>';
+      '<span class="tumsuggesttext">' + T("suggest.banner", T("suggest.kind." + kind)) + '</span>' +
+      '<button class="tumsuggestx">' + T("suggest.dismiss") + '</button>';
     b.querySelector(".tumsuggestx").style.color = pal.muted;
     b.querySelector(".tumsuggestx").addEventListener("click", () => {
       dismissed.add(kind);

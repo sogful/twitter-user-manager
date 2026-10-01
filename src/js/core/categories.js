@@ -2,6 +2,7 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   const store = tum.storage.create("tum.categories");
 
@@ -20,7 +21,7 @@
     ids.add(id);
     return {
       id,
-      name: partial && partial.name || "Edit Me...",
+      name: partial && partial.name || T("confirm.category.default"),
       x: partial && typeof partial.x === "number" ? partial.x : 120,
       y: partial && typeof partial.y === "number" ? partial.y : 120,
       w: partial && typeof partial.w === "number" ? partial.w : 480,

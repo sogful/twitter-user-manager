@@ -72,13 +72,15 @@
     if (target.type === "folder") {
       tum.folders.addmember(target.id, user);
       const f = tum.folders.get(target.id);
-      if (f && f.action && !user.skipaction) try {tum.actions.run(f.action, user)} catch {}
+      const actionhappened = !!(f && f.action && !user.skipaction);
+      if (actionhappened) try {tum.actions.run(f.action, user)} catch {}
+      try {tum.overlay.notifyfolderadd(f, user, actionhappened)} catch {}
     } else {
       const px = typeof target.cx === "number" ? target.cx : 200;
       const py = typeof target.cy === "number" ? target.cy : 200;
       tum.unsorted.add(Object.assign({}, user, {cat: target.type === "category" ? target.id : target.cat || null}), px, py);
     }
-    try {tum.overlay.toast(T("toast.added", user.handle))} catch {}
+    if (target.type !== "folder") try {tum.overlay.toast(T("toast.added", user.handle))} catch {}
   }
 
   function onclick(e) {

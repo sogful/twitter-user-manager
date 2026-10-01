@@ -16,7 +16,7 @@
   const SHIELDPATH = "M12 2c1.982.042 3.945.396 5.816 1.05 1.09.372 2.154.816 3.184 1.33v7.64c.03 1.404-.27 2.797-.876 4.065-.606 1.268-1.501 2.376-2.613 3.235-.87.66-1.786 1.254-2.743 1.78-.838.514-1.787.823-2.768.9-.98-.077-1.929-.386-2.768-.9-.956-.526-1.873-1.12-2.743-1.78-1.112-.859-2.007-1.967-2.613-3.235-.606-1.268-.906-2.66-.876-4.066V4.38c1.03-.513 2.095-.957 3.184-1.33C8.056 2.398 10.018 2.043 12 2zm0 2c-1.767.047-3.515.367-5.184.95-.767.25-1.398.51-1.816.69v6.38c-.03 1.091.197 2.175.663 3.164.466.988 1.157 1.853 2.018 2.526.793.601 1.63 1.146 2.5 1.63.55.35 1.172.575 1.819.66.648-.084 1.27-.31 1.822-.66.87-.484 1.706-1.029 2.5-1.63.86-.673 1.55-1.538 2.016-2.526.465-.989.692-2.073.662-3.164V5.64c-.416-.18-1.049-.44-1.816-.69C15.516 4.367 13.767 4.047 12 4zm0 10c.83 0 1.5.67 1.5 1.5S12.83 17 12 17s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm1-1.3c-.004-.001-.502-.2-1-.2-.5 0-1 .2-1 .2L10.75 7h2.5L13 12.7z";
   const PINPATH = "M12 7c-1.93 0-3.5 1.57-3.5 3.5S10.07 14 12 14s3.5-1.57 3.5-3.5S13.93 7 12 7zm0 5c-.827 0-1.5-.673-1.5-1.5S11.173 9 12 9s1.5.673 1.5 1.5S12.827 12 12 12zm0-10c-4.687 0-8.5 3.813-8.5 8.5 0 5.967 7.621 11.116 7.945 11.332l.555.37.555-.37c.324-.216 7.945-5.365 7.945-11.332C20.5 5.813 16.687 2 12 2zm0 17.77c-1.665-1.241-6.5-5.196-6.5-9.27C5.5 6.916 8.416 4 12 4s6.5 2.916 6.5 6.5c0 4.073-4.835 8.028-6.5 9.27z";
   const GIFTPATH = "M20 7h-3.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.36C10.96 3.54 10.05 3 9 3 7.34 3 6 4.34 6 6c0 .35.07.69.18 1H3v5h1v9h16v-9h1V7zm-6-2c.55 0 1 .45 1 1s-.45 1-1 1h-1V6c0-.55.45-1 1-1zM9 5c.55 0 1 .45 1 1v1H9c-.55 0-1-.45-1-1s.45-1 1-1zm-4 4h7v2H5V9zm2 4h5v6H7v-6zm7 6v-6h4v6h-4zm0-8V9h5v2h-5z";
-  const DBPATH = "M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zm5 17c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V19zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V15zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1V8.77c1.34.63 3.13 1 5 1s3.66-.37 5-1V11zM12 8c-3.31 0-5-.65-5-1s1.69-1 5-1 5 .65 5 1-1.69 1-5 1z";
+  // const DBPATH = "M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zm5 17c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V19zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1v-2.23c1.34.63 3.13 1 5 1s3.66-.37 5-1V15zm0-4c0 .35-1.69 1-5 1s-5-.65-5-1V8.77c1.34.63 3.13 1 5 1s3.66-.37 5-1V11zM12 8c-3.31 0-5-.65-5-1s1.69-1 5-1 5 .65 5 1-1.69 1-5 1z";
 
   /*//////////////////////////////////////////////////////////////////////*/
   
@@ -73,7 +73,7 @@
   const userdata = new Map();    // handle -> normalized UserByScreenName fields
   const memcache = new Map();    // handle -> {id, names} | null (requested/none)
   const aboutdata = new Map();   // handle -> AboutAccountQuery fields | null
-  const breachcache = new Map(); // handle -> {results} | {skipped} | {discarded} | null
+  // const breachcache = new Map(); // Disabled until the breach.vip API is available again.
   const memfallback = new Set(); // handles a memory.lol fallback
 
   function requestmemory(key, arg) {
@@ -157,7 +157,7 @@
   function hdbutton(href) {
     const a = document.createElement("a");
     a.className = "tumhd";
-    a.textContent = "HD";
+    a.textContent = T("profile.highdefinition");
     a.href = href; a.target = "_blank"; a.rel = "noopener";
     a.title = T("profile.openfullres");
     a.addEventListener("click", e => {e.stopPropagation()});
@@ -228,12 +228,12 @@
     const details = [];
     if (u) {
       if (u.possiblySensitive) flags.push(T("profile.sensitive"));
-      if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, T("profile.media.tags", u.canMediaTag ? "on" : "off")]);
+      if (typeof u.canMediaTag === "boolean") details.push([TAGPATH, T("profile.media.tags", T(u.canMediaTag ? "profile.value.on" : "profile.value.off"))]);
       const subscriptions = [];
-      if (typeof u.subscriptionsHidden === "boolean") subscriptions.push(u.subscriptionsHidden ? "hidden" : "visible");
-      if (typeof u.subscriptionsEligible === "boolean") subscriptions.push(u.subscriptionsEligible ? "eligible" : "unavailable");
+      if (typeof u.subscriptionsHidden === "boolean") subscriptions.push(T(u.subscriptionsHidden ? "profile.value.hidden" : "profile.value.visible"));
+      if (typeof u.subscriptionsEligible === "boolean") subscriptions.push(T(u.subscriptionsEligible ? "profile.value.eligible" : "profile.value.unavailable"));
       if (subscriptions.length) details.push([SHIELDPATH, T("profile.subscriptions", subscriptions.join(", "))]);
-      if (typeof u.premiumGiftingEligible === "boolean") details.push([GIFTPATH, T("profile.premiumgifts", u.premiumGiftingEligible ? "eligible" : "unavailable")]);
+      if (typeof u.premiumGiftingEligible === "boolean") details.push([GIFTPATH, T("profile.premiumgifts", T(u.premiumGiftingEligible ? "profile.value.eligible" : "profile.value.unavailable"))]);
       if (u.verifiedSinceMsec) details.push([SHIELDPATH, T("profile.bluesince", fulldate(u.verifiedSinceMsec))]);
       if (u.profileInterstitialType) flags.push(T("profile.warning", u.profileInterstitialType));
     }
@@ -286,7 +286,10 @@
     if (withheld) {
       const r = entryrow(WARNPATH); r.classList.add("tuminfomisc"); r.style.color = "#f4212e";
       r.title = T("profile.withheldtitle", withheld.join(", "));
-      r.appendChild(document.createTextNode(T("profile.withheld")));
+      const label = document.createElement("span");
+      label.className = "tumwithheldlabel";
+      label.textContent = T("profile.withheld");
+      r.appendChild(label);
       for (const country of withheld) r.appendChild(countryflag(country));
       smallest.appendChild(r);
     }
@@ -374,6 +377,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  /* Disabled until the breach.vip API is available again.
   function breachmodal(results, strong, gray, bg, onclose) {
     const backdrop = document.createElement("div");
     backdrop.className = "tumbreachbackdrop";
@@ -459,9 +463,10 @@
     });
     leaf.insertAdjacentElement("afterend", badge);
   }
+  */
 
   function removeextras() {
-    for (const n of document.querySelectorAll(".tumextrablock, .tumbreachbadge, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday, .tumprofilepostdetails, .tumprofessionaldetail")) n.remove();
+    for (const n of document.querySelectorAll(".tumextrablock, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday, .tumprofilepostdetails, .tumprofessionaldetail")) n.remove();
   }
 
   function scan() {
@@ -488,6 +493,7 @@
         setTimeout(() => {if (!memcache.has(key)) requestmemory(key, {handle})}, 3000);
       }
     }
+    /* Disabled until the breach.vip API is available again.
     if (!breachcache.has(key)) {
       breachcache.set(key, null);
       try {
@@ -498,6 +504,7 @@
         });
       } catch {}
     }
+    */
     const u = userdata.get(key);
     if (u) {
       if (items) applyjoin(items, u);
@@ -508,7 +515,7 @@
       applyprofessional(u);
     }
     if (items) injectbasedin(items, handle);
-    injectbreach(handle);
+    // injectbreach(handle); // Disabled until the breach.vip API is available again.
     if (items) buildblock(items, handle);
   }
 

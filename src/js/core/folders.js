@@ -2,6 +2,7 @@
   "use strict";
 
   window.tum = window.tum || {};
+  const T = (...a) => tum.strings.t(...a);
 
   const ACTIONS = ["follow", "mute", "block"];
   const badgefiltertypes = new Set(["verified", "verifiedbusiness", "verifiedgovernment", "protected", "affiliated", "translator", "translatormod"]);
@@ -35,7 +36,7 @@
     createcount++;
     const folder = {
       id: partial.id && !ids.has(partial.id) ? partial.id : uid(),
-      name: (partial.name || "new folder").slice(0, 40),
+      name: (partial.name || T("folder.default.name")).slice(0, 40),
       action: ACTIONS.includes(partial.action) ? partial.action : null,
       color: partial.color || nextcolor(),
       icon: (partial.icon || "").slice(0, 64),

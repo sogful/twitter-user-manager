@@ -40,12 +40,13 @@
     for (const badge of root.querySelectorAll("img, svg")) {
       if (isemojiimg(badge)) continue;
       const text = [badge.getAttribute("aria-label"), badge.getAttribute("data-testid"), badge.getAttribute("alt"), badge.getAttribute("title"), badge.getAttribute("class")].join(" ").toLowerCase();
-      if (/verified|icon-verified/.test(text)) {
-        const markup = badge.innerHTML || "";
+      const markup = badge.innerHTML || "";
+      const label = text + " " + markup.toLowerCase();
+      if (/verified|icon-verified/.test(label)) {
         badges.add(/linearGradient/i.test(markup) ? "verifiedbusiness" : /#829aab/i.test(markup) ? "verifiedgovernment" : "verified");
       }
-      else if (/translator/.test(text)) badges.add(/moderator|mod|r-1cvl2hr/.test(text) ? "translatormod" : "translator");
-      else if (/protected|lock/.test(text)) badges.add("protected");
+      else if (/translator|r-1cvl2hr/.test(label)) badges.add(/moderator|mod|r-1cvl2hr/.test(label) ? "translatormod" : "translator");
+      else if (/protected|lock/.test(label)) badges.add("protected");
       const link = badge.closest('a[href^="/"]');
       const handle = link && /^\/([A-Za-z0-9_]+)\/?$/.exec(link.getAttribute("href") || "");
       if (handle && badge.tagName === "IMG") affiliations.set(handle[1].toLowerCase(), {type: "affiliation", handle: handle[1], avatarurl: badge.src || null});

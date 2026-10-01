@@ -25,7 +25,7 @@
   const INVERSE = {follow: "unfollow", mute: "unmute", block: "unblock"};
 
   const successmsg = (action, h) => T("action.success." + action, h);
-  const actionlabel = action => action.charAt(0).toUpperCase() + action.slice(1);
+  const actionlabel = action => T("action.label." + action);
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -71,7 +71,7 @@
       applypostvisibility(inverse, handle);
       tum.overlay.toast(successmsg(inverse, handle));
     } else {
-      tum.overlay.toast(T("action.undo.failed", action, handle));
+      tum.overlay.toast(T("action.undo.failed", T("action.verb." + action), handle));
     }
   }
 
@@ -99,7 +99,7 @@
       try {
         tum.overlay.confirm({
           title: T("action.confirm.single.title", label, handle),
-          body: T("action.confirm.single.body", action, handle),
+          body: T("action.confirm.single.body", T("action.verb." + action), handle),
           oklabel: label,
           onok: () => finish(true),
           oncancel: () => finish(false)
@@ -155,7 +155,7 @@
   }
 
   async function openmenu(caret) {
-    if (!caret) {log("no caret/more button found, cannot open user menu"); return false}
+    if (!caret) {log(T("log.action.noCaret")); return false}
     caret.click();
     const menu = await waitfor(() => document.querySelector('[role="menu"]'), 2000);
     return !!menu;
@@ -164,7 +164,7 @@
   async function clickmenuitem(kind) {
     const re = MENUTEXT[kind];
     const item = await waitfor(() => findmenuitem(re), 1500);
-    if (!item) {log("menu item for", kind, "not found, twitter probably changed the menu"); return false}
+    if (!item) {log(T("log.action.menuMissing", actionlabel(kind))); return false}
     item.click();
     return true;
   }
@@ -177,7 +177,7 @@
   async function runreal(action, user) {
     if (action === "follow" && user.followbutton) {
       if (!document.contains(user.followbutton)) {
-        log("source follow button is gone from the DOM, can't", action, user.handle);
+        log(T("log.action.followButtonGone"));
         return false;
       }
       user.followbutton.click();
@@ -186,12 +186,12 @@
     let caret = user.caret;
     if (!caret) {
       if (!user.article || !document.contains(user.article)) {
-        log("source tweet is gone from the DOM, can't", action, user.handle);
+        log(T("log.action.tweetGone"));
         return false;
       }
       caret = user.article.querySelector('[data-testid="caret"]');
     } else if (!document.contains(caret)) {
-      log("source caret is gone from the DOM, can't", action, user.handle);
+      log(T("log.action.caretGone"));
       return false;
     }
     const opened = await openmenu(caret);
@@ -207,7 +207,7 @@
   const DELAYS = {block: 500, mute: 500, follow: 2500}; // ms between requests
   const JITTER = 0.35;
   const BACKOFF = 60000;
-  const VERBING = {block: "Blocking", mute: "Muting", follow: "Following"};
+  const VERBING = {block: "action.batch.blocking", mute: "action.batch.muting", follow: "action.batch.following"};
   const jitter = ms => Math.round(ms * (1 + (Math.random() * 2 - 1) * JITTER));
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -319,7 +319,8 @@
     bar = document.createElement("div");
     bar.className = "tumbatchbar";
     bar.innerHTML = '<div class="tumbatchfill"></div>' +
-      '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel">Cancel</button></div>';
+      '<div class="tumbatchrow"><span class="tumbatchlabel"></span><button class="tumbatchcancel"></button></div>';
+    bar.querySelector(".tumbatchcancel").textContent = T("import.stop");
     bar.querySelector(".tumbatchcancel").addEventListener("click", cancelbatch);
     try {tum.theme.paint(bar)} catch {}
     document.documentElement.appendChild(bar);
@@ -334,8 +335,8 @@
     const processed = st.done + st.failed;
     b.querySelector(".tumbatchfill").style.width = (st.total ? Math.round(processed / st.total * 100) : 0) + "%";
     let label;
-    if (st.note === "ratelimit") label = "Rate limited, waiting a minute...";
-    else label = (VERBING[st.action] || "Working") + " " + Math.min(processed + 1, st.total) + " / " + st.total + (st.failed ? " (" + st.failed + " skipped)" : "");
+    if (st.note === "ratelimit") label = T("action.batch.ratelimited");
+    else label = T(VERBING[st.action] || "action.batch.working") + " " + Math.min(processed + 1, st.total) + " / " + st.total + (st.failed ? T("action.batch.skipped", st.failed) : "");
     b.querySelector(".tumbatchlabel").textContent = label;
   }
 
@@ -348,20 +349,20 @@
     enqueue, cancelbatch, batchstate,
     onbatch(cb) {blisteners.add(cb); return () => blisteners.delete(cb)},
     async run(action, user, options) {
-      if (!action) {log("no action set on this folder, just adding", user.handle); return true}
-      if (await alreadydone(action, user.handle)) {log("already", action, user.handle); return true}
-      if (!(options && options.confirmed) && !await confirmindividual(action, user.handle)) {log("cancelled", action, user.handle); return false}
-      log("running", action, "on", user.handle);
+      if (!action) {log(T("log.action.noAction")); return true}
+      if (await alreadydone(action, user.handle)) {log(T("log.action.alreadyDone")); return true}
+      if (!(options && options.confirmed) && !await confirmindividual(action, user.handle)) {log(T("log.action.cancelled")); return false}
+      log(T("log.action.running", T("action.verb." + action), user.handle));
       try {
         let ok = await apiaction(action, user.handle);
         if (!ok) ok = await runreal(action, user);
         if (ok) notify(action, user.handle);
-        log(ok ? "done: " + action + " " + user.handle : "failed: " + action + " " + user.handle);
-        if (!ok) tum.overlay.toast(T("toast.action.failed.retry", action, user.handle));
+        log(T(ok ? "log.action.done" : "log.action.failed", T("action.verb." + action), user.handle));
+        if (!ok) tum.overlay.toast(T("toast.action.failed.retry", T("action.verb." + action), user.handle));
         return ok;
       } catch (e) {
-        log("action error:", e && e.message);
-        tum.overlay.toast(T("toast.action.failed", action, user.handle));
+        log(T("log.action.error", e && e.message));
+        tum.overlay.toast(T("toast.action.failed", T("action.verb." + action), user.handle));
         return false;
       }
     }

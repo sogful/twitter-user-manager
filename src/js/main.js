@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  function safe(label, fn) {try {fn()} catch (e) {console.warn("[tum] " + label + " failed:", e)}}
+  const T = (...a) => window.tum.strings.t(...a);
+  function safe(label, fn) {try {fn()} catch (e) {console.warn("[tum] " + T("log.module.failed", label), e)}}
 
   function injectpagecss() {
     if (document.querySelector("style[data-tumpagecss]")) return;

@@ -59,12 +59,18 @@ const decals = {
 };
 
 const assets = {img: {}, decal: {}};
+let strings = {};
+const stringsready = fetch("../assets/static/strings.json").then(r => r.json()).then(data => {strings = data}).catch(() => {});
+function string(key, ...subs) {
+  let i = 0;
+  return String(strings[key] || key).replace(/%s/g, () => (i < subs.length ? subs[i++] : "%s"));
+}
 
 function loadimg(src) {
   return new Promise(res => {
     const im = new Image();
     im.onload = () => res(im);
-    im.onerror = () => {console.warn("missing asset", src); res(null)};
+    im.onerror = () => {stringsready.then(() => console.warn(string("log.asset.missing", src))); res(null)};
     im.src = src;
   });
 }

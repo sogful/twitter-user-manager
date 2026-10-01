@@ -58,6 +58,7 @@
   gap: 3px 12px
 }
 .tuminforow {white-space: nowrap}
+.tumwithheldlabel {white-space: pre; margin-right: 4px}
 .tuminfosmall {font-size: 12px}
 .tuminfosmallest {font-size: 11px}
 .tuminfomisc {line-height: 1.2}
@@ -112,6 +113,7 @@ a[href*="/header_photo"]:hover .tumhd,
   left: -1000px; opacity: 0
 }
 
+/* Disabled with the breach.vip lookup until its API works again.
 .tumbreachbadge {
   display: inline-flex; align-items: center; gap: 3px;
   margin-left: 6px; vertical-align: middle;
@@ -157,6 +159,7 @@ a[href*="/header_photo"]:hover .tumhd,
 .tumbreachcat {font-size: 11px}
 .tumbreachfields {display: flex; flex-wrap: wrap; gap: 1px 14px}
 .tumbreachfield {min-width: 0; word-break: break-word}
+*/
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -174,7 +177,11 @@ a[href*="/header_photo"]:hover .tumhd,
   flex: 0 0 auto; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center
 }
-.tumsetcheck svg {width: 15px; height: 15px; fill: white}
+.tumsetcheck svg {
+  width: 15px; height: 15px; fill: white;
+  transform-box: view-box; transform-origin: center;
+  transform: translateY(-.75px) scaleX(.82)
+}
 
 .tumsetrow {
   display: flex; align-items: center;
