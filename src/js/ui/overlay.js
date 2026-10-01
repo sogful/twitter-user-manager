@@ -1794,10 +1794,13 @@
     clearTimeout(toasttimer);
     toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), options ? 5000 : 2600);
   }
-  function notifyfolderadd(folder, user, actionhappened) {
+  function notifyfolderadd(folder, user, actionhappened, onundo) {
     if (!folder || !user || !user.handle || actionhappened) return;
     if (tum.settings && !tum.settings.get("folderaddtoast")) return;
-    toast(T("toast.added", user.handle));
+    toast(T("toast.added", user.handle), {
+      label: T("action.undo"),
+      onclick: onundo || (() => tum.folders.removemember(folder.id, user.handle))
+    });
   }
 
   Object.assign(O, {

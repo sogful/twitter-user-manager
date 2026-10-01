@@ -61,26 +61,36 @@
 
   function addtotarget(user) {
     if (!target) return;
+    const destination = target;
     if (!user.userid) user.pending = true;
-    const replaced = target.replace;
+    const replaced = destination.replace;
     if (replaced) {
       user.reason = replaced.m.reason || "";
       user.sourceurl = replaced.m.sourceurl || null;
       if (replaced.source.type === "folder") tum.folders.removemember(replaced.source.id, replaced.m.handle);
       else tum.unsorted.remove(replaced.m.handle);
     }
-    if (target.type === "folder") {
-      tum.folders.addmember(target.id, user);
-      const f = tum.folders.get(target.id);
+    const undo = () => {
+      if (destination.type === "folder") tum.folders.removemember(destination.id, user.handle);
+      else tum.unsorted.remove(user.handle);
+      if (!replaced) return;
+      if (replaced.source.type === "folder") tum.folders.addmember(replaced.source.id, replaced.m);
+      else tum.unsorted.add(replaced.m, replaced.m.x, replaced.m.y);
+    };
+    if (destination.type === "folder") {
+      tum.folders.addmember(destination.id, user);
+      const f = tum.folders.get(destination.id);
       const actionhappened = !!(f && f.action && !user.skipaction);
       if (actionhappened) try {tum.actions.run(f.action, user)} catch {}
-      try {tum.overlay.notifyfolderadd(f, user, actionhappened)} catch {}
+      try {tum.overlay.notifyfolderadd(f, user, actionhappened, undo)} catch {}
     } else {
-      const px = typeof target.cx === "number" ? target.cx : 200;
-      const py = typeof target.cy === "number" ? target.cy : 200;
-      tum.unsorted.add(Object.assign({}, user, {cat: target.type === "category" ? target.id : target.cat || null}), px, py);
+      const px = typeof destination.cx === "number" ? destination.cx : 200;
+      const py = typeof destination.cy === "number" ? destination.cy : 200;
+      tum.unsorted.add(Object.assign({}, user, {cat: destination.type === "category" ? destination.id : destination.cat || null}), px, py);
     }
-    if (target.type !== "folder") try {tum.overlay.toast(T("toast.added", user.handle))} catch {}
+    if (destination.type !== "folder") try {
+      tum.overlay.toast(T("toast.added", user.handle), {label: T("action.undo"), onclick: undo});
+    } catch {}
   }
 
   function onclick(e) {

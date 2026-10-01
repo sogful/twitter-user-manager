@@ -291,7 +291,14 @@
     tum.folders.addmember(folder.id, user);
     const actionhappened = !!(doaction && source.type !== "folder" && folder.action && !user.skipaction);
     if (actionhappened) tum.actions.run(folder.action, user, {confirmed});
-    O.notifyfolderadd(folder, user, actionhappened);
+    O.notifyfolderadd(folder, user, actionhappened, () => {
+      tum.folders.removemember(folder.id, user.handle);
+      if (source.type === "folder") tum.folders.addmember(source.id, user);
+      else if (source.type === "unsorted") tum.unsorted.add(user, user.x, user.y);
+      else if (source.type === "page") restorehidden(user.handle);
+      state.open = true;
+      render();
+    });
   }
 
   function finishfolderdrop(folder, user, source, doaction, confirmed) {

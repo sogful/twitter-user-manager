@@ -116,19 +116,54 @@
     return id;
   }
   let listuploading = false;
-  async function uploadfolder(folder, onprogress) {
+  let uploadbar = null, uploadbartimer = 0;
+  function ensureuploadbar() {
+    if (uploadbar && document.documentElement.contains(uploadbar)) return uploadbar;
+    uploadbar = document.createElement("div");
+    uploadbar.className = "tumbatchbar tumlistuploadbar";
+    uploadbar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span></div>';
+    try {tum.theme.paint(uploadbar)} catch {}
+    document.documentElement.appendChild(uploadbar);
+    return uploadbar;
+  }
+  function removeuploadbar() {
+    clearTimeout(uploadbartimer);
+    if (uploadbar) {uploadbar.remove(); uploadbar = null}
+  }
+  function renderuploadbar(added, total, note) {
+    clearTimeout(uploadbartimer);
+    uploadbartimer = 0;
+    const b = ensureuploadbar();
+    b.querySelector(".tumbatchfill").style.width = (total ? Math.min(100, Math.round(added / total * 100)) : 0) + "%";
+    b.querySelector(".tumbatchlabel").textContent = note || T("toast.twlist.progress", added, total);
+  }
+  function finishuploadbar(note) {
+    const b = ensureuploadbar();
+    b.querySelector(".tumbatchfill").style.width = "100%";
+    b.querySelector(".tumbatchlabel").textContent = note;
+    clearTimeout(uploadbartimer);
+    uploadbartimer = setTimeout(removeuploadbar, 2600);
+  }
+  async function uploadfolder(folder, callbacks) {
     if (listuploading) throw new Error("busy");
     const members = Array.isArray(folder && folder.members) ? folder.members : [];
     if (!members.length) throw new Error("empty");
+    const onstart = callbacks && typeof callbacks.onstart === "function" ? callbacks.onstart : null;
+    const oncreated = callbacks && typeof callbacks.oncreated === "function" ? callbacks.oncreated : null;
+    const onprogress = typeof callbacks === "function" ? callbacks : (callbacks && typeof callbacks.onprogress === "function" ? callbacks.onprogress : null);
+    let listid = "";
     listuploading = true;
     try {
+      renderuploadbar(0, members.length);
+      if (onstart) onstart({total: members.length});
       const created = await listrequest(LISTEP.create, {
         isPrivate: true,
         name: (folder.name || T("folder.unnamed")).slice(0, 25),
         description: (folder.description || "").slice(0, 100)
       });
-      const listid = createdlistid(created);
+      listid = createdlistid(created);
       if (!listid) throw new Error("missing list id");
+      if (oncreated) oncreated({id: listid, total: members.length});
       const ids = new Set();
       for (const member of members) {
         const id = member && (member.userid || (member.handle && await resolveuserid(member.handle)));
@@ -141,10 +176,17 @@
           await listrequest(LISTEP.addmember, {listId: listid, userId: id});
           added++;
         } catch {skipped++}
+        renderuploadbar(added, ids.size);
         if (onprogress) onprogress({added, total: ids.size, skipped});
         if (ids.size > 1) await sleep(1500);
       }
-      return {id: listid, added, skipped};
+      const result = {id: listid, added, skipped};
+      finishuploadbar(T("toast.twlist.done", folder.name || T("folder.unnamed"), added));
+      return result;
+    } catch (error) {
+      finishuploadbar(T("toast.twlist.failed"));
+      error.batchshown = true;
+      throw error;
     } finally {listuploading = false}
   }
 
@@ -468,7 +510,12 @@
     removebar();
     importing = false;
     autoaction(folder, built);
-    try {tum.overlay.toast(cancel ? T("import.stopped", built.length, name) : T("import.done", built.length, name))} catch {}
+    try {
+      tum.overlay.toast(cancel ? T("import.stopped", built.length, name) : T("import.done", built.length, name), folder.action ? null : {
+        label: T("action.undo"),
+        onclick: () => tum.folders.remove(folder.id)
+      });
+    } catch {}
     setTimeout(() => {try {tum.overlay.open()} catch {}}, 400);
     ensureicons();
   }

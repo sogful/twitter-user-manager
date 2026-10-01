@@ -140,7 +140,24 @@
     return edge;
   }
 
+  function profilesnapshot() {
+    return JSON.parse(JSON.stringify({
+      categories: tum.categories.list(),
+      folders: tum.folders.list(),
+      unsorted: tum.unsorted.list()
+    }));
+  }
+  function restoreprofile(snapshot) {
+    tum.categories.import(snapshot.categories, true);
+    tum.folders.import(snapshot.folders, true);
+    tum.unsorted.import(snapshot.unsorted, true);
+    state.open = true;
+    render();
+    setTimeout(O.fitall, 0);
+  }
+
   function importprofile(data, replace) {
+    const previous = profilesnapshot();
     const sourcefolders = Array.isArray(data && data.folders) ? data.folders.filter(folder => folder && typeof folder === "object") : [];
     const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object") : [];
     const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle) : [];
@@ -167,7 +184,10 @@
     state.open = true;
     render();
     setTimeout(O.fitall, 0);
-    toast(T("toast.imported.all", folders.length, unsorted.length));
+    toast(T("toast.imported.all", folders.length, unsorted.length), {
+      label: T("action.undo"),
+      onclick: () => restoreprofile(previous)
+    });
   }
 
   function applyimport(data) {
@@ -245,7 +265,10 @@
       state.open = true;
       render();
       const dupes = members.length - added;
-      toast(dupes ? T("folder.import.added.dupes", added, folder.name, dupes) : T("folder.import.added", added, folder.name));
+      toast(dupes ? T("folder.import.added.dupes", added, folder.name, dupes) : T("folder.import.added", added, folder.name), {
+        label: T("action.undo"),
+        onclick: () => {for (const member of add) tum.folders.removemember(folder.id, member.handle)}
+      });
     });
   }
   function finishfolderimport(f) {
@@ -255,7 +278,10 @@
       tum.folders.addmembers(created.id, members);
       state.open = true;
       render();
-      toast(T("toast.imported.folder", created.name, members.length));
+      toast(T("toast.imported.folder", created.name, members.length), f.action ? null : {
+        label: T("action.undo"),
+        onclick: () => tum.folders.remove(created.id)
+      });
     };
     if (f.action && members.length) {
       const cap = actionlabel(f.action);
@@ -415,7 +441,14 @@
         tum.folders.addmember(folder.id, user);
         const actionhappened = !!(source.type !== "folder" && folder.action && !user.skipaction);
         if (actionhappened) tum.actions.run(folder.action, user);
-        O.notifyfolderadd(folder, user, actionhappened);
+        O.notifyfolderadd(folder, user, actionhappened, () => {
+          tum.folders.removemember(folder.id, user.handle);
+          if (source.type === "folder") tum.folders.addmember(source.id, user);
+          else if (source.type === "unsorted") tum.unsorted.add(user, user.x, user.y);
+          else if (source.type === "page") restorehidden(user.handle);
+          state.open = true;
+          render();
+        });
         filed = true;
       }
       if (state.pendingoncreate) {const cb = state.pendingoncreate; setTimeout(() => {try {cb(folder)} catch {}}, 0)}
@@ -552,20 +585,25 @@
   }
   function uploadfolderlist(folder) {
     const members = Array.isArray(folder && folder.members) ? folder.members : [];
-    if (!members.length) {toast(T("toast.xlist.empty")); return}
+    if (!members.length) {toast(T("toast.twlist.empty")); return}
     openconfirm({
-      title: T("confirm.xlist.title", folder.name || T("folder.unnamed")),
-      body: T("confirm.xlist.body", folder.name || T("folder.unnamed"), members.length),
-      oklabel: T("confirm.xlist.ok"),
+      title: T("confirm.twlist.title", folder.name || T("folder.unnamed")),
+      body: T("confirm.twlist.body", folder.name || T("folder.unnamed"), members.length),
+      oklabel: T("confirm.twlist.ok"),
       onok: async () => {
-        if (!tum.lists || typeof tum.lists.uploadfolder !== "function") {toast(T("toast.xlist.failed")); return}
+        if (!tum.lists || typeof tum.lists.uploadfolder !== "function") {toast(T("toast.twlist.failed")); return}
         try {
-          const result = await tum.lists.uploadfolder(folder, progress => {
-            toast(T("toast.xlist.progress", progress.added, progress.total));
+          await tum.lists.uploadfolder(folder, {
+            onstart: () => closeoverlay(),
+            oncreated: result => {
+              try {
+                history.pushState({}, "", "/i/lists/" + encodeURIComponent(result.id));
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              } catch {}
+            }
           });
-          toast(T("toast.xlist.done", folder.name || T("folder.unnamed"), result.added));
         } catch (error) {
-          toast(error && error.message === "busy" ? T("toast.xlist.busy") : T("toast.xlist.failed"));
+          if (!error || !error.batchshown) toast(error && error.message === "busy" ? T("toast.twlist.busy") : T("toast.twlist.failed"));
         }
       }
     });
@@ -717,7 +755,7 @@
         {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(f.members || [])},
-        {label: T("menu.uploadxlist"), icon: ICONS.upload, onclick: () => uploadfolderlist(f)},
+        {label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => uploadfolderlist(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
         ...(f.action && !knownshare ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
