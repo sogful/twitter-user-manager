@@ -61,6 +61,9 @@
   "confirm.importprofile.body": "Replace clears this overlay and restores the imported layout. Add keeps this overlay and places the import to its right.",
   "confirm.importprofile.replace": "Replace overlay",
   "confirm.importprofile.title": "Import profile",
+  "confirm.xlist.body": "This creates a private X list named \"%s\" and adds %s saved users.",
+  "confirm.xlist.ok": "Upload list",
+  "confirm.xlist.title": "Upload %s as an X list?",
   "confirm.note.title": "Note for @%s",
   "confirm.refresh.body": "Refreshing too many users will cause rate limits! Requests will pause for a while after detecting one.",
   "confirm.refresh.ok": "Refresh",
@@ -160,6 +163,7 @@
   "menu.share": "Publish",
   "menu.sharedlist": "Shared list",
   "menu.syncshare": "Sync list",
+  "menu.uploadxlist": "Upload to X list",
   "menu.unpublish": "Unpublish",
 
   "overlay.close": "Close the overlay",
@@ -236,6 +240,13 @@
   "profile.joined": "Joined %s",
   "profile.laston": " (Last on %s)",
   "profile.likes": "%s likes",
+  "profile.label.followers": "followers",
+  "profile.label.following": "following",
+  "profile.label.id": "ID",
+  "profile.label.joined": "joined",
+  "profile.label.likes": "likes",
+  "profile.label.media": "media",
+  "profile.label.posts": "posts",
   "profile.media": "%s media",
   "profile.media.tags": "media tags %s",
   "profile.openfullres": "Open fullres in a new tab",
@@ -336,6 +347,11 @@
   "toast.share.syncfailed": "Couldn't update shared list",
   "toast.share.unpublished": "Shared list unpublished",
   "toast.share.unpublishfailed": "Couldn't unpublish shared list",
+  "toast.xlist.busy": "A Twitter list upload is already running.",
+  "toast.xlist.done": "Created private X list \"%s\" with %s members",
+  "toast.xlist.empty": "This folder has no users to upload.",
+  "toast.xlist.failed": "Couldn't upload the X list",
+  "toast.xlist.progress": "Adding %s of %s users to the X list",
 
   "user.unfindable": "can't find"
 }

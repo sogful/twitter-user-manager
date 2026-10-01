@@ -1031,20 +1031,29 @@
     const d = new Date(Number.isFinite(n) ? (n < 100000000000 ? n * 1000 : n) : value);
     return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
   }
-  function userhoverlines(user) {
-    const lines = [];
-    const add = (key, value, format) => {
+  function userhoverfields(user) {
+    const fields = [];
+    const add = (label, value, format, relation) => {
       if (value === undefined || value === null || value === "") return;
-      lines.push({key, value: format ? format(value) : value});
+      fields.push({label, value: format ? format(value) : String(value), relation: !!relation});
     };
-    add("profile.id", user.userid);
-    add("profile.joined", user.createdat, formatuserdate);
-    add("profile.posts", user.tweets, formatusercount);
-    add("profile.media", user.mediatweets, formatusercount);
-    add("profile.likes", user.favorites, formatusercount);
-    add("profile.followers", user.followers, formatusercount);
-    add("profile.following", user.following, formatusercount);
-    return lines;
+    add("profile.label.id", user.userid);
+    add("profile.label.joined", user.createdat, formatuserdate);
+    add("profile.label.posts", user.tweets, formatusercount);
+    add("profile.label.media", user.mediatweets, formatusercount);
+    add("profile.label.likes", user.favorites, formatusercount);
+    add("profile.label.followers", user.followers, formatusercount, true);
+    add("profile.label.following", user.following, formatusercount, true);
+    return fields;
+  }
+  function appenduserhoverstat(row, field) {
+    const stat = el("span", "tumuserhoverstat");
+    const value = el("span", "tumuserhovervalue");
+    const label = el("span", "tumuserhoverlabel");
+    value.textContent = field.value;
+    label.textContent = T(field.label);
+    stat.append(value, label);
+    row.appendChild(stat);
   }
   function clearuserhover() {
     if (!userhover) return;
@@ -1064,7 +1073,7 @@
     const folder = row.closest(".tumfolder");
     const source = folder || row;
     const rect = source.getBoundingClientRect();
-    const width = Math.min(folder ? rect.width : 280, window.innerWidth - 16);
+    const width = Math.min(folder ? rect.width / 2 : 160, window.innerWidth - 16);
     card.style.width = Math.max(0, width) + "px";
     card.style.maxWidth = "calc(100vw - 16px)";
     const left = rect.right + width <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width);
@@ -1073,15 +1082,21 @@
   }
   function showuserhover(row, user) {
     clearuserhover();
-    const lines = userhoverlines(user);
-    if (!lines.length || !root) return;
+    const fields = userhoverfields(user);
+    if (!fields.length || !root) return;
     const card = el("div", "tumuserhover");
     card.setAttribute("role", "tooltip");
-    for (const line of lines) {
-      const value = el("div", "tumuserhoverrow");
-      if (line.key === "profile.id") value.classList.add("tumuserhoverid");
-      value.textContent = T(line.key, line.value);
-      card.appendChild(value);
+    const general = fields.filter(field => !field.relation);
+    const relations = fields.filter(field => field.relation);
+    if (general.length) {
+      const row = el("div", "tumuserhoverrow");
+      for (const field of general) appenduserhoverstat(row, field);
+      card.appendChild(row);
+    }
+    if (relations.length) {
+      const row = el("div", "tumuserhoverrow tumuserhoverrelations");
+      for (const field of relations) appenduserhoverstat(row, field);
+      card.appendChild(row);
     }
     const state = userhover = {row, card, timer: 0};
     card.addEventListener("pointerenter", () => clearTimeout(state.timer));
@@ -1164,12 +1179,15 @@
         .filter(n => membercatof(n) === c.id)
         .map(n => ({n, left: parseFloat(n.style.left) || 0, top: parseFloat(n.style.top) || 0}));
       let dragging = false;
+      let placed = {left: ox, top: oy};
       const move = ev => {
         const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
         if (!dragging) {if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < 6) return; dragging = true; root.classList.add("tumfolderdragging")}
-        node.style.left = (ox + dx) + "px";
-        node.style.top = (oy + dy) + "px";
-        for (const m of members) {m.n.style.left = (m.left + dx) + "px"; m.n.style.top = (m.top + dy) + "px"}
+        placed = nooverlapcategorybox(ox + dx, oy + dy, c.w || 480, c.h || 360, node);
+        const actualx = placed.left - ox, actualy = placed.top - oy;
+        node.style.left = placed.left + "px";
+        node.style.top = placed.top + "px";
+        for (const m of members) {m.n.style.left = (m.left + actualx) + "px"; m.n.style.top = (m.top + actualy) + "px"}
       };
       const up = ev => {
         document.removeEventListener("pointermove", move);
@@ -1177,9 +1195,16 @@
         root.classList.remove("tumfolderdragging");
 
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
-        const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
+        placed = nooverlapcategorybox(
+          ox + (ev.clientX - startx) / zoom,
+          oy + (ev.clientY - starty) / zoom,
+          c.w || 480,
+          c.h || 360,
+          node
+        );
+        const dx = placed.left - ox, dy = placed.top - oy;
 
-        tum.categories.update(c.id, {x: ox + dx, y: oy + dy}, true);
+        tum.categories.update(c.id, {x: placed.left, y: placed.top}, true);
         const fmoves = [], umoves = [];
         for (const m of members) {
           if (m.n.dataset.id) fmoves.push({id: m.n.dataset.id, x: m.left + dx, y: m.top + dy});
@@ -1321,9 +1346,13 @@
     const w = 480, h = 360;
     const x = typeof lx === "number" ? (lx - pan.x) / zoom - w / 2 : 120;
     const y = typeof ly === "number" ? (ly - pan.y) / zoom - 40 : 120;
-    const c = tum.categories.create({x, y, w, h});
+    const a = nooverlapcategorybox(x, y, w, h, null);
+    const c = tum.categories.create({x: a.left, y: a.top, w, h});
     state.open = true;
     render();
+    if (tum.iconpicker) tum.iconpicker.close();
+    const node = els.freeform.querySelector('.tumcategory[data-id="' + c.id + '"]');
+    if (node) startcategoryrename(node, c);
     return c;
   }
   function renamecategory(id) {
@@ -1559,6 +1588,26 @@
     }
     return {left: l, top: t};
   }
+  function nooverlapcategorybox(left, top, w, h, exclude) {
+    if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
+    const others = [...els.freeform.querySelectorAll(".tumcategory")]
+      .filter(node => node !== exclude)
+      .map(rectof);
+    let l = left, t = top;
+    for (let pass = 0; pass < 10; pass++) {
+      let hit = false;
+      for (const o of others) {
+        const ox = Math.min(l + w, o.left + o.w) - Math.max(l, o.left);
+        const oy = Math.min(t + h, o.top + o.h) - Math.max(t, o.top);
+        if (ox <= 0 || oy <= 0) continue;
+        hit = true;
+        if (ox < oy) l += (l + w / 2 >= o.left + o.w / 2 ? 1 : -1) * ox;
+        else t += (t + h / 2 >= o.top + o.h / 2 ? 1 : -1) * oy;
+      }
+      if (!hit) break;
+    }
+    return {left: l, top: t};
+  }
   function nooverlapadjust(node, left, top) {
     if (!node) return {left, top};
     return nooverlapadjustbox(left, top, node.offsetWidth, node.offsetHeight, node);
@@ -1676,7 +1725,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, applypan, fitall,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapadjusthandle, findfreespot,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });

@@ -20,6 +20,18 @@
     members: {qid: "woAp_YdzAdqnWDrqLTNpAw", op: "membersSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, cursor: c || null})},
     moderators: {qid: "0oYT9GRiWUhrz5xoqFE9uw", op: "moderatorsSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, count: 100, cursor: c || null})}
   };
+  const LISTEP = {
+    create: {qid: "CzrvV0ePRFW1dPgLY6an7g", op: "CreateList"},
+    addmember: {qid: "EadD8ivrhZhYQr2pDmCpjA", op: "ListAddMember"}
+  };
+  const LISTFEATURES = {
+    profile_label_improvements_pcf_label_in_post_enabled: true,
+    responsive_web_profile_redirect_enabled: true,
+    rweb_tipjar_consumption_enabled: true,
+    verified_phone_label_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+    responsive_web_graphql_timeline_navigation_enabled: true
+  };
   const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery
 
   const hdrs = ct0 => ({authorization: BEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes", "x-twitter-client-language": "en"});
@@ -45,6 +57,72 @@
       if (id) {useridmap.set(handle.toLowerCase(), String(id)); return String(id)}
     } catch {}
     return null;
+  }
+  async function listrequest(endpoint, variables) {
+    const url = "/i/api/graphql/" + endpoint.qid + "/" + endpoint.op;
+    const body = {variables, features: LISTFEATURES, queryId: endpoint.qid};
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: {...hdrs(ct0()), "content-type": "application/json"},
+        body: JSON.stringify(body)
+      });
+    } catch {throw new Error("network")}
+    let data = null;
+    try {data = await response.json()} catch {}
+    if (!response.ok || (data && data.errors && data.errors.length)) {
+      const message = data && data.errors && data.errors[0] && data.errors[0].message;
+      throw new Error(message || "request failed");
+    }
+    return data || {};
+  }
+  function createdlistid(data) {
+    const direct = data && data.data && data.data.list_create && data.data.list_create.list;
+    if (direct && (direct.id_str || direct.id)) return String(direct.id_str || direct.id);
+    let id = "";
+    (function walk(value) {
+      if (!value || typeof value !== "object" || id) return;
+      if (value.__typename === "List" && (value.id_str || value.id)) {
+        id = String(value.id_str || value.id);
+        return;
+      }
+      for (const key in value) if (value[key] && typeof value[key] === "object") walk(value[key]);
+    })(data);
+    return id;
+  }
+  let listuploading = false;
+  async function uploadfolder(folder, onprogress) {
+    if (listuploading) throw new Error("busy");
+    const members = Array.isArray(folder && folder.members) ? folder.members : [];
+    if (!members.length) throw new Error("empty");
+    listuploading = true;
+    try {
+      const created = await listrequest(LISTEP.create, {
+        isPrivate: true,
+        name: (folder.name || T("folder.unnamed")).slice(0, 25),
+        description: (folder.description || "").slice(0, 100)
+      });
+      const listid = createdlistid(created);
+      if (!listid) throw new Error("missing list id");
+      const ids = new Set();
+      for (const member of members) {
+        const id = member && (member.userid || (member.handle && await resolveuserid(member.handle)));
+        if (id) ids.add(String(id));
+      }
+      let added = 0;
+      let skipped = members.length - ids.size;
+      for (const id of ids) {
+        try {
+          await listrequest(LISTEP.addmember, {listId: listid, userId: id});
+          added++;
+        } catch {skipped++}
+        if (onprogress) onprogress({added, total: ids.size, skipped});
+        if (ids.size > 1) await sleep(150);
+      }
+      return {id: listid, added, skipped};
+    } finally {listuploading = false}
   }
 
   const importstore = tum.storage.create("tum.importqueue");
@@ -525,6 +603,7 @@
   function schedule() {if (!scheduled) scheduled = setTimeout(() => {scheduled = 0; ensureicons()}, 150)}
 
   window.tum.lists = {
+    uploadfolder,
     init() {
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});

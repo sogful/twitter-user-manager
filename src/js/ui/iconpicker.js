@@ -70,9 +70,8 @@
   let emojicategories = [];
   let emojiready = null;
 
-  // i hope they don't remove this cdn from the whole bullshit twemoji phasing out
   function emojiurl(id) {
-    return `https://abs.twimg.com/emoji/v2/svg/${id}.svg`;
+    return `https://abs.twimg.com/emoji/v2/72x72/${id}.png`;
   }
 
   function loademoji() {
@@ -127,6 +126,7 @@
     img.src = emojiurl(e.id);
     img.alt = e.char;
     img.loading = "lazy";
+    img.decoding = "async";
     img.addEventListener("error", () => {img.remove(); btn.textContent = e.char}, {once: true});
     btn.appendChild(img);
     btn.addEventListener("click", () => {
@@ -257,6 +257,7 @@
         if (!cp && !first) return;
         const img = document.createElement("img");
         img.src = emojiurl(cp || first.id);
+        img.decoding = "async";
         img.addEventListener("error", () => {img.remove(); if (first) btn.textContent = first.char}, {once: true});
         btn.appendChild(img);
       });

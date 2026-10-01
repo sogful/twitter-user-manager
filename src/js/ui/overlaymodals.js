@@ -550,6 +550,26 @@
       onok: () => tum.categories.remove(c.id)
     });
   }
+  function uploadfolderlist(folder) {
+    const members = Array.isArray(folder && folder.members) ? folder.members : [];
+    if (!members.length) {toast(T("toast.xlist.empty")); return}
+    openconfirm({
+      title: T("confirm.xlist.title", folder.name || T("folder.unnamed")),
+      body: T("confirm.xlist.body", folder.name || T("folder.unnamed"), members.length),
+      oklabel: T("confirm.xlist.ok"),
+      onok: async () => {
+        if (!tum.lists || typeof tum.lists.uploadfolder !== "function") {toast(T("toast.xlist.failed")); return}
+        try {
+          const result = await tum.lists.uploadfolder(folder, progress => {
+            toast(T("toast.xlist.progress", progress.added, progress.total));
+          });
+          toast(T("toast.xlist.done", folder.name || T("folder.unnamed"), result.added));
+        } catch (error) {
+          toast(error && error.message === "busy" ? T("toast.xlist.busy") : T("toast.xlist.failed"));
+        }
+      }
+    });
+  }
 
   function closeconfirmsheet(cancelled = true) {
     const oncancel = state.confirmcancel;
@@ -697,6 +717,7 @@
         {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
         {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(f.members || [])},
+        {label: T("menu.uploadxlist"), icon: ICONS.upload, onclick: () => uploadfolderlist(f)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
         ...(f.action && !knownshare ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
@@ -737,7 +758,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
-    oncontextmenu, closectx, ctxopen, newuser,
+    oncontextmenu, closectx, ctxopen, newuser, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, confirmcategorydelete, closeconfirmsheet});
