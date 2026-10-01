@@ -36,6 +36,7 @@
         if (!tracking.dragging) {
           if (Math.hypot(dx, dy) < THRESHOLD) return;
           tracking.dragging = true;
+          O.clearuserhover();
           O.root.classList.add("tumfolderdragging");
           node.classList.add("tumdragactive");
           O.els.quickdelete.classList.remove("tumdisabled");
@@ -94,7 +95,7 @@
 
   function attachmemberdrag(row, source, m) {
     row.addEventListener("pointerdown", e => {
-      if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge")) return;
+      if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge, .tumaffbadge")) return;
       const startx = e.clientX, starty = e.clientY;
       let tracking = true, dragging = false;
       const move = ev => {
@@ -102,6 +103,7 @@
         if (!dragging) {
           if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < userthreshold) return;
           dragging = true;
+          O.clearuserhover();
           const user = {...m, badges: m.badges || []};
           begindrag(user, ev.clientX, ev.clientY, source);
         }
@@ -184,6 +186,7 @@
   }
 
   function begindrag(user, x, y, source) {
+    O.clearuserhover();
     if (!user.reason) user.reason = notefor(user.handle);
     state.drag = {kind: "user", user, source: source || {type: "page"}};
     state.open = false;

@@ -5,7 +5,7 @@
   const T = (...a) => tum.strings.t(...a);
 
   const ACTIONS = ["follow", "mute", "block"];
-  const badgefiltertypes = new Set(["verified", "verifiedbusiness", "verifiedgovernment", "protected", "affiliated", "translator", "translatormod"]);
+  const badgefiltertypes = new Set(["verified", "blue", "verifiedbusiness", "verifiedgovernment", "protected", "affiliated", "translator", "translatormod"]);
   // how colorful!
   const COLORS = [
     // twitter classics
@@ -107,7 +107,7 @@
   }
   function cleanbadges(badges) {
     return (Array.isArray(badges) ? badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (typeof badge === "string" && /<svg\b/i.test(badge)) {
         const label = badge.toLowerCase();
         if (/icon-verified|verified account/.test(label)) return [/lineargradient/.test(label) ? "verifiedbusiness" : /#829aab/.test(label) ? "verifiedgovernment" : "verified"];

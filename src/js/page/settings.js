@@ -172,22 +172,33 @@
     const badges = [];
     const legacy = result.legacy || {};
     const verification = result.verification || {};
-    const verifiedtype = String(verification.verified_type || result.verified_type || "").toLowerCase();
+    const bio = result.profile_bio || {};
+    const verifiedtype = String(verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
     if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
     else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
-    else if (result.is_blue_verified) badges.push("verified");
-    const translatorflags = [result.is_translator, result.translator_enabled, result.translator, legacy.is_translator];
-    const translatorlabels = [result.translator_type, legacy.translator_type, result.profile_bio && result.profile_bio.translator_type].map(value => String(value || "").toLowerCase());
-    const istranslator = translatorflags.some(value => value === true) || result.is_translator_mod === true || translatorlabels.some(value => /translator|r-1cvl2hr|moderator|\bmod\b|badged/.test(value));
-    const istranslatormod = result.is_translator_mod === true || translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
-    if (istranslator) badges.push(istranslatormod ? "translatormod" : "translator");
+    else if (result.is_blue_verified) badges.push("blue");
+    else if (verification.verified || result.verified || legacy.verified) badges.push("verified");
+    const translatorflags = [
+      result.is_translator, result.translator_enabled, result.translator,
+      result.is_translator_mod, legacy.is_translator, legacy.is_translator_mod,
+      bio.is_translator, bio.is_translator_mod
+    ];
+    const translatorlabels = [
+      result.translator_type, legacy.translator_type, bio.translator_type
+    ].map(value => String(value || "").toLowerCase());
+    const typedtranslator = translatorlabels.some(value => value && !/^(none|false|null|undefined)$/.test(value));
+    const istranslatormod = translatorflags[3] === true || translatorflags[5] === true || translatorflags[7] === true ||
+      translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
+    if (translatorflags.some(value => value === true) || typedtranslator) badges.push(istranslatormod ? "translatormod" : "translator");
     const highlight = result.affiliates_highlighted_label;
     const label = highlight && (highlight.label || highlight);
     if (label && typeof label === "object") {
       const url = label.url && (typeof label.url === "string" ? label.url : label.url.url);
       const target = String(url || "");
       const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(target) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(target);
-      const linkeduser = label.user && (label.user.user_results && label.user.user_results.result || label.user.result || label.user);
+      const linkeduser = [label.user, highlight.user, label.user_results, highlight.user_results]
+        .map(value => value && (value.user_results && value.user_results.result || value.result || value))
+        .find(value => value && typeof value === "object");
       const handle = label.handle || label.screen_name || label.username || linkeduser && (linkeduser.core && linkeduser.core.screen_name || linkeduser.legacy && linkeduser.legacy.screen_name || linkeduser.screen_name || linkeduser.username) || (match && match[1]);
       const avatar = linkeduser && linkeduser.avatar;
       const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge && label.badge.url || null;
@@ -295,7 +306,8 @@
       highlights: data.highlights,
       verifiedtype: data.verifiedType,
       blueverified: data.blueVerified,
-      protected: data.isProtected
+      protected: data.isProtected,
+      badges: Array.isArray(data.badges) ? data.badges : []
     };
   }
   const repopulatestore = tum.storage.create("tum.repopulation");
@@ -544,12 +556,12 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let brandsuffix = " / X";
+  let brandsuffix = " / Twitter";
   function tracktitle() {
     const t = document.title || "";
     if (t.indexOf(T("settings.brand")) === 0) return;
     const m = / \/ (X|Twitter)$/.exec(t);
-    if (m) brandsuffix = m[0];
+    if (m) brandsuffix = " / Twitter";
   }
 
   let scheduled = 0;

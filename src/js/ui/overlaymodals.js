@@ -89,7 +89,7 @@
     }
     if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);
     const badges = (Array.isArray(member.badges) ? member.badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];
     });
@@ -105,7 +105,7 @@
     return {
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
       description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
-      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
+      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
       collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y,
       members: (folder.members || []).map(exportmember)
     };

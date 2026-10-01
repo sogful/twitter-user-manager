@@ -1,6 +1,49 @@
 (function () {
   "use strict";
 
+  function profilebadges(result) {
+    const badges = [];
+    const legacy = result.legacy || {};
+    const verification = result.verification || {};
+    const bio = result.profile_bio || {};
+    const verifiedtype = String(verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
+    if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
+    else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
+    else if (result.is_blue_verified) badges.push("blue");
+    else if (verification.verified || result.verified || legacy.verified) badges.push("verified");
+
+    const translatorflags = [
+      result.is_translator, result.translator_enabled, result.translator,
+      result.is_translator_mod, legacy.is_translator, legacy.is_translator_mod,
+      bio.is_translator, bio.is_translator_mod
+    ];
+    const translatorlabels = [
+      result.translator_type, legacy.translator_type, bio.translator_type
+    ].map(value => String(value || "").toLowerCase());
+    const typedtranslator = translatorlabels.some(value => value && !/^(none|false|null|undefined)$/.test(value));
+    const translatormod = translatorflags[3] === true || translatorflags[5] === true || translatorflags[7] === true ||
+      translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
+    if (translatorflags.some(value => value === true) || typedtranslator) badges.push(translatormod ? "translatormod" : "translator");
+
+    const highlight = result.affiliates_highlighted_label;
+    const label = highlight && (highlight.label || highlight);
+    if (label && typeof label === "object") {
+      const rawurl = label.url && (typeof label.url === "string" ? label.url : label.url.url);
+      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
+      const linkeduser = [label.user, highlight.user, label.user_results, highlight.user_results]
+        .map(value => value && (value.user_results && value.user_results.result || value.result || value))
+        .find(value => value && typeof value === "object");
+      const handle = label.handle || label.screen_name || label.username ||
+        linkeduser && (linkeduser.core && linkeduser.core.screen_name || linkeduser.legacy && linkeduser.legacy.screen_name || linkeduser.screen_name || linkeduser.username) ||
+        match && match[1];
+      const avatar = linkeduser && linkeduser.avatar;
+      const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge && label.badge.url || null;
+      const avatarurl = typeof avatarvalue === "string" ? avatarvalue : avatarvalue && (avatarvalue.url || avatarvalue.image_url) || null;
+      if (handle && /^[A-Za-z0-9_]+$/.test(handle)) badges.push({type: "affiliation", handle, avatarurl});
+    }
+    return badges;
+  }
+
   function pick(u) {
     if (!u || typeof u !== "object") return null;
     const core = u.core || {}, rel = u.relationship_counts || {}, tw = u.tweet_counts || {};
@@ -24,6 +67,7 @@
       verifiedType: ver.verified_type || u.verified_type || null,
       blueVerified: !!u.is_blue_verified,
       isProtected: !!(priv.protected || legacy.protected),
+      badges: profilebadges(u),
       relationship: {
         following: perspectives.following != null ? !!perspectives.following : null,
         followedBy: perspectives.followed_by != null ? !!perspectives.followed_by : null

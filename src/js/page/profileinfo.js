@@ -103,19 +103,39 @@
 
   function applyjoin(items, u) {
     const d = parsetwdate(u.createdAt);
-
     if (!d) return;
-    const join = items.querySelector('[data-testid="UserJoinDate"]');
+    const join = items.querySelector('[data-testid="UserJoinDate"]') ||
+      [...items.querySelectorAll('a[href], [role="link"]')].find(node => /\bjoined\b/i.test(node.textContent || ""));
     if (!join || join.dataset.tumjoin) return;
+    const leaf = [...join.querySelectorAll("span, time")]
+      .filter(node => node.children.length === 0)
+      .find(node => /\bjoined\b/i.test(node.textContent || ""));
+    let textnode = null;
+    if (!leaf) {
+      const walker = document.createTreeWalker(join, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        if (/\bjoined\b/i.test(walker.currentNode.nodeValue || "")) {
+          textnode = walker.currentNode;
+          break;
+        }
+      }
+    }
+    if (!leaf && !textnode) return;
+    const link = join.closest('a, [role="link"]') || join.querySelector('a, [role="link"]');
+    if (link) {
+      link.removeAttribute("href");
+      link.removeAttribute("role");
+      link.removeAttribute("tabindex");
+      link.removeAttribute("title");
+      link.style.cursor = "text";
+      link.style.textDecoration = "none";
+    }
     join.dataset.tumjoin = "1";
-    if (join.tagName === "A") {join.removeAttribute("href"); join.removeAttribute("role")}
     join.style.cursor = "text";
     join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
-    
-    const leaf = [...join.querySelectorAll("span")].filter(s => s.children.length === 0).find(s => /joined/i.test(s.textContent || ""));
-    if (!leaf) return;
     const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
-    leaf.textContent = T("profile.joined", date);
+    if (leaf) leaf.textContent = T("profile.joined", date);
+    else textnode.nodeValue = T("profile.joined", date);
   }
 
   function applycounts(handle, u) {

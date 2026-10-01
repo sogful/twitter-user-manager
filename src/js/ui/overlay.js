@@ -24,6 +24,8 @@
     refresh: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.93-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8 8 0 0 0 14.93 4L21 14"/><path d="M21 20v-6h-6"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>',
     profile: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>',
+    identity: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 18c.7-2.3 2-3.5 3.5-3.5s2.8 1.2 3.5 3.5M15 10h4M15 14h4"/></svg>',
     category: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 3"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
@@ -41,6 +43,7 @@
   ];
   const badgefilteroptions = [
     {value: "verified", labelkey: "folder.filter.badge.verified"},
+    {value: "blue", labelkey: "folder.filter.badge.blue"},
     {value: "verifiedbusiness", labelkey: "folder.filter.badge.verifiedbusiness"},
     {value: "verifiedgovernment", labelkey: "folder.filter.badge.verifiedgovernment"},
     {value: "protected", labelkey: "folder.filter.badge.protected"},
@@ -58,6 +61,7 @@
   let els = {};
   let activefolderfilters = null;
   let userhover = null;
+  let affiliatetooltip = null;
 
   const settings = tum.storage.create("tum.settings", {global: true});
   let keepopen = true;
@@ -110,7 +114,7 @@
   function badgeshtml(badges, user) {
     function presetvalue(badge) {
       if (typeof badge !== "string") return null;
-      if (/^(verified|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return badge;
+      if (/^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return badge;
       if (!/<svg\b/i.test(badge)) return null;
       const label = badge.toLowerCase();
       if (/icon-verified|verified account/.test(label)) return /lineargradient/.test(label) ? "verifiedbusiness" : /#829aab/.test(label) ? "verifiedgovernment" : "verified";
@@ -125,9 +129,10 @@
       const verifiedtype = String(user.verifiedtype || "").toLowerCase();
       if (/government/.test(verifiedtype)) values.add("verifiedgovernment");
       else if (/business/.test(verifiedtype)) values.add("verifiedbusiness");
-      else if (user.blueverified) values.add("verified");
+      else if (user.blueverified) {values.delete("verified"); values.add("blue")}
     }
     const icons = {
+      blue: '<svg viewBox="0 0 24 24" aria-label="Twitter Blue account" role="img"><path d="M16.5 3H2v18h15a5.5 5.5 0 0 0 4.1-9.1v-.4q.9-1.3.9-3c0-3-2.5-5.5-5.5-5.5m-.8 6q.7 0 1.3-.4-.5.8-1.1 1.2v.3c0 3-2.3 6.3-6.4 6.3q-2 0-3.5-1h.5q1.6 0 2.8-1-1.6 0-2-1.5h1c-1-.2-1.9-1.1-1.9-2.2q.5.3 1 .3a2 2 0 0 1-.6-3 7 7 0 0 0 4.6 2.3v-.5c0-1.2 1-2.2 2.2-2.2q1 0 1.7.7l1.4-.5q-.3.8-1 1.2"/></svg>',
       verified: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>',
       verifiedbusiness: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><defs><linearGradient id="tumverifieda" gradientUnits="userSpaceOnUse" x1="4.411" x2="18.083" y1="2.495" y2="21.508"><stop offset="0" stop-color="#f4e72a"/><stop offset=".539" stop-color="#cd8105"/><stop offset=".68" stop-color="#cb7b00"/><stop offset="1" stop-color="#f4ec26"/></linearGradient><linearGradient id="tumverifiedb" gradientUnits="userSpaceOnUse" x1="5.355" x2="16.361" y1="3.395" y2="19.133"><stop offset="0" stop-color="#f9e87f"/><stop offset=".406" stop-color="#e2b719"/><stop offset=".989" stop-color="#e2b719"/></linearGradient></defs><path d="M13.324 3.848L11 1.6 8.676 3.848l-3.201-.453-.559 3.184L2.06 8.095 3.48 11l-1.42 2.904 2.856 1.516.559 3.184 3.201-.452L11 20.4l2.324-2.248 3.201.452.559-3.184 2.856-1.516L18.52 11l1.42-2.905-2.856-1.516-.559-3.184zm-7.09 7.575l3.428 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifieda)"/><path d="M13.101 4.533L11 2.5 8.899 4.533l-2.895-.41-.505 2.88-2.583 1.37L4.2 11l-1.284 2.627 2.583 1.37.505 2.88 2.895-.41L11 19.5l2.101-2.033 2.895.41.505-2.88 2.583-1.37L17.8 11l1.284-2.627-2.583-1.37-.505-2.88zm-6.868 6.89l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifiedb)"/><path d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" fill="#000"/></svg>',
       verifiedgovernment: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path fill-rule="evenodd" d="M12.05 2.056c-.568-.608-1.532-.608-2.1 0l-1.393 1.49c-.284.303-.685.47-1.1.455L5.42 3.932c-.832-.028-1.514.654-1.486 1.486l.069 2.039c.014.415-.152.816-.456 1.1l-1.49 1.392c-.608.568-.608 1.533 0 2.101l1.49 1.393c.304.284.47.684.456 1.1l-.07 2.038c-.027.832.655 1.514 1.487 1.486l2.038-.069c.415-.014.816.152 1.1.455l1.392 1.49c.569.609 1.533.609 2.102 0l1.393-1.49c.283-.303.684-.47 1.099-.455l2.038.069c.832.028 1.515-.654 1.486-1.486L18 14.542c-.015-.415.152-.815.455-1.099l1.49-1.393c.608-.568.608-1.533 0-2.101l-1.49-1.393c-.303-.283-.47-.684-.455-1.1l.068-2.038c.029-.832-.654-1.514-1.486-1.486l-2.038.07c-.415.013-.816-.153-1.1-.456zm-5.817 9.367l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z"/></svg>',
@@ -136,9 +141,9 @@
       protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><path fill-rule="evenodd" d="M12 1.5c2.761 0 5 2.239 5 5v.745c.22.06.431.138.638.235 1.045.495 1.887 1.337 2.381 2.382.267.563.378 1.165.43 1.849.052.673.051 1.505.051 2.539 0 1.034 0 1.866-.05 2.54-.053.683-.164 1.285-.43 1.848-.495 1.045-1.337 1.887-2.382 2.381-.563.267-1.165.378-1.849.43-.673.052-1.505.051-2.539.051h-2.5c-1.034 0-1.866 0-2.54-.05-.683-.053-1.285-.164-1.848-.43-1.045-.495-1.887-1.337-2.382-2.382-.266-.563-.377-1.165-.43-1.849-.05-.673-.05-1.505-.05-2.539 0-1.034 0-1.866.05-2.54.053-.683.164-1.285.43-1.848.495-1.045 1.337-1.887 2.382-2.382.207-.097.419-.174.638-.235V6.5c0-2.761 2.239-5 5-5zM9.5 15h5v-2h-5v2zM12 3.5c-1.657 0-3 1.343-3 3v.515C9.508 7 10.088 7 10.75 7h2.5l1.405.006c.119.002.234.006.345.009V6.5c0-1.657-1.343-3-3-3z"/></svg>'
     };
     for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
-    const badgeclass = {verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
+    const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
     const standard = [...values].map(value => `<span class="tumbadge ${badgeclass[value] || "tumbadge" + value}">${icons[value]}</span>`).join("");
-    const linked = affiliations.map(badge => `<a class="tumaffbadge" href="/${escapehtml(badge.handle)}"><img src="${escapehtml(miniavatarurl(badge.avatarurl))}">@${escapehtml(badge.handle)}</a>`).join("");
+    const linked = affiliations.map(badge => `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(badge.handle)}" aria-label="@${escapehtml(badge.handle)}"><img src="${escapehtml(miniavatarurl(badge.avatarurl))}" alt=""></button>`).join("");
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }
   function readablefg(hex) {
@@ -530,6 +535,7 @@
   }
   function closeoverlay() {
     state.open = false;
+    clearaffiliatetooltip();
     closefolderfilters();
     if (O.closectx) O.closectx();
     if (O.closemodal()) {state.open = true; showbackdrop(); return}
@@ -609,6 +615,7 @@
   }
   function render(force) {
     if (!els.freeform) return;
+    clearaffiliatetooltip();
     force = force === true;
     const categories = new Map([...els.freeform.querySelectorAll(".tumcategory")].map(node => [node.dataset.id, node]));
     const folders = new Map([...els.freeform.querySelectorAll(".tumfolder")].map(node => [node.dataset.id, node]));
@@ -705,7 +712,8 @@
     const verifiedtype = String(member.verifiedtype || "").toLowerCase();
     if (type === "protected") return !!member.protected || badges.includes("protected");
     if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
-    if (type === "verified") return badges.includes("verified") || (!!member.blueverified && !/business|government/.test(verifiedtype));
+    if (type === "blue") return badges.includes("blue") || (!!member.blueverified && !/business|government/.test(verifiedtype));
+    if (type === "verified") return badges.includes("verified");
     if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
     if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
     return badges.includes(type);
@@ -739,6 +747,9 @@
   function positionfolderfilters(foldernode) {
     if (!foldernode || !els.folderfilters) return;
     const rect = foldernode.getBoundingClientRect();
+    const button = foldernode.querySelector(".tumfoldersort");
+    if (!button) return;
+    const buttonrect = button.getBoundingClientRect();
     const menu = els.folderfilters;
     menu.style.width = Math.max(0, Math.min(rect.width / 2, window.innerWidth - 16)) + "px";
     const width = menu.offsetWidth, height = menu.offsetHeight;
@@ -746,7 +757,7 @@
     const left = stickleft ? Math.max(8, rect.left - width) : rect.right;
     menu.classList.toggle("tumfolderfiltersleft", stickleft);
     const maxtop = Math.max(0, window.innerHeight - height);
-    const top = clamp(rect.top, 0, maxtop);
+    const top = clamp(buttonrect.top, 0, maxtop);
     menu.style.left = left + "px";
     menu.style.top = top + "px";
   }
@@ -928,6 +939,40 @@
     av.style.cursor = "pointer";
     av.addEventListener("click", e => {e.stopPropagation(); e.preventDefault(); openprofile(source, m)});
   }
+  function clearaffiliatetooltip() {
+    if (!affiliatetooltip) return;
+    affiliatetooltip.remove();
+    affiliatetooltip = null;
+  }
+  function showaffiliatetooltip(badge) {
+    clearaffiliatetooltip();
+    if (!root || !badge.dataset.affiliatehandle) return;
+    const tip = el("div", "tumaffiliatetooltip");
+    tip.textContent = "@" + badge.dataset.affiliatehandle;
+    root.appendChild(tip);
+    const rect = badge.getBoundingClientRect();
+    const width = tip.offsetWidth, height = tip.offsetHeight;
+    const left = clamp(rect.left + rect.width / 2 - width / 2, 8, Math.max(8, window.innerWidth - width - 8));
+    const top = rect.bottom + height + 6 <= window.innerHeight ? rect.bottom + 5 : Math.max(8, rect.top - height - 5);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+    affiliatetooltip = tip;
+  }
+  function wireaffiliatebadges(container) {
+    for (const badge of container.querySelectorAll(".tumaffbadge[data-affiliatehandle]")) {
+      badge.addEventListener("pointerdown", e => e.stopPropagation());
+      badge.addEventListener("pointerenter", e => {if (e.pointerType !== "touch") showaffiliatetooltip(badge)});
+      badge.addEventListener("pointerleave", clearaffiliatetooltip);
+      badge.addEventListener("focus", () => showaffiliatetooltip(badge));
+      badge.addEventListener("blur", clearaffiliatetooltip);
+      badge.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearaffiliatetooltip();
+        openprofile({type: "page"}, {handle: badge.dataset.affiliatehandle});
+      });
+    }
+  }
 
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
@@ -949,6 +994,7 @@
     `;
     wirecopy(row);
     wireuserhover(row, m);
+    wireaffiliatebadges(row);
     hidebrokenavatar(row, source, m);
     wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
@@ -987,6 +1033,7 @@
     `;
     wirecopy(chip);
     wireuserhover(chip, u);
+    wireaffiliatebadges(chip);
     hidebrokenavatar(chip, {type: "unsorted"}, u);
     wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
@@ -1031,29 +1078,24 @@
     const d = new Date(Number.isFinite(n) ? (n < 100000000000 ? n * 1000 : n) : value);
     return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
   }
-  function userhoverfields(user) {
-    const fields = [];
-    const add = (label, value, format, relation) => {
-      if (value === undefined || value === null || value === "") return;
-      fields.push({label, value: format ? format(value) : String(value), relation: !!relation});
-    };
-    add("profile.label.id", user.userid);
-    add("profile.label.joined", user.createdat, formatuserdate);
-    add("profile.label.posts", user.tweets, formatusercount);
-    add("profile.label.media", user.mediatweets, formatusercount);
-    add("profile.label.likes", user.favorites, formatusercount);
-    add("profile.label.followers", user.followers, formatusercount, true);
-    add("profile.label.following", user.following, formatusercount, true);
-    return fields;
+  function userhoverperday(user) {
+    const value = Number(user.createdat);
+    const date = new Date(Number.isFinite(value) ? (value < 100000000000 ? value * 1000 : value) : user.createdat);
+    if (Number.isNaN(date.getTime()) || typeof user.tweets !== "number") return null;
+    return (user.tweets / Math.max(1, (Date.now() - date.getTime()) / 86400000)).toFixed(1);
   }
-  function appenduserhoverstat(row, field) {
-    const stat = el("span", "tumuserhoverstat");
-    const value = el("span", "tumuserhovervalue");
-    const label = el("span", "tumuserhoverlabel");
-    value.textContent = field.value;
-    label.textContent = T(field.label);
-    stat.append(value, label);
-    row.appendChild(stat);
+  function appenduserhovertext(row, text) {
+    const item = el("span", "tumuserhovertext");
+    item.textContent = text;
+    row.appendChild(item);
+  }
+  function appenduserhoverinfo(card, icon, text) {
+    const row = el("div", "tumuserhoverrow tumuserhoverinfo");
+    const iconbox = el("span", "tumuserhovericon", icon);
+    const value = el("span", "tumuserhovertext");
+    value.textContent = text;
+    row.append(iconbox, value);
+    card.appendChild(row);
   }
   function clearuserhover() {
     if (!userhover) return;
@@ -1073,7 +1115,7 @@
     const folder = row.closest(".tumfolder");
     const source = folder || row;
     const rect = source.getBoundingClientRect();
-    const width = Math.min(folder ? rect.width / 2 : 160, window.innerWidth - 16);
+    const width = Math.min(folder ? rect.width * 2 / 3 : 160, window.innerWidth - 16);
     card.style.width = Math.max(0, width) + "px";
     card.style.maxWidth = "calc(100vw - 16px)";
     const left = rect.right + width <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width);
@@ -1082,22 +1124,29 @@
   }
   function showuserhover(row, user) {
     clearuserhover();
-    const fields = userhoverfields(user);
-    if (!fields.length || !root) return;
+    if (!root || state.drag || root.classList.contains("tumdragging", "tumfolderdragging")) return;
     const card = el("div", "tumuserhover");
     card.setAttribute("role", "tooltip");
-    const general = fields.filter(field => !field.relation);
-    const relations = fields.filter(field => field.relation);
-    if (general.length) {
-      const row = el("div", "tumuserhoverrow");
-      for (const field of general) appenduserhoverstat(row, field);
-      card.appendChild(row);
+    const postdetails = [];
+    if (typeof user.tweets === "number") postdetails.push(T("profile.posts", formatusercount(user.tweets)));
+    const rate = userhoverperday(user);
+    if (rate) postdetails.push(T("profile.postrate", rate));
+    if (typeof user.highlights === "number") postdetails.push(T(user.highlights === 1 ? "profile.highlight" : "profile.highlights", formatusercount(user.highlights)));
+    if (typeof user.favorites === "number") postdetails.push(T("profile.likes", formatusercount(user.favorites)));
+    if (postdetails.length) {
+      const postrow = el("div", "tumuserhoverrow tumuserhoverposts");
+      for (const text of postdetails) appenduserhovertext(postrow, text);
+      card.appendChild(postrow);
     }
-    if (relations.length) {
+    if (user.createdat !== undefined && user.createdat !== null && user.createdat !== "") appenduserhoverinfo(card, ICONS.calendar, T("profile.joined", formatuserdate(user.createdat)));
+    if (user.userid !== undefined && user.userid !== null && user.userid !== "") appenduserhoverinfo(card, ICONS.identity, T("profile.id", user.userid));
+    if (typeof user.following === "number" || typeof user.followers === "number") {
       const row = el("div", "tumuserhoverrow tumuserhoverrelations");
-      for (const field of relations) appenduserhoverstat(row, field);
+      if (typeof user.following === "number") appenduserhovertext(row, T("profile.following", formatusercount(user.following)));
+      if (typeof user.followers === "number") appenduserhovertext(row, T("profile.followers", formatusercount(user.followers)));
       card.appendChild(row);
     }
+    if (!card.children.length) return;
     const state = userhover = {row, card, timer: 0};
     card.addEventListener("pointerenter", () => clearTimeout(state.timer));
     card.addEventListener("pointerleave", e => {
@@ -1111,11 +1160,12 @@
   function wireuserhover(row, user) {
     row.addEventListener("pointerenter", e => {
       if (e.pointerType === "touch") return;
+      if (state.drag || root.classList.contains("tumdragging", "tumfolderdragging")) return;
       if (userhover && userhover.row === row) {clearTimeout(userhover.timer); return}
       clearuserhover();
       const state = userhover = {row, card: null, timer: 0};
       state.timer = setTimeout(() => {
-        if (userhover === state && row.isConnected) showuserhover(row, user);
+        if (userhover === state && row.isConnected && !state.drag && !root.classList.contains("tumdragging", "tumfolderdragging")) showuserhover(row, user);
       }, 420);
     });
     row.addEventListener("pointerleave", e => {
@@ -1182,7 +1232,12 @@
       let placed = {left: ox, top: oy};
       const move = ev => {
         const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
-        if (!dragging) {if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < 6) return; dragging = true; root.classList.add("tumfolderdragging")}
+        if (!dragging) {
+          if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < 6) return;
+          dragging = true;
+          clearuserhover();
+          root.classList.add("tumfolderdragging");
+        }
         placed = nooverlapcategorybox(ox + dx, oy + dy, c.w || 480, c.h || 360, node);
         const actualx = placed.left - ox, actualy = placed.top - oy;
         node.style.left = placed.left + "px";
@@ -1747,7 +1802,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, applypan, fitall,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, applypan, fitall,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
