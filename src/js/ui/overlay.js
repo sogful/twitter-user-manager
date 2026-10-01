@@ -1249,6 +1249,9 @@
           let h = bottom ? oh + (ev.clientY - starty) / zoom : oh;
           if (right) w = Math.max(minw, snapdim(w, 200));
           if (bottom) h = Math.max(minh, snapdim(h, 288));
+          const limited = nooverlapcategorysize(c.x || 0, c.y || 0, w, h, node, minw, minh, right, bottom);
+          w = limited.w;
+          h = limited.h;
           node.style.width = w + "px";
           node.style.height = h + "px";
           return {w, h};
@@ -1608,6 +1611,26 @@
     }
     return {left: l, top: t};
   }
+  function nooverlapcategorysize(left, top, w, h, exclude, minw, minh, right, bottom) {
+    if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {w, h};
+    const others = [...els.freeform.querySelectorAll(".tumcategory")]
+      .filter(node => node !== exclude)
+      .map(rectof);
+    let nextw = w, nexth = h;
+    for (let pass = 0; pass < 2; pass++) for (const o of others) {
+      const overlapsx = left < o.left + o.w && left + nextw > o.left;
+      const overlapsy = top < o.top + o.h && top + nexth > o.top;
+      if (right && overlapsy && o.left >= left) {
+        const limit = o.left - left;
+        if (limit >= minw && limit < nextw) nextw = limit;
+      }
+      if (bottom && overlapsx && o.top >= top) {
+        const limit = o.top - top;
+        if (limit >= minh && limit < nexth) nexth = limit;
+      }
+    }
+    return {w: nextw, h: nexth};
+  }
   function nooverlapadjust(node, left, top) {
     if (!node) return {left, top};
     return nooverlapadjustbox(left, top, node.offsetWidth, node.offsetHeight, node);
@@ -1725,7 +1748,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, applypan, fitall,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapadjusthandle, findfreespot,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });

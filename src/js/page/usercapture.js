@@ -128,6 +128,42 @@
   const isexplore = url => typeof url === "string" && url.indexOf("ExplorePage") >= 0;
 
   const origfetch = window.fetch;
+  const LISTMUTATIONS = {
+    CreateList: "UQRa0jJ9doxGEIQRea1Y0w",
+    ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q"
+  };
+  window.addEventListener("message", async event => {
+    const request = event.data;
+    if (event.source !== window || !request || request.__tumlistrequest !== 1) return;
+    const queryId = LISTMUTATIONS[request.operation];
+    if (!queryId || !request.id || !request.variables || typeof request.variables !== "object") return;
+    let response = null, data = null;
+    try {
+      const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+      response = await origfetch("/i/api/graphql/" + queryId + "/" + request.operation, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          authorization: bearer || PUBBEARER,
+          "content-type": "application/json",
+          "x-csrf-token": ct0,
+          "x-twitter-auth-type": "OAuth2Session",
+          "x-twitter-active-user": "yes",
+          "x-twitter-client-language": "en"
+        },
+        body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId})
+      });
+      try {data = await response.json()} catch {}
+    } catch {}
+    const error = data && data.errors && data.errors[0] && data.errors[0].message;
+    window.postMessage({
+      __tumlistresponse: 1,
+      id: request.id,
+      ok: !!(response && response.ok && data && data.data),
+      data,
+      error: error || (!response ? "network" : "request failed")
+    }, location.origin);
+  });
   window.fetch = function (...args) {
     grabbearer(args[1]);
     try {learnqid((args[0] && args[0].url) || args[0])} catch {}

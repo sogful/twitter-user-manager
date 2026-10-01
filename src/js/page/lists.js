@@ -21,16 +21,31 @@
     moderators: {qid: "0oYT9GRiWUhrz5xoqFE9uw", op: "moderatorsSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, count: 100, cursor: c || null})}
   };
   const LISTEP = {
-    create: {qid: "CzrvV0ePRFW1dPgLY6an7g", op: "CreateList"},
-    addmember: {qid: "EadD8ivrhZhYQr2pDmCpjA", op: "ListAddMember"}
-  };
-  const LISTFEATURES = {
-    profile_label_improvements_pcf_label_in_post_enabled: true,
-    responsive_web_profile_redirect_enabled: true,
-    rweb_tipjar_consumption_enabled: true,
-    verified_phone_label_enabled: true,
-    responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
-    responsive_web_graphql_timeline_navigation_enabled: true
+    create: {
+      qid: "UQRa0jJ9doxGEIQRea1Y0w",
+      op: "CreateList",
+      features: {
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        responsive_web_profile_redirect_enabled: false,
+        rweb_tipjar_consumption_enabled: false,
+        verified_phone_label_enabled: false,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    },
+    addmember: {
+      qid: "zyA-tgY7gWLLGqg0hKS-2Q",
+      op: "ListAddMember",
+      features: {
+        payments_enabled: false,
+        rweb_xchat_enabled: false,
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        rweb_tipjar_consumption_enabled: true,
+        verified_phone_label_enabled: false,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    }
   };
   const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery
 
@@ -38,10 +53,21 @@
   const ct0 = () => (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
 
   const useridmap = new Map();
+  let listrequestid = 0;
+  const listrequests = new Map();
   window.addEventListener("message", e => {
     if (!e.data || e.data.__tumuser !== 1 || !e.data.data) return;
     const d = e.data.data;
     if (d.handle && d.restId) useridmap.set(d.handle.toLowerCase(), String(d.restId));
+  });
+  window.addEventListener("message", e => {
+    const response = e.data;
+    if (e.source !== window || !response || response.__tumlistresponse !== 1) return;
+    const pending = listrequests.get(response.id);
+    if (!pending) return;
+    listrequests.delete(response.id);
+    clearTimeout(pending.timer);
+    response.ok ? pending.resolve(response.data || {}) : pending.reject(new Error(response.error || "request failed"));
   });
   const UBSN = {qid: "Gb-d6r0vxPOADdG62OEBpQ", features: '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"subscriptions_feature_can_gift_premium":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}', toggles: '{"withPayments":false,"withAuxiliaryUserLabels":true}'};
   async function resolveuserid(handle) {
@@ -59,27 +85,24 @@
     return null;
   }
   async function listrequest(endpoint, variables) {
-    const url = "/i/api/graphql/" + endpoint.qid + "/" + endpoint.op;
-    const body = {variables, features: LISTFEATURES, queryId: endpoint.qid};
-    let response;
-    try {
-      response = await fetch(url, {
-        method: "POST",
-        credentials: "include",
-        headers: {...hdrs(ct0()), "content-type": "application/json"},
-        body: JSON.stringify(body)
-      });
-    } catch {throw new Error("network")}
-    let data = null;
-    try {data = await response.json()} catch {}
-    if (!response.ok || (data && data.errors && data.errors.length)) {
-      const message = data && data.errors && data.errors[0] && data.errors[0].message;
-      throw new Error(message || "request failed");
-    }
-    return data || {};
+    const id = "list-" + Date.now().toString(36) + "-" + (++listrequestid);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        listrequests.delete(id);
+        reject(new Error("network"));
+      }, 15000);
+      listrequests.set(id, {resolve, reject, timer});
+      window.postMessage({
+        __tumlistrequest: 1,
+        id,
+        operation: endpoint.op,
+        variables,
+        features: endpoint.features
+      }, location.origin);
+    });
   }
   function createdlistid(data) {
-    const direct = data && data.data && data.data.list_create && data.data.list_create.list;
+    const direct = data && data.data && (data.data.list || (data.data.list_create && data.data.list_create.list));
     if (direct && (direct.id_str || direct.id)) return String(direct.id_str || direct.id);
     let id = "";
     (function walk(value) {
@@ -119,7 +142,7 @@
           added++;
         } catch {skipped++}
         if (onprogress) onprogress({added, total: ids.size, skipped});
-        if (ids.size > 1) await sleep(150);
+        if (ids.size > 1) await sleep(1500);
       }
       return {id: listid, added, skipped};
     } finally {listuploading = false}
