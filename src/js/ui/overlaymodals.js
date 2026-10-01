@@ -101,7 +101,13 @@
     return !!member && (member.unfindable === true || (!member.userid && !member.pending));
   }
   function exportfolderdata(folder) {
-    return {id: folder.id, name: folder.name, action: folder.action, color: folder.color, description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort, collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y, members: (folder.members || []).map(exportmember)};
+    return {
+      id: folder.id, name: folder.name, action: folder.action, color: folder.color,
+      description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
+      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
+      collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y,
+      members: (folder.members || []).map(exportmember)
+    };
   }
 
   function exportcategory(category) {

@@ -32,6 +32,21 @@
   const TEXTPNG = chrome.runtime.getURL("assets/images/text.png");
   const SORTMODES = ["az", "za", "new", "old"];
   const SORTLABEL = {az: "A-Z", za: "Z-A", new: "NEW", old: "OLD", added: "NEW"};
+  const sortoptions = [
+    {value: "az", label: "Name A-Z"},
+    {value: "za", label: "Name Z-A"},
+    {value: "new", label: "Newest"},
+    {value: "old", label: "Oldest"}
+  ];
+  const badgefilteroptions = [
+    {value: "verified", label: "Verified"},
+    {value: "verifiedbusiness", label: "Verified business"},
+    {value: "verifiedgovernment", label: "Verified government"},
+    {value: "protected", label: "Protected"},
+    {value: "affiliated", label: "Affiliated"},
+    {value: "translator", label: "Translator"},
+    {value: "translatormod", label: "Translator mod"}
+  ];
 
   const MEMBERCAP = 200; // render cap per folder list
   const showncap = new Map();
@@ -40,6 +55,7 @@
 
   let shadow = null, root = null, host = null;
   let els = {};
+  let activefolderfilters = null;
 
   const settings = tum.storage.create("tum.settings", {global: true});
   let keepopen = true;
@@ -185,6 +201,7 @@
       els.freeform.style.transformOrigin = "0 0";
       els.freeform.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
     }
+    if (activefolderfilters) positionfolderfilters(folderfilterbutton(activefolderfilters));
     scheduleminimap();
     if (els.gridlayer) {
       els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
@@ -223,6 +240,7 @@
     const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.16)";
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><path d='M${w - 0.5} 0V${h}M0 ${h - 0.5}H${w}' fill='none' stroke='${line}' stroke-width='1' stroke-dasharray='7 7'/></svg>`;
     els.gridlayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    if (activefolderfilters) positionfolderfilters(folderfilterbutton(activefolderfilters));
   }
   window.addEventListener("resize", updategrid);
 
@@ -401,6 +419,7 @@
     root.addEventListener("contextmenu", O.oncontextmenu);
     root.addEventListener("pointerdown", e => {
       let dismiss = false;
+      if (activefolderfilters && !e.target.closest(".tumfolderfilters, .tumfoldersort")) {closefolderfilters(); dismiss = true}
       const editing = root.querySelector(".tumcategorytitle.tumediting");
       if (editing && !e.target.closest(".tumcategorytitle")) {editing.blur(); dismiss = true}
       if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) {O.closectx(); dismiss = true}
@@ -495,6 +514,7 @@
   }
   function closeoverlay() {
     state.open = false;
+    closefolderfilters();
     if (O.closectx) O.closectx();
     if (O.closemodal()) {state.open = true; showbackdrop(); return}
     O.closereasonmodal();
@@ -540,14 +560,25 @@
   function rendersignature(value, extra) {
     try {return JSON.stringify(value) + (extra || "")} catch {return String(Date.now())}
   }
+  function updatefoldersearchclear(node) {
+    const search = node.querySelector(".tumfoldersearch");
+    const clear = node.querySelector(".tumfolderclear");
+    if (search && clear) clear.hidden = !search.value;
+  }
+  function filterfolderrows(list, query) {
+    const q = (query || "").trim().toLowerCase();
+    for (const row of list.querySelectorAll(".tumfoldermember")) {
+      row.style.display = !q || row.textContent.toLowerCase().includes(q) ? "" : "none";
+    }
+  }
   function restorefolderview(node, view) {
     if (!view) return;
     const search = node.querySelector(".tumfoldersearch");
     const list = node.querySelector(".tumfolderlist");
-    if (search && view.query) {
-      search.value = view.query;
-      const query = view.query.toLowerCase();
-      for (const row of list.querySelectorAll(".tumfoldermember")) row.style.display = row.textContent.toLowerCase().includes(query) ? "" : "none";
+    if (search) {
+      search.value = view.query || "";
+      updatefoldersearchclear(node);
+      filterfolderrows(list, search.value);
     }
     if (list) list.scrollTop = view.scroll;
   }
@@ -605,6 +636,7 @@
     if (changed.length) schedulemarquees(changed);
     scheduleminimap();
     if (els.jumplist && !els.jumplist.hidden) buildjumprows(els.jumpsearch.value);
+    if (activefolderfilters) refreshfolderfilters();
   }
 
   let marqueeraf = 0;
@@ -651,15 +683,115 @@
     for (const b of els.actionbtns) b.classList.toggle("tumdisabled", !active);
   }
 
+  function memberhasbadge(member, type) {
+    const badges = Array.isArray(member.badges) ? member.badges : [];
+    const verifiedtype = String(member.verifiedtype || "").toLowerCase();
+    if (type === "protected") return !!member.protected || badges.includes("protected");
+    if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
+    if (type === "verified") return badges.includes("verified") || (!!member.blueverified && !/business|government/.test(verifiedtype));
+    if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
+    if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
+    return badges.includes(type);
+  }
+  function normalizedsort(f) {return SORTMODES.includes(f.sort) ? f.sort : "new"}
   function sortedmembers(f) {
-    const members = Array.isArray(f.members) ? f.members.slice() : [];
-    if (f.sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
-    else if (f.sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
-    else if (f.sort === "old") members.reverse();
+    let members = Array.isArray(f.members) ? f.members.slice() : [];
+    const sort = normalizedsort(f);
+    if (sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
+    else if (sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
+    else if (sort === "old") members.reverse();
+    const badgefilters = new Set(Array.isArray(f.badgefilters) ? f.badgefilters : []);
+    if (badgefilters.size) members = members.filter(member => [...badgefilters].some(type => memberhasbadge(member, type)));
     return members;
   }
 
+  function closefolderfilters() {
+    if (!activefolderfilters) return;
+    const button = folderfilterbutton(activefolderfilters);
+    if (button) button.setAttribute("aria-expanded", "false");
+    if (els.folderfilters) els.folderfilters.hidden = true;
+    activefolderfilters = null;
+  }
+  function folderfilterbutton(folderid) {
+    const node = (O.foldernodes || []).find(folder => folder.dataset.id === folderid);
+    return node && node.querySelector(".tumfoldersort");
+  }
+  function positionfolderfilters(button) {
+    if (!button || !els.folderfilters) return;
+    const rect = button.getBoundingClientRect();
+    const menu = els.folderfilters;
+    const width = menu.offsetWidth, height = menu.offsetHeight;
+    const maxleft = Math.max(8, window.innerWidth - width - 8);
+    const left = clamp(rect.right - width, 8, maxleft);
+    const maxtop = Math.max(8, window.innerHeight - height - 8);
+    const below = rect.bottom + 4;
+    const above = rect.top - height - 4;
+    const top = below + height <= window.innerHeight - 8 ? below : (above >= 8 ? above : clamp(below, 8, maxtop));
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
+  }
+  function refreshfolderfilters() {
+    if (!activefolderfilters) return;
+    const folder = tum.folders.get(activefolderfilters);
+    const button = folderfilterbutton(activefolderfilters);
+    if (!folder || !button) {closefolderfilters(); return}
+    const menu = els.folderfilters;
+    let focus = null;
+    if (menu.contains(shadow.activeElement)) {
+      const active = shadow.activeElement.closest(".tumfolderfilteroption");
+      if (active) focus = {type: active.dataset.sort ? "sort" : "badge", value: active.dataset.sort || active.dataset.badge};
+    }
+    const selectedsort = normalizedsort(folder);
+    const selectedbadges = new Set(Array.isArray(folder.badgefilters) ? folder.badgefilters : []);
+    const sortrows = sortoptions.map(option => `<button type="button" class="tumfolderfilteroption tumfoldersortoption" data-sort="${option.value}" aria-pressed="${selectedsort === option.value}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${option.label}</span></button>`).join("");
+    const badgerows = badgefilteroptions.map(option => `<button type="button" class="tumfolderfilteroption tumfolderbadgeoption" data-badge="${option.value}" aria-pressed="${selectedbadges.has(option.value)}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${option.label}</span></button>`).join("");
+    menu.innerHTML = `<div class="tumfolderfiltercolumn"><div class="tumfolderfilterheading">Sort by</div><div class="tumfolderfilteroptions" role="group" aria-label="Sort by">${sortrows}</div></div><div class="tumfolderfiltercolumn"><div class="tumfolderfilterheading">User badge</div><div class="tumfolderfilteroptions" role="group" aria-label="Filter by user badge">${badgerows}</div></div>`;
+    menu.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    positionfolderfilters(button);
+    if (focus) {
+      const option = [...menu.querySelectorAll(".tumfolderfilteroption")].find(item => item.dataset[focus.type] === focus.value);
+      if (option) option.focus({preventScroll: true});
+    }
+  }
+  function ensurefolderfilters() {
+    if (els.folderfilters) return els.folderfilters;
+    const menu = el("div", "tumfolderfilters");
+    menu.hidden = true;
+    menu.setAttribute("role", "group");
+    menu.setAttribute("aria-label", "Folder sorting and badge filters");
+    menu.addEventListener("pointerdown", e => e.stopPropagation());
+    menu.addEventListener("click", e => {
+      const sortbutton = e.target.closest(".tumfoldersortoption");
+      const badgebutton = e.target.closest(".tumfolderbadgeoption");
+      const folder = tum.folders.get(activefolderfilters);
+      if (!folder) {closefolderfilters(); return}
+      if (sortbutton) {
+        const sort = sortbutton.dataset.sort;
+        if (folder.sort !== sort) tum.folders.update(folder.id, {sort}, true);
+        render();
+      } else if (badgebutton) {
+        const filters = new Set(Array.isArray(folder.badgefilters) ? folder.badgefilters : []);
+        if (filters.has(badgebutton.dataset.badge)) filters.delete(badgebutton.dataset.badge);
+        else filters.add(badgebutton.dataset.badge);
+        const badgefilters = badgefilteroptions.filter(option => filters.has(option.value)).map(option => option.value);
+        tum.folders.update(folder.id, {badgefilters}, true);
+        render();
+      }
+    });
+    root.appendChild(menu);
+    els.folderfilters = menu;
+    return menu;
+  }
+  function openfolderfilters(folderid) {
+    if (activefolderfilters === folderid) {closefolderfilters(); return}
+    ensurefolderfilters();
+    activefolderfilters = folderid;
+    refreshfolderfilters();
+  }
+
   function buildfoldernode(f) {
+    const allmembers = Array.isArray(f.members) ? f.members : [];
     const members = sortedmembers(f);
     const node = el("div", "tumfolder");
     if (f.collapsed) node.classList.add("tumcollapsed");
@@ -691,15 +823,18 @@
         </div>
       </div>
       <div class="tumfoldertools">
-        <input class="tumfoldersearch" placeholder="${T("folder.search")}">
-        <button class="tumfoldersort" title="Sort: ${SORTLABEL[f.sort] || SORTLABEL.added}">${SORTLABEL[f.sort] || SORTLABEL.added}</button>
+        <div class="tumfoldersearchwrap">
+          <input class="tumfoldersearch" placeholder="${T("folder.search")}">
+          <button type="button" class="tumfolderclear" aria-label="Clear search" hidden>${ICONS.close}</button>
+        </div>
+        <button type="button" class="tumfoldersort" aria-label="Folder sort and badge filters" aria-haspopup="true" aria-expanded="false">${SORTLABEL[normalizedsort(f)] || SORTLABEL.added}</button>
       </div>
       <div class="tumfolderlist"></div>
     `;
     node._tumremove = node.querySelector(".tumfolderremove");
     const list = node.querySelector(".tumfolderlist");
     if (!members.length) {
-      list.appendChild(el("div", "tumfolderempty", T("folder.empty")));
+      list.appendChild(el("div", "tumfolderempty", allmembers.length ? "No matching accounts" : T("folder.empty")));
     } else {
       const src = {type: "folder", id: f.id};
       const fill = shown => {
@@ -723,18 +858,26 @@
       e.stopPropagation();
       O.confirmfolderdelete(f);
     });
-    node.querySelector(".tumfoldersort").addEventListener("click", e => {
+    const sortbutton = node.querySelector(".tumfoldersort");
+    sortbutton.addEventListener("pointerdown", e => e.stopPropagation());
+    sortbutton.addEventListener("click", e => {
       e.stopPropagation();
-      const next = SORTMODES[(SORTMODES.indexOf(f.sort) + 1) % SORTMODES.length];
-      tum.folders.update(f.id, {sort: next});
+      openfolderfilters(f.id);
     });
-    node.querySelector(".tumfoldersearch").addEventListener("pointerdown", e => e.stopPropagation());
-    node.querySelector(".tumfoldersearch").addEventListener("input", e => {
-      const q = e.target.value.trim().toLowerCase();
-      for (const row of list.querySelectorAll(".tumfoldermember")) {
-        const text = row.textContent.toLowerCase();
-        row.style.display = !q || text.includes(q) ? "" : "none";
-      }
+    const search = node.querySelector(".tumfoldersearch");
+    const clearsearch = node.querySelector(".tumfolderclear");
+    search.addEventListener("pointerdown", e => e.stopPropagation());
+    search.addEventListener("input", e => {
+      updatefoldersearchclear(node);
+      filterfolderrows(list, e.target.value);
+    });
+    clearsearch.addEventListener("pointerdown", e => e.stopPropagation());
+    clearsearch.addEventListener("click", e => {
+      e.stopPropagation();
+      search.value = "";
+      updatefoldersearchclear(node);
+      filterfolderrows(list, "");
+      search.focus();
     });
     return node;
   }
@@ -953,9 +1096,9 @@
         const ow = c.w || 480, oh = c.h || 360;
         let sizing = false;
 
-        const GRIDGAP = 14, SNAP = 26;
+        const SNAP = 26;
         const snapdim = (v, folder) => {
-          const cell = folder + GRIDGAP, base = 2 * CATBORDER - GRIDGAP;
+          const cell = folder, base = 2 * CATBORDER;
           const n = Math.round((v - base) / cell);
           if (n < 1) return v;
           const snapped = base + n * cell;
@@ -1326,7 +1469,12 @@
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
     if (!state.drag) {
-      if (e.key === "Escape") {if (O.ctxopen && O.ctxopen()) {O.closectx(); return} closeoverlay(); return}
+      if (e.key === "Escape") {
+        if (activefolderfilters) {closefolderfilters(); e.preventDefault(); return}
+        if (O.ctxopen && O.ctxopen()) {O.closectx(); return}
+        closeoverlay();
+        return;
+      }
       const typing = shadow.activeElement && /^(INPUT|TEXTAREA)$/.test(shadow.activeElement.tagName);
       if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;

@@ -4,6 +4,7 @@
   window.tum = window.tum || {};
 
   const ACTIONS = ["follow", "mute", "block"];
+  const badgefiltertypes = new Set(["verified", "verifiedbusiness", "verifiedgovernment", "protected", "affiliated", "translator", "translatormod"]);
   // how colorful!
   const COLORS = [
     // twitter classics
@@ -39,6 +40,7 @@
       color: partial.color || nextcolor(),
       icon: (partial.icon || "").slice(0, 64),
       sort: partial.sort || "added",
+      badgefilters: Array.isArray(partial.badgefilters) ? [...new Set(partial.badgefilters.filter(type => badgefiltertypes.has(type)))] : [],
       collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
       cat: partial.cat || null,
       description: (partial.description || "").slice(0, 200),
