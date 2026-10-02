@@ -73,8 +73,8 @@
   const userdata = new Map();    // handle -> normalized UserByScreenName fields
   const memcache = new Map();    // handle -> {id, names} | null (requested/none)
   const aboutdata = new Map();   // handle -> AboutAccountQuery fields | null
-  // const breachcache = new Map(); // Disabled until the breach.vip API is available again.
-  const memfallback = new Set(); // handles a memory.lol fallback
+  // const breachcache = new Map();
+  const memfallback = new Set(); // handles memory.lol fallback
 
   function requestmemory(key, arg) {
     memcache.set(key, null);
@@ -513,7 +513,8 @@
         setTimeout(() => {if (!memcache.has(key)) requestmemory(key, {handle})}, 3000);
       }
     }
-    /* Disabled until the breach.vip API is available again.
+
+    /* 
     if (!breachcache.has(key)) {
       breachcache.set(key, null);
       try {
@@ -525,6 +526,7 @@
       } catch {}
     }
     */
+   
     const u = userdata.get(key);
     if (u) {
       if (items) applyjoin(items, u);
@@ -535,7 +537,7 @@
       applyprofessional(u);
     }
     if (items) injectbasedin(items, handle);
-    // injectbreach(handle); // Disabled until the breach.vip API is available again.
+    // injectbreach(handle);
     if (items) buildblock(items, handle);
   }
 
