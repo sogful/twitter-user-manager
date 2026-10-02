@@ -32,7 +32,7 @@
     "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*", 
     "https://list.coolsite.cv/*", "https://cdn.list.coolsite.cv/*"
   ],
-  "background": {"service_worker": "src/js/background.js", "scripts": ["src/js/background.js"]},
+  "background": {"service_worker": "src/js/background.js"},
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
