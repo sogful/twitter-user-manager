@@ -29,7 +29,7 @@
   "permissions": ["storage", "cookies"],
   "host_permissions": [
     "https://x.com/*", "https://twitter.com/*", "https://twt.boomlings.eu.org/*", 
-    "https://api.memory.lol/*", "https://memory.lol/*", "https://swolesome.pages.dev/*", 
+    "https://api.memory.lol/*", "https://memory.lol/*", 
     "https://list.coolsite.cv/*", "https://cdn.list.coolsite.cv/*"
   ],
   "background": {"service_worker": "src/js/background.js"},
@@ -55,6 +55,10 @@
         "src/js/page/newuser.js",
         "src/js/page/lists.js",
         "src/js/ui/overlay.js",
+        "src/js/ui/overlayselection.js",
+        "src/js/ui/overlayfolders.js",
+        "src/js/ui/overlaycategories.js",
+        "src/js/ui/overlaycanvas.js",
         "src/js/ui/overlaydrag.js",
         "src/js/ui/overlaymodals.js",
         "src/js/context.js",
