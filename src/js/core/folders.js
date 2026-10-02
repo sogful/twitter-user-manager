@@ -125,7 +125,7 @@
     });
     const seen = new Set();
     return cleaned.filter(badge => {
-      const key = badge && typeof badge === "object" ? "affiliation:" + String(badge.handle || "").toLowerCase() : String(badge);
+      const key = badge && typeof badge === "object" ? "affiliation" : String(badge);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

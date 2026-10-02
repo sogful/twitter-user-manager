@@ -268,6 +268,7 @@
       id: request.id,
       ok: !!(response && response.ok),
       status: response ? response.status : 0,
+      rateLimitReset: response && Number(response.headers.get("x-rate-limit-reset") || 0) ? Number(response.headers.get("x-rate-limit-reset")) * 1000 : response && Number(response.headers.get("retry-after") || 0) ? Date.now() + Number(response.headers.get("retry-after")) * 1000 : 0,
       data,
       error: failure || (!response ? "network" : "request failed")
     }, location.origin);

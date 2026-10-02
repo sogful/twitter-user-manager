@@ -162,7 +162,6 @@
     if (!h) {const sw = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'); const m = sw && /@([A-Za-z0-9_]+)/.exec(sw.textContent || ""); if (m) h = m[1]}
     return h ? "@" + h : T("settings.currentaccount");
   }
-  const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
   const FEATURES = '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}';
   const REFRESHBATCHSIZE = 120;
   const REFRESHPAUSE = 16 * 60 * 1000;
@@ -255,20 +254,14 @@
     }
     return null;
   }
-  function headers() {
-    const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-    return {authorization: PUBBEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes", "x-twitter-client-language": "en"};
-  }
   async function requestprofile(member) {
     const byid = member.userid ? {qid: "VQfQ9wwYdk6j_u2O4vt64Q", operation: "UserByRestId", variables: {userId: String(member.userid), withGrokTranslatedBio: true}} :
       {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}};
     const toggles = '{"withAuxiliaryUserLabels":true}';
-    const url = "/i/api/graphql/" + byid.qid + "/" + byid.operation + "?variables=" + encodeURIComponent(JSON.stringify(byid.variables)) + "&features=" + encodeURIComponent(FEATURES) + "&fieldToggles=" + encodeURIComponent(toggles);
     let response;
-    try {response = await fetch(url, {credentials: "include", headers: headers()})} catch {return {ok: false, retry: false, missing: false}}
-    if (!response.ok) return {ok: false, retry: response.status === 429, missing: response.status === 404};
-    let json = null;
-    try {json = await response.json()} catch {}
+    try {response = await tum.graphql({qid: byid.qid, op: byid.operation, feat: FEATURES, toggles}, byid.variables)} catch {return {ok: false, retry: false, missing: false}}
+    if (!response || !response.ok) return {ok: false, retry: response && response.status === 429, missing: response && response.status === 404, rateLimitReset: response && response.rateLimitReset};
+    const json = response.data;
     const user = profilefromresult(finduser(json, {n: 30000}));
     return user ? {ok: true, user} : {ok: false, retry: false, missing: true};
   }
@@ -281,7 +274,7 @@
     const badges = new Map();
     const newbadges = Array.isArray(user.badges) ? user.badges : [];
     for (const badge of [...existing.flatMap(member => Array.isArray(member.badges) ? member.badges : []), ...newbadges]) {
-      const key = badge && typeof badge === "object" ? "affiliation:" + String(badge.handle || "").toLowerCase() : String(badge);
+      const key = badge && typeof badge === "object" ? "affiliation" : String(badge);
       badges.set(key, badge);
     }
     const refreshed = Object.assign({}, user, badges.size ? {badges: [...badges.values()]} : {});
@@ -400,7 +393,7 @@
         let result = await requestprofile(member);
         if (!repopulation || repopulatecancel) break;
         if (result.retry) {
-          repopulation.waituntil = Date.now() + REFRESHPAUSE;
+          repopulation.waituntil = result.rateLimitReset && result.rateLimitReset > Date.now() ? result.rateLimitReset + 2000 : Date.now() + REFRESHPAUSE;
           await persistrepopulation();
           continue;
         }
@@ -423,7 +416,7 @@
         if (repopulation && !repopulatecancel && repopulation.index < repopulation.members.length) await sleep(700);
       }
       if (repopulation && !repopulatecancel && repopulation.index >= repopulation.members.length) {
-        const done = repopulation.failed ? T("settings.repopulate.done.failed", repopulation.updated, repopulation.missing, repopulation.failed) : T("settings.repopulate.done", repopulation.updated, repopulation.missing);
+        const done = repopulation.failed ? T("settings.repopulate.done.failed", repopulation.updated, repopulation.missing, repopulation.failed) : repopulation.updated && repopulation.missing ? T("settings.repopulate.done", repopulation.updated, repopulation.missing) : repopulation.updated ? T("settings.repopulate.done.updated", repopulation.updated) : repopulation.missing ? T("settings.repopulate.done.missing", repopulation.missing) : T("settings.repopulate.done.none");
         try {tum.overlay.toast(done)} catch {}
         repopulation = null;
         await persistrepopulation();
