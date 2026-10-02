@@ -1206,13 +1206,17 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tummergefoldersearch {
   position: relative; top: auto; left: auto;
-  width: 200px; max-width: calc(100vw - 32px);
-  max-height: min(60vh,520px); z-index: auto
+  width: 396px; max-width: calc(100vw - 32px);
+  max-height: none; z-index: auto
+}
+.tummergefoldersearch .tumjumprows {
+  display: grid; grid-template-columns: repeat(var(--tummergecolumns,2), minmax(0,1fr));
+  grid-auto-flow: row; gap: 2px 4px; overflow: visible
 }
 .tummergefoldersearch .tumjumprow {
-  width: 100%; padding: 6px;
+  width: 100%; min-width: 0; padding: 6px;
   border: 0; background: transparent;
-  font: inherit; text-align: left
+  font-size: 13px; text-align: left
 }
 .tummergeempty {
   padding: 10px 6px; color: var(--tummuted,#71767b);

@@ -682,6 +682,11 @@
         return !query || text.includes(query);
       }).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       rows.replaceChildren();
+      const rowheight = 29;
+      const maxrows = Math.max(1, Math.floor((window.innerHeight - 90) / rowheight));
+      const columns = Math.max(2, Math.ceil(targets.length / maxrows));
+      card.style.setProperty("--tummergecolumns", String(columns));
+      card.style.width = Math.min(window.innerWidth - 32, columns * 190 + 16) + "px";
       if (!targets.length) {
         const empty = el("div", "tummergeempty");
         empty.textContent = T("folder.merge.empty");
