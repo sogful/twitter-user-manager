@@ -124,6 +124,7 @@
         title: T("confirm.refresh.title", users.length),
         body: T("confirm.refresh.body", users.length),
         oklabel: T("confirm.refresh.ok"),
+        positive: true,
         onok: start
       });
     } else start();
@@ -193,6 +194,53 @@
       ]
     };
   }
+  function selectioncontains(node) {
+    if (!node || !state.selection) return false;
+    if (node.classList.contains("tumfolder")) return state.selection.has("folder:" + node.dataset.id);
+    if (node.classList.contains("tumcategory")) return state.selection.has("category:" + node.dataset.id);
+    if (node.classList.contains("tumloosechip")) return state.selection.has("user:" + String(node.dataset.handle || "").toLowerCase());
+    return false;
+  }
+  function selectionmembers(items) {
+    const members = [];
+    for (const item of items) {
+      if (item.type === "folder") members.push(...(item.data.members || []));
+      else if (item.type === "user") members.push(item.data);
+      else if (item.type === "category") members.push(...categorymembers(item.data));
+    }
+    return members;
+  }
+  function publishselected(folders) {
+    O.openconfirm({
+      title: T("confirm.selection.publish.title", folders.length),
+      body: T("confirm.selection.publish.body"),
+      oklabel: T("confirm.selection.publish.ok"),
+      positive: true,
+      onok: async () => {for (const folder of folders) await O.sharefolder(folder)}
+    });
+  }
+  function deleteselection(items) {
+    O.openconfirm({
+      title: T("confirm.selection.delete.title", items.length),
+      body: T("confirm.selection.delete.body"),
+      oklabel: T("overlay.delete"),
+      onok: () => {
+        for (const item of items) if (item.type === "folder") tum.folders.remove(item.id);
+        for (const item of items) if (item.type === "user") tum.unsorted.remove(item.handle);
+        for (const item of items) if (item.type === "category") tum.categories.remove(item.id);
+        O.clearselection();
+        render();
+      }
+    });
+  }
+  function selectionmenu(items) {
+    const actionable = items.filter(item => item.type === "folder" && item.data.action);
+    return [
+      ...(actionable.length ? [{label: T("menu.publishselected"), icon: ICONS.upload, onclick: () => publishselected(actionable)}] : []),
+      {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(selectionmembers(items))},
+      {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => deleteselection(items)}
+    ];
+  }
 
   function oncontextmenu(event) {
     if (!O.root.classList.contains("tumactive") || state.drag || O.root.classList.contains("tumfolderdragging")) return;
@@ -206,8 +254,12 @@
     const categorynode = event.target.closest(".tumcategory");
     event.preventDefault();
     let items;
+    const selection = typeof O.selecteditems === "function" ? O.selecteditems() : [];
+    const selectednode = chip || foldernode || categorynode;
 
-    if (chip || memberrow) {
+    if (selection.length && (!selectednode || selectioncontains(selectednode))) {
+      items = selectionmenu(selection);
+    } else if (chip || memberrow) {
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
       items = [

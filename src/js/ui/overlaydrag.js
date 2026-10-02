@@ -179,6 +179,7 @@
         title: T("confirm.folder.merge.title", source.name, target.name),
         body: T("confirm.folder.merge.body", members.length, source.name, target.name),
         oklabel: T("confirm.folder.merge.ok"),
+        positive: true,
         onok: () => mergefolders(sourceid, targetid)
       });
     } else mergefolders(sourceid, targetid);
@@ -522,6 +523,7 @@
             title: T("action.confirm.single.title", label, user.handle),
             body: warning ? warning + " " + detail : detail,
             oklabel: label,
+            positive: folder.action === "follow",
             altlabel: T("folder.drop.confirm.addonly"),
             cancellabel: T("folder.drop.confirm.discard"),
             onok: () => finishfolderdrop(folder, user, source, true, true),

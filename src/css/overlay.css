@@ -68,6 +68,13 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumroot.tumactive .tumcanvas {
   opacity: 1; visibility: visible
 }
+.tumselectionbox {
+  position: fixed; z-index: 6;
+  border: 1px solid #1d9bf0;
+  border-radius: 3px; background: rgba(29,155,240,0.12);
+  pointer-events: none
+}
+.tumselectionbox[hidden] {display: none}
 
 .tumtools {
   position: absolute; top: 14px; left: 16px;
@@ -185,6 +192,7 @@ img {-webkit-user-drag: none; user-drag: none}
   border: 2px solid rgba(231,233,234,0.35);
   border-radius: 16px; pointer-events: auto
 }
+.tumcategory.tumselected {border-color: #1d9bf0; box-shadow: 0 0 0 1px #1d9bf0}
 .tumcategorytitle {
   position: absolute; left: 2px; top: -30px;
   max-width: 100%; padding: 1px 4px;
@@ -230,6 +238,7 @@ img {-webkit-user-drag: none; user-drag: none}
   backface-visibility: hidden
 }
 .tumfolder.tummergetarget {z-index: 9}
+.tumfolder.tumselected, .tumloosechip.tumselected {outline: 2px solid #1d9bf0}
 .tumfolder.tummergetarget::after {
   content: attr(data-mergehint);
   position: absolute; inset: 0;
@@ -479,22 +488,29 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumuserhoverrow {display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px}
 .tumuserhoverrow + .tumuserhoverrow {margin-top: 3px}
 .tumuserhoverposts {gap: 2px 5px}
-.tumuserhoverinfo {flex-wrap: nowrap; gap: 4px}
+.tumuserhoverinfo {
+  flex-wrap: nowrap; align-items: center;
+  gap: 4px
+}
 .tumuserhoverrelations {flex-wrap: nowrap; justify-content: flex-start; gap: 8px}
 .tumuserhovertext {
   color: var(--tummuted,#aab0b6); font-weight: 400;
   white-space: nowrap
 }
-.tumuserhovericon {
-  display: inline-flex; align-items: center;
-  width: 11px; height: 11px;
-  color: var(--tummuted,#aab0b6); flex: 0 0 auto
+.tumuserhovercount {
+  color: var(--tumtext,#e7e9ea); font-weight: 800;
+  white-space: nowrap
 }
-.tumuserhovericon svg {
+.tumuserhoverlabel {
+  color: var(--tummuted,#aab0b6); font-weight: 400;
+  white-space: nowrap
+}
+.tumuserhovericon {
+  display: inline-block;
   width: 11px; height: 11px;
-  fill: none; stroke: currentColor;
-  stroke-width: 2; stroke-linecap: round;
-  stroke-linejoin: round
+  color: var(--tummuted,#aab0b6); flex: 0 0 auto;
+  background: currentColor; -webkit-mask: var(--tumhovericon) center/contain no-repeat;
+  mask: var(--tumhovericon) center/contain no-repeat
 }
 .tumdragging .tumuserhover, .tumfolderdragging .tumuserhover {display: none}
 .tumfolderempty {
@@ -1075,6 +1091,7 @@ img {-webkit-user-drag: none; user-drag: none}
   font-weight: 700; font-size: 15px;
   cursor: pointer
 }
+.tumconfirmok.tumconfirmpositive {background: #00ba7c}
 .tumconfirmsecondary, .tumconfirmcancel {
   width: 100%; margin-top: 10px;
   background: transparent; color: var(--tumtext,#e7e9ea);

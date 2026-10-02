@@ -72,7 +72,7 @@
   const campos = tum.storage.create("tum.campos");
   let campostimer = 0;
   function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
-  let state = {drag: null, gesture: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null, confirmalternate: null};
+  let state = {drag: null, gesture: null, selection: new Set(), open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null, confirmalternate: null};
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -110,6 +110,9 @@
   }
   function fullavatarurl(value) {
     return (avatarurl(value) || "").replace(/_(normal|bigger|mini|x96|reasonably_small|\d+x\d+)(\.(?:jpe?g|png|webp|gif))(?=[?#]|$)/i, "$2");
+  }
+  function svgasseturl(path) {
+    try {return chrome.runtime.getURL(path)} catch {return "../../" + path}
   }
   function badgeshtml(badges, user) {
     function presetvalue(badge) {
@@ -264,32 +267,36 @@
     root.addEventListener("pointerdown", e => {if (e.button === 1) {e.preventDefault(); e.stopPropagation(); startcamerapan(e)}}, true);
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
     bd.addEventListener("pointerdown", e => {
-      if (e.button !== 0 && e.button !== 1) return;
+      if (e.button !== 0) return;
       e.preventDefault();
       try {bd.setPointerCapture(e.pointerId)} catch {}
       const ctxwasdismissed = O._ctxdismiss;
       O._ctxdismiss = false;
       const startx = e.clientX, starty = e.clientY;
-      const panstart = {x: pan.x, y: pan.y};
-      let panning = false;
+      const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+      const prior = additive ? new Set(state.selection) : new Set();
+      state.gesture = {kind: "selection", pointerid: e.pointerId};
+      let selecting = false;
       const move = ev => {
+        if (!state.gesture || state.gesture.pointerid !== e.pointerId) return;
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
-        if (!panning) {
+        if (!selecting) {
           if (Math.hypot(dx, dy) < THRESHOLD) return;
-          panning = true;
-          root.classList.add("tumpanning");
+          selecting = true;
+          els.selectionbox.hidden = false;
         }
-        pan.x = panstart.x + dx;
-        pan.y = panstart.y + dy;
-        applypan();
+        setselectionbox(startx, starty, ev.clientX, ev.clientY);
       };
       const finish = ev => {
+        if (!state.gesture || state.gesture.pointerid !== e.pointerId) return;
         bd.removeEventListener("pointermove", move);
         bd.removeEventListener("pointerup", finish);
         bd.removeEventListener("pointercancel", finish);
         try {bd.releasePointerCapture(e.pointerId)} catch {}
-        root.classList.remove("tumpanning");
-        if (!panning && !ctxwasdismissed && e.button === 0 && ev.type === "pointerup") closeoverlay();
+        state.gesture = null;
+        els.selectionbox.hidden = true;
+        if (selecting && ev.type === "pointerup") selectinrect(startx, starty, ev.clientX, ev.clientY, prior);
+        else if (!ctxwasdismissed && ev.type === "pointerup") clearselection();
       };
       bd.addEventListener("pointermove", move);
       bd.addEventListener("pointerup", finish);
@@ -416,6 +423,7 @@
       confirmok: root.querySelector(".tumconfirmok"),
       confirmsecondary: root.querySelector(".tumconfirmsecondary"),
       confirmcancel: root.querySelector(".tumconfirmcancel"),
+      selectionbox: root.querySelector(".tumselectionbox"),
       toast: root.querySelector(".tumtoast")
     };
 
@@ -503,9 +511,9 @@
     document.addEventListener("keyup", onpeekup, true);
     window.addEventListener("blur", () => {peekkeys.clear(); updatepeek()});
 
-    tum.folders.subscribe(render);
-    tum.unsorted.subscribe(render);
-    tum.categories.subscribe(render);
+    tum.folders.subscribe(() => schedulerender());
+    tum.unsorted.subscribe(() => schedulerender());
+    tum.categories.subscribe(() => schedulerender());
     Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(() => {
       render();
       setTimeout(() => {if (!state.open && tum.settings && tum.settings.get("autoopen")) openoverlay()}, 350);
@@ -615,7 +623,58 @@
     }
     for (const node of [...els.freeform.children]) if (!keep.has(node)) node.remove();
   }
+  function selectionkey(node) {
+    if (node.classList.contains("tumfolder")) return "folder:" + node.dataset.id;
+    if (node.classList.contains("tumcategory")) return "category:" + node.dataset.id;
+    if (node.classList.contains("tumloosechip")) return "user:" + String(node.dataset.handle || "").toLowerCase();
+    return "";
+  }
+  function syncselection() {
+    const selection = state.selection || new Set();
+    for (const node of els.freeform.querySelectorAll(".tumfolder, .tumcategory, .tumloosechip")) node.classList.toggle("tumselected", selection.has(selectionkey(node)));
+  }
+  function setselection(selection) {
+    state.selection = new Set(selection || []);
+    if (els.freeform) syncselection();
+  }
+  function clearselection() {setselection()}
+  function setselectionbox(x1, y1, x2, y2) {
+    const left = Math.min(x1, x2), top = Math.min(y1, y2);
+    els.selectionbox.style.left = left + "px";
+    els.selectionbox.style.top = top + "px";
+    els.selectionbox.style.width = Math.abs(x2 - x1) + "px";
+    els.selectionbox.style.height = Math.abs(y2 - y1) + "px";
+  }
+  function selectinrect(x1, y1, x2, y2, prior) {
+    const left = Math.min(x1, x2), top = Math.min(y1, y2), right = Math.max(x1, x2), bottom = Math.max(y1, y2);
+    const next = new Set(prior || []);
+    for (const node of els.freeform.querySelectorAll(".tumfolder, .tumcategory, .tumloosechip")) {
+      const rect = node.getBoundingClientRect();
+      if (rect.left >= left && rect.top >= top && rect.right <= right && rect.bottom <= bottom) next.add(selectionkey(node));
+    }
+    setselection(next);
+  }
+  function selecteditems() {
+    const selected = state.selection || new Set();
+    const out = [];
+    for (const category of tum.categories.list()) if (selected.has("category:" + category.id)) out.push({type: "category", id: category.id, data: category});
+    for (const folder of tum.folders.list()) if (selected.has("folder:" + folder.id)) out.push({type: "folder", id: folder.id, data: folder});
+    for (const user of tum.unsorted.list()) if (selected.has("user:" + String(user.handle || "").toLowerCase())) out.push({type: "user", handle: user.handle, data: user});
+    return out;
+  }
+  let renderraf = 0, scheduledforce = false;
+  function schedulerender(force) {
+    scheduledforce = scheduledforce || force === true;
+    if (renderraf) return;
+    renderraf = requestAnimationFrame(() => {
+      renderraf = 0;
+      const nextforce = scheduledforce;
+      scheduledforce = false;
+      render(nextforce);
+    });
+  }
   function render(force) {
+    if (renderraf) {cancelAnimationFrame(renderraf); renderraf = 0; scheduledforce = false}
     if (!els.freeform) return;
     clearaffiliatetooltip();
     force = force === true;
@@ -656,6 +715,7 @@
       nodes.push(node);
     }
     syncfreeform(nodes);
+    syncselection();
     if (userhover && !userhover.row.isConnected) clearuserhover();
     for (const node of O.foldernodes) if (node._tumrestore) {restorefolderview(node, node._tumrestore); delete node._tumrestore}
     updatequickstate();
@@ -867,23 +927,27 @@
     `;
     node._tumremove = node.querySelector(".tumfolderremove");
     const list = node.querySelector(".tumfolderlist");
-    if (!members.length) {
+    if (f.collapsed) {
+      list.replaceChildren();
+    } else if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", allmembers.length ? T("folder.filter.empty") : T("folder.empty")));
     } else {
       const src = {type: "folder", id: f.id};
+      const foldercount = tum.folders.list().length;
+      const membercap = foldercount > 180 ? 12 : foldercount > 60 ? 24 : MEMBERCAP;
       const fill = shown => {
-        for (const m of members.slice(shown - MEMBERCAP < 0 ? 0 : shown - MEMBERCAP, shown)) list.appendChild(buildmemberrow(src, m));
+        for (const m of members.slice(shown - membercap < 0 ? 0 : shown - membercap, shown)) list.appendChild(buildmemberrow(src, m));
         if (members.length > shown) {
           const more = el("div", "tumfoldermore", T("folder.more", members.length - shown));
-          more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = shown + MEMBERCAP; showncap.set(f.id, next); fill(next)});
+          more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = shown + membercap; showncap.set(f.id, next); fill(next)});
           list.appendChild(more);
         }
       };
-      const cap = showncap.get(f.id) || MEMBERCAP;
+      const cap = Math.max(membercap, showncap.get(f.id) || 0);
       for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow(src, m));
       if (members.length > cap) {
         const more = el("div", "tumfoldermore", T("folder.more", members.length - cap));
-        more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = cap + MEMBERCAP; showncap.set(f.id, next); fill(next)});
+        more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = cap + membercap; showncap.set(f.id, next); fill(next)});
         list.appendChild(more);
       }
     }
@@ -932,6 +996,7 @@
         title: T("folder.openblocked.title", m.handle),
         body: T("folder.openblocked.body", m.handle),
         oklabel: T("folder.openprofile"),
+        positive: true,
         onok: go
       });
     } else go();
@@ -1091,13 +1156,21 @@
     item.textContent = text;
     row.appendChild(item);
   }
-  function appenduserhoverinfo(card, icon, text) {
+  function appenduserhoverinfo(card, iconpath, text) {
     const row = el("div", "tumuserhoverrow tumuserhoverinfo");
-    const iconbox = el("span", "tumuserhovericon", icon);
+    const iconbox = el("span", "tumuserhovericon");
+    iconbox.style.setProperty("--tumhovericon", 'url("' + svgasseturl(iconpath) + '")');
     const value = el("span", "tumuserhovertext");
     value.textContent = text;
     row.append(iconbox, value);
     card.appendChild(row);
+  }
+  function appenduserhoverrelation(row, value, labelkey) {
+    const count = el("span", "tumuserhovercount");
+    count.textContent = formatusercount(value);
+    const label = el("span", "tumuserhoverlabel");
+    label.textContent = T(labelkey);
+    row.append(count, label);
   }
   function clearuserhover() {
     if (!userhover) return;
@@ -1140,12 +1213,12 @@
       for (const text of postdetails) appenduserhovertext(postrow, text);
       card.appendChild(postrow);
     }
-    if (user.createdat !== undefined && user.createdat !== null && user.createdat !== "") appenduserhoverinfo(card, ICONS.calendar, T("profile.joined", formatuserdate(user.createdat)));
-    if (user.userid !== undefined && user.userid !== null && user.userid !== "") appenduserhoverinfo(card, ICONS.identity, T("profile.id", user.userid));
+    if (user.createdat !== undefined && user.createdat !== null && user.createdat !== "") appenduserhoverinfo(card, "assets/svgs/time/Calendar.svg", T("profile.joined", formatuserdate(user.createdat)));
+    if (user.userid !== undefined && user.userid !== null && user.userid !== "") appenduserhoverinfo(card, "assets/svgs/navigation/Hash.svg", T("profile.id", user.userid));
     if (typeof user.following === "number" || typeof user.followers === "number") {
       const row = el("div", "tumuserhoverrow tumuserhoverrelations");
-      if (typeof user.following === "number") appenduserhovertext(row, T("profile.following", formatusercount(user.following)));
-      if (typeof user.followers === "number") appenduserhovertext(row, T("profile.followers", formatusercount(user.followers)));
+      if (typeof user.following === "number") appenduserhoverrelation(row, user.following, "profile.following.label");
+      if (typeof user.followers === "number") appenduserhoverrelation(row, user.followers, "profile.followers.label");
       card.appendChild(row);
     }
     if (!card.children.length) return;
@@ -1184,11 +1257,9 @@
     if (!f) return;
     const now = !f.collapsed;
     tum.folders.update(id, {collapsed: now}, true);
+    render();
     const node = els.freeform.querySelector('.tumfolder[data-id="' + id + '"]');
-    if (node) {
-      node.classList.toggle("tumcollapsed", now);
-      if (!now) resolveoverlap(node);
-    }
+    if (!now && node) resolveoverlap(node);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -1614,38 +1685,55 @@
   }
 
   function resolveoverlap(active) {
-    if (!active || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
-    const GAP = 0;
-    const all = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")];
-    const queue = [active];
-    const movedset = new Set();
-    let guard = 0;
-    while (queue.length && guard++ < 400) {
-      const a = queue.shift();
-      const ar = rectof(a);
-      for (const b of all) {
-        if (b === a) continue;
-        const br = rectof(b);
-        const ox = Math.min(ar.left + ar.w, br.left + br.w) - Math.max(ar.left, br.left);
-        const oy = Math.min(ar.top + ar.h, br.top + br.h) - Math.max(ar.top, br.top);
-        if (ox <= 0 || oy <= 0) continue;
-        let nl = br.left, nt = br.top;
-        if (ox < oy) nl += (br.left + br.w / 2 >= ar.left + ar.w / 2 ? 1 : -1) * (ox + GAP);
-        else nt += (br.top + br.h / 2 >= ar.top + ar.h / 2 ? 1 : -1) * (oy + GAP);
-        setrect(b, nl, nt);
-        movedset.add(b);
-        queue.push(b);
-      }
+    if (!active || !active.classList.contains("tumfolder") || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
+    const folder = tum.folders.get(active.dataset.id);
+    if (!folder) return;
+    const current = rectof(active);
+    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(node => node !== active).map(rectof);
+    const category = folder.cat && tum.categories.get(folder.cat);
+    const bounds = category ? {
+      left: category.x + CATBORDER,
+      top: category.y + CATBORDER,
+      right: category.x + category.w - CATBORDER,
+      bottom: category.y + category.h - CATBORDER
+    } : null;
+    const legal = (left, top) => {
+      if (bounds && (left < bounds.left || top < bounds.top || left + current.w > bounds.right || top + current.h > bounds.bottom)) return false;
+      return !others.some(other => left < other.left + other.w && left + current.w > other.left && top < other.top + other.h && top + current.h > other.top);
+    };
+    const candidates = [{left: current.left, top: current.top}];
+    if (bounds) {
+      candidates.push(
+        {left: bounds.left, top: bounds.top},
+        {left: bounds.right - current.w, top: bounds.top},
+        {left: bounds.left, top: bounds.bottom - current.h},
+        {left: bounds.right - current.w, top: bounds.bottom - current.h}
+      );
     }
-    if (!movedset.size) return;
-    const fmoves = [], umoves = [];
-    for (const n of movedset) {
-      const l = parseFloat(n.style.left) || 0, t = parseFloat(n.style.top) || 0;
-      if (n.dataset.id) fmoves.push({id: n.dataset.id, x: l, y: t});
-      else if (n.dataset.handle) umoves.push({handle: n.dataset.handle, x: l, y: t});
+    for (const other of others) {
+      candidates.push(
+        {left: other.left - current.w, top: current.top}, {left: other.left + other.w, top: current.top},
+        {left: current.left, top: other.top - current.h}, {left: current.left, top: other.top + other.h},
+        {left: other.left - current.w, top: other.top - current.h}, {left: other.left + other.w, top: other.top - current.h},
+        {left: other.left - current.w, top: other.top + other.h}, {left: other.left + other.w, top: other.top + other.h}
+      );
     }
-    if (fmoves.length) tum.folders.bulkmove(fmoves);
-    if (umoves.length) tum.unsorted.bulkmove(umoves);
+    let best = null, distance = Infinity;
+    const seen = new Set();
+    for (const candidate of candidates) {
+      const key = candidate.left + ":" + candidate.top;
+      if (seen.has(key) || !legal(candidate.left, candidate.top)) continue;
+      seen.add(key);
+      const nextdistance = Math.hypot(candidate.left - current.left, candidate.top - current.top);
+      if (nextdistance < distance) {best = candidate; distance = nextdistance}
+    }
+    if (!best) {
+      tum.folders.update(folder.id, {collapsed: true}, true);
+      active.classList.add("tumcollapsed");
+      toast(T("toast.folder.expand.nospace"));
+      return;
+    }
+    if (best.left !== current.left || best.top !== current.top) tum.folders.move(folder.id, best.left, best.top);
   }
 
   function nooverlapadjustbox(left, top, w, h, exclude) {
@@ -1731,6 +1819,7 @@
       if (e.key === "Escape") {
         if (activefolderfilters) {closefolderfilters(); e.preventDefault(); return}
         if (O.ctxopen && O.ctxopen()) {O.closectx(); return}
+        if (state.selection && state.selection.size) {clearselection(); e.preventDefault(); return}
         closeoverlay();
         return;
       }
@@ -1827,7 +1916,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, applypan, fitall,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, clearselection, selecteditems, applypan, fitall,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen

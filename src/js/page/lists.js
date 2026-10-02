@@ -298,14 +298,14 @@
     } finally {listuploading = false}
   }
 
-  async function setlistprivacy(folder, private) {
+  async function setlistprivacy(folder, isprivate) {
     const listid = folderlistid(folder);
     if (!listid) throw new Error("missing list id");
     if (listuploading) throw new Error("busy");
     listuploading = true;
     try {
-      await listrequest(LISTEP.update, {listId: listid, isPrivate: !!private});
-      return {id: listid, private: !!private};
+      await listrequest(LISTEP.update, {listId: listid, isPrivate: !!isprivate});
+      return {id: listid, private: !!isprivate};
     } finally {listuploading = false}
   }
 
@@ -649,6 +649,7 @@
           title: T("action.confirm.title", cap(f.action), built.length),
           body: T("action.confirm.body", T("action.verb." + f.action), built.length),
           oklabel: T("action.confirm.ok", cap(f.action)),
+          positive: f.action === "follow",
           onok: run
         });
       } catch {run()}

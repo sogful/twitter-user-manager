@@ -70,7 +70,11 @@
     });
     input.click();
   }
-  const stamp = () => new Date().toISOString().slice(0, 10);
+  function stamp() {
+    const date = new Date();
+    const part = value => String(value).padStart(2, "0");
+    return part(date.getMonth() + 1) + "-" + part(date.getDate()) + "-" + String(date.getFullYear()).slice(-2);
+  }
   function exporticon(icon) {return (icon || "").replace(/^assets\/svgs/, "")}
   function importicon(icon) {return icon && icon.startsWith("/") ? "assets/svgs" + icon : icon}
   function compactavatar(value) {
@@ -103,22 +107,18 @@
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
       description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
       badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
-      collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y,
+      collapsed: !!folder.collapsed, cat: folder.cat || null,
       twitterlist: folder.twitterlist || null,
       members: (folder.members || []).map(exportmember)
     };
   }
 
-  function exportcategory(category) {
-    return {id: category.id, name: category.name, x: category.x, y: category.y, w: category.w, h: category.h};
-  }
+  function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h}}
 
-  function exportloosemember(member) {
-    return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false, x: member.x, y: member.y});
-  }
+  function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false})}
 
   function exportdata() {
-    downloadjson({version: 2, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "＠" + ownhandle() + ".json");
+    downloadjson({version: 2, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
@@ -150,8 +150,8 @@
     tum.folders.import(snapshot.folders, true);
     tum.unsorted.import(snapshot.unsorted, true);
     state.open = true;
+    O.clearselection();
     render();
-    setTimeout(O.fitall, 0);
   }
 
   function importprofile(data, replace) {
@@ -160,15 +160,37 @@
     const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object") : [];
     const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle) : [];
     const categoryids = new Set(replace ? [] : tum.categories.list().map(category => category.id));
-    const categorymap = new Map();
+    const categorymap = new Map(), categorylayouts = new Map(), categoryslots = new Map(), categorysourceids = new Map();
     const categories = sourcecategories.map((category, index) => {
       const id = category.id && !categoryids.has(category.id) ? category.id : "cimport" + Date.now().toString(36) + index.toString(36);
       categoryids.add(id);
       categorymap.set(category.id, id);
-      return Object.assign({}, category, {id});
+      const hasposition = typeof category.x === "number" && typeof category.y === "number";
+      const x = hasposition ? category.x : 60 + (index % 3) * 540;
+      const y = hasposition ? category.y : 80 + Math.floor(index / 3) * 920;
+      const layout = Object.assign({}, category, {id, x, y, w: category.w || 480, h: category.h || 360});
+      categorylayouts.set(category.id, layout);
+      categorysourceids.set(id, category.id);
+      return layout;
     });
-    const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, importposition(folder, index), {cat: categorymap.get(folder.cat) || null}));
-    const unsorted = sourceunsorted.map((member, index) => Object.assign({}, member, importposition(member, index), {cat: categorymap.get(member.cat) || null}));
+    for (const category of categories) {
+      const count = sourcefolders.filter(folder => folder.cat === categorysourceids.get(category.id)).length;
+      const columns = Math.max(1, Math.floor((category.w - 4) / 200));
+      category.h = Math.max(category.h, 4 + Math.ceil(count / columns) * 288);
+    }
+    const autolayout = (item, index, loose) => {
+      if (typeof item.x === "number" && typeof item.y === "number") return importposition(item, index);
+      const category = categorylayouts.get(item.cat);
+      if (!category) return importposition(item, index);
+      const slot = categoryslots.get(item.cat) || 0;
+      categoryslots.set(item.cat, slot + 1);
+      const columns = Math.max(1, Math.floor((category.w - 4) / 200));
+      const x = category.x + 2 + (slot % columns) * 200;
+      const y = category.y + 2 + Math.floor(slot / columns) * (loose ? 62 : 288);
+      return loose ? {x: x + 75, y: y + 29} : {x, y};
+    };
+    const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, autolayout(folder, index, false), {cat: categorymap.get(folder.cat) || null}));
+    const unsorted = sourceunsorted.map((member, index) => Object.assign({}, member, autolayout(member, index, true), {cat: categorymap.get(member.cat) || null}));
     if (!replace) {
       const left = Math.min(0, ...folders.map(folder => folder.x), ...categories.map(category => category.x || 0), ...unsorted.map(member => member.x));
       const shift = rightedge() - left + 80;
@@ -180,8 +202,8 @@
     tum.folders.import(folders.map(folder => Object.assign({}, folder, {icon: importicon(folder.icon)})), replace);
     tum.unsorted.import(unsorted, replace);
     state.open = true;
+    O.clearselection();
     render();
-    setTimeout(O.fitall, 0);
     toast(T("toast.imported.all", folders.length, unsorted.length), {
       label: T("action.undo"),
       onclick: () => restoreprofile(previous)
@@ -206,8 +228,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function exportfolder(f) {
-    downloadjson({folder: exportfolderdata(f)},
-      fnsafe(f.name) + ".json");
+    downloadjson({folder: exportfolderdata(f)}, "''" + fnsafe(f.name) + "'' " + stamp() + ".json");
     toast(T("toast.exported.folder", f.name));
   }
   const shareendpoint = "https://list.coolsite.cv/api/lists";
@@ -287,6 +308,7 @@
         title: T("confirm.import.title", f.action),
         body: T("confirm.import.body", f.action, f.action, members.length),
         oklabel: T("action.confirm.ok", cap),
+        positive: f.action === "follow",
         onok: () => {doimport(); tum.actions.enqueue(f.action, members.map(m => m.handle))}
       });
     } else doimport();
@@ -318,6 +340,7 @@
         title: T("confirm.action.folder.title", cap, members.length),
         body: T("confirm.action.folder.body", T("action.verb." + action), T("action.verb." + action), members.length),
         oklabel: T("action.confirm.ok", cap),
+        positive: action === "follow",
         onok: () => {tum.actions.enqueue(action, members.map(m => m.handle)); state.open = true; render()}
       });
       return true;
@@ -550,6 +573,7 @@
     O.els.confirmtitle.textContent = opts.title || T("confirm.default.title");
     O.els.confirmbody.textContent = opts.body || "";
     O.els.confirmok.textContent = opts.oklabel || T("confirm.default.ok");
+    O.els.confirmok.classList.toggle("tumconfirmpositive", opts.positive === true);
     O.els.confirmsecondary.textContent = opts.altlabel || "";
     O.els.confirmsecondary.hidden = !state.confirmalternate;
     O.els.confirmcancel.textContent = opts.cancellabel || T("pick.cancel");
@@ -588,6 +612,7 @@
       title: T("confirm.twlist.title", folder.name || T("folder.unnamed")),
       body: T("confirm.twlist.body", folder.name || T("folder.unnamed"), members.length),
       oklabel: T("confirm.twlist.ok"),
+      positive: true,
       onok: async () => {
         if (!tum.lists || typeof tum.lists.uploadfolder !== "function") {toast(T("toast.twlist.failed")); return}
         try {

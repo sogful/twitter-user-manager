@@ -101,6 +101,7 @@
           title: T("action.confirm.single.title", label, handle),
           body: T("action.confirm.single.body", T("action.verb." + action), handle),
           oklabel: label,
+          positive: action === "follow",
           onok: () => finish(true),
           oncancel: () => finish(false)
         });
