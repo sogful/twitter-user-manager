@@ -359,6 +359,7 @@
   "toast.batch.done.skipped": "Batch done: %s ok, %s skipped",
   "toast.copied": "Copied %s",
   "toast.destroyer.unavailable": "Not available in the userscript, sorrgy...",
+  "toast.exported.category": "Exported category %s",
   "toast.exported.folder": "Exported folder %s",
   "toast.exported.folders": "Exported %s folders",
   "toast.folder.merged": "Merged %s members into \"%s\"",

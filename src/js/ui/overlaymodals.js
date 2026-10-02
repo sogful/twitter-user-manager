@@ -36,7 +36,7 @@
 
   // ytdlp-style
   const FWMAP = {"<": "＜", ">": "＞", ":": "：", "\"": "＂", "/": "／", "\\": "＼", "|": "｜", "?": "？", "*": "＊"};
-  const fnsafe = s => {let o = ""; for (const ch of (s || "")) o += (FWMAP[ch] || ch); return o.replace(/[. ]+$/, "").trim() || "folder"};
+  const fnsafe = (s, fallback = "folder") => {let o = ""; for (const ch of (s || "")) o += (FWMAP[ch] || ch); return o.replace(/[. ]+$/, "").trim() || fallback};
   function ownhandle() {
     const a = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
     let h = a && (a.getAttribute("href") || "").replace(/^\//, "").replace(/\/$/, "");
@@ -75,6 +75,7 @@
     const part = value => String(value).padStart(2, "0");
     return part(date.getMonth() + 1) + "-" + part(date.getDate()) + "-" + String(date.getFullYear()).slice(-2);
   }
+  function exportfilename(type, title, fallback) {return type + " " + stamp() + " (＂" + fnsafe(title, fallback) + "＂).json"}
   function exporticon(icon) {return (icon || "").replace(/^assets\/svgs/, "")}
   function importicon(icon) {return icon && icon.startsWith("/") ? "assets/svgs" + icon : icon}
   function compactavatar(value) {
@@ -114,6 +115,14 @@
   }
 
   function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h}}
+
+  function exportcategorydata(category) {
+    return {
+      category: exportcategory(category),
+      folders: tum.folders.list().filter(folder => folder.cat === category.id).map(exportfolderdata),
+      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(exportloosemember)
+    };
+  }
 
   function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false})}
 
@@ -212,8 +221,13 @@
 
   function applyimport(data) {
     if (data && data.folder && !Array.isArray(data.folders)) {finishfolderimport(data.folder); return}
+    if (data && data.category && !Array.isArray(data.categories)) {
+      data = Object.assign({}, data, {categories: [data.category]});
+    }
     const folders = Array.isArray(data && data.folders) ? data.folders : [];
-    if (!folders.length) {toast(T("toast.import.failed")); return}
+    const categories = Array.isArray(data && data.categories) ? data.categories : [];
+    const unsorted = Array.isArray(data && data.unsorted) ? data.unsorted : [];
+    if (!folders.length && !categories.length && !unsorted.length) {toast(T("toast.import.failed")); return}
     openconfirm({
       title: T("confirm.importprofile.title"),
       body: T("confirm.importprofile.body"),
@@ -228,8 +242,12 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function exportfolder(f) {
-    downloadjson({folder: exportfolderdata(f)}, "''" + fnsafe(f.name) + "'' " + stamp() + ".json");
+    downloadjson({folder: exportfolderdata(f)}, exportfilename("tumfolder", f.name, "folder"));
     toast(T("toast.exported.folder", f.name));
+  }
+  function exportcategoryfile(category) {
+    downloadjson(exportcategorydata(category), exportfilename("tumcategory", category.name, "category"));
+    toast(T("toast.exported.category", category.name));
   }
   const shareendpoint = "https://list.coolsite.cv/api/lists";
   const validshareid = id => /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(id || "");
@@ -727,7 +745,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, exportcategoryfile, sharefolder, unsharefolder, openconfirm,
     shareurl, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     openmergepicker, closemergepicker,

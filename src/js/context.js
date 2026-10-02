@@ -293,6 +293,7 @@
       items = [
         {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(id)},
         {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(category))},
+        {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportcategoryfile(category)},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmcategorydelete(category)},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})},
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal({cat: id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}
