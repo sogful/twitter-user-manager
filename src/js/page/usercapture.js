@@ -174,38 +174,79 @@
   const origfetch = window.fetch;
   const LISTMUTATIONS = {
     CreateList: "UQRa0jJ9doxGEIQRea1Y0w",
-    ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q"
+    ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q",
+    ListRemoveMember: "B5tMzrMYuFHJex_4EXFTSw",
+    UpdateList: "CToNDwmbHSq5tqV0ExBFeg",
+    EditListBanner: "CChy7omMr21Rx5xgqzTDeA"
   };
+
+  function listheaders(ct0, type) {
+    const headers = {
+      authorization: bearer || PUBBEARER,
+      "x-csrf-token": ct0,
+      "x-twitter-auth-type": "OAuth2Session",
+      "x-twitter-active-user": "yes",
+      "x-twitter-client-language": "en"
+    };
+    if (type) headers["content-type"] = type;
+    return headers;
+  }
+
+  async function uploadlistbanner(encoded, ct0) {
+    if (typeof encoded !== "string" || !/^[A-Za-z0-9+/=]+$/.test(encoded)) throw new Error("invalid banner");
+    const total = Math.floor(encoded.replace(/=+$/, "").length * 3 / 4);
+    if (!total || total > 5 * 1024 * 1024) throw new Error("invalid banner size");
+    const base = "https://upload.twitter.com/i/media/upload.json";
+    const initurl = base + "?" + new URLSearchParams({command: "INIT", media_type: "image/png", media_category: "tweet_image", total_bytes: String(total)});
+    const init = await origfetch(initurl, {method: "POST", credentials: "include", headers: listheaders(ct0)});
+    const initdata = await init.json();
+    const mediaid = initdata && initdata.media_id_string;
+    if (!init.ok || !mediaid) throw new Error("banner init failed");
+
+    const appendurl = base + "?" + new URLSearchParams({command: "APPEND", media_id: mediaid, segment_index: "0"});
+    const append = await origfetch(appendurl, {
+      method: "POST",
+      credentials: "include",
+      headers: listheaders(ct0, "application/x-www-form-urlencoded"),
+      body: new URLSearchParams({media_data: encoded})
+    });
+    if (!append.ok) throw new Error("banner append failed");
+
+    const finalizeurl = base + "?" + new URLSearchParams({command: "FINALIZE", media_id: mediaid});
+    const finalize = await origfetch(finalizeurl, {method: "POST", credentials: "include", headers: listheaders(ct0)});
+    const finalizedata = await finalize.json();
+    if (!finalize.ok || finalizedata && finalizedata.error) throw new Error("banner finalize failed");
+    return mediaid;
+  }
+
   window.addEventListener("message", async event => {
     const request = event.data;
     if (event.source !== window || !request || request.__tumlistrequest !== 1) return;
     const queryId = LISTMUTATIONS[request.operation];
-    if (!queryId || !request.id || !request.variables || typeof request.variables !== "object") return;
+    const banner = request.operation === "UploadListBanner";
+    if ((!queryId && !banner) || !request.id || !request.variables || typeof request.variables !== "object") return;
     let response = null, data = null;
+    let failure = "";
     try {
       const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-      response = await origfetch("/i/api/graphql/" + queryId + "/" + request.operation, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          authorization: bearer || PUBBEARER,
-          "content-type": "application/json",
-          "x-csrf-token": ct0,
-          "x-twitter-auth-type": "OAuth2Session",
-          "x-twitter-active-user": "yes",
-          "x-twitter-client-language": "en"
-        },
-        body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId})
-      });
-      try {data = await response.json()} catch {}
-    } catch {}
+      if (banner) data = {mediaId: await uploadlistbanner(request.variables.data, ct0)};
+      else {
+        response = await origfetch("/i/api/graphql/" + queryId + "/" + request.operation, {
+          method: "POST",
+          credentials: "include",
+          headers: listheaders(ct0, "application/json"),
+          body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId})
+        });
+        try {data = await response.json()} catch {}
+      }
+    } catch (error) {failure = error && error.message || "request failed"}
     const error = data && data.errors && data.errors[0] && data.errors[0].message;
     window.postMessage({
       __tumlistresponse: 1,
       id: request.id,
-      ok: !!(response && response.ok && data && data.data),
+      ok: banner ? !!(data && data.mediaId) : !!(response && response.ok && data && data.data),
       data,
-      error: error || (!response ? "network" : "request failed")
+      error: error || failure || (!response ? "network" : "request failed")
     }, location.origin);
   });
   window.fetch = function (...args) {

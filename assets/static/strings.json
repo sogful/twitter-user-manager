@@ -165,7 +165,11 @@
   "menu.share": "Publish",
   "menu.sharedlist": "Shared list",
   "menu.syncshare": "Sync list",
-  "menu.uploadtwlist": "Upload to Twitter list",
+  "menu.synctwitter": "Sync list",
+  "menu.twitterlist": "Twitter list",
+  "menu.uploadtwlist": "Create Twitter list",
+  "menu.publishtwitter": "Publish",
+  "menu.unpublishtwitter": "Unpublish",
   "menu.unpublish": "Unpublish",
 
   "overlay.close": "Close the overlay",
@@ -349,11 +353,20 @@
   "toast.share.syncfailed": "Couldn't update shared list",
   "toast.share.unpublished": "Shared list unpublished",
   "toast.share.unpublishfailed": "Couldn't unpublish shared list",
+  "toast.twlist.banner": "Uploading Twitter list banner",
   "toast.twlist.busy": "A Twitter list upload is already running.",
   "toast.twlist.done": "Created a private list \"%s\" with %s members",
+  "toast.twlist.donebannerfailed": "Created a private list \"%s\" with %s members, but couldn't upload its banner",
   "toast.twlist.empty": "Hey, this folder has no users to upload!",
   "toast.twlist.failed": "Couldn't upload the Twitter list",
+  "toast.twlist.privacyfailed": "Couldn't change Twitter list visibility",
   "toast.twlist.progress": "Adding %s of %s users to the Twitter list",
+  "toast.twlist.published": "Twitter list is public",
+  "toast.twlist.syncfailed": "Couldn't sync the Twitter list",
+  "toast.twlist.synced": "Twitter list synced: %s added, %s removed",
+  "toast.twlist.syncprogress": "Syncing Twitter list: %s of %s users",
+  "toast.twlist.unpublished": "Twitter list is private",
+  "toast.twlist.visibilityrestored": "Twitter list visibility restored",
 
   "user.unfindable": "can't find"
 }

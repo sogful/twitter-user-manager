@@ -14,6 +14,7 @@
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
     head.addEventListener("pointerdown", e => {
+      if (state.drag || state.gesture || tracking) return;
       if (e.button === 1) {O.startcamerapan(e); return}
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfolderremove")) return;
@@ -30,8 +31,10 @@
         pointerid: e.pointerId,
         dragging: false
       };
+      state.gesture = {kind: "folder", pointerid: e.pointerId};
       const move = ev => {
         if (!tracking) return;
+        if (ev.pointerId !== tracking.pointerid) return;
         const dx = ev.clientX - tracking.startx, dy = ev.clientY - tracking.starty;
         if (!tracking.dragging) {
           if (Math.hypot(dx, dy) < THRESHOLD) return;
@@ -56,22 +59,29 @@
         O.categoryhover(overdel ? null : c.x, overdel ? null : c.y);
       };
       const up = ev => {
-        if (!tracking || ev.button !== 0) return;
-        if (ev.type === "pointerup" && ev.pointerId !== tracking.pointerid) return;
+        if (!tracking) return;
+        if (ev.type === "pointerup" && (ev.button !== 0 || ev.pointerId !== tracking.pointerid)) return;
+        if (ev.type === "pointercancel" && ev.pointerId !== tracking.pointerid) return;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         document.removeEventListener("mouseup", up);
+        document.removeEventListener("pointercancel", up);
         O.root.classList.remove("tumfolderdragging");
         node.classList.remove("tumdragactive", "tumoverremove");
         O.categoryhover(null);
         O.els.quickdelete.classList.remove("tumover");
         O.els.quickdelete.classList.add("tumdisabled"); 
-        if (tracking && tracking.dragging && rectcontains(tracking.deleterect, ev.clientX, ev.clientY)) {
+        if (state.gesture && state.gesture.pointerid === tracking.pointerid) state.gesture = null;
+        if (ev.type === "pointercancel") {
+          const saved = tum.folders.get(f.id) || f;
+          node.style.left = (saved.x || 0) + "px";
+          node.style.top = (saved.y || 0) + "px";
+        } else if (tracking.dragging && rectcontains(tracking.deleterect, ev.clientX, ev.clientY)) {
           const s = tum.folders.get(f.id) || f;
           node.style.left = (s.x || 0) + "px";
           node.style.top = (s.y || 0) + "px";
           O.confirmfolderdelete(f);
-        } else if (tracking && tracking.dragging) {
+        } else if (tracking.dragging) {
           const px = (ev.clientX - tracking.offsetx - pan.x) / z;
           const py = (ev.clientY - tracking.offsety - pan.y) / z;
           const w = tracking.width, h = tracking.height;
@@ -82,7 +92,7 @@
           node.style.top = Math.round(a.top) + "px";
 
           tum.folders.update(f.id, {x: Math.round(a.left), y: Math.round(a.top), cat: c.cat}, true);
-        } else if (tracking) {
+        } else {
           O.toggledcollapse(f.id);
         }
         tracking = null;
@@ -90,16 +100,22 @@
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
       document.addEventListener("mouseup", up);
+      document.addEventListener("pointercancel", up);
     });
   }
 
   function attachmemberdrag(row, source, m) {
     row.addEventListener("pointerdown", e => {
+      if (state.drag || state.gesture) return;
+      if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge, .tumaffbadge")) return;
       const startx = e.clientX, starty = e.clientY;
+      const pointerid = e.pointerId;
+      state.gesture = {kind: "member", pointerid};
       let tracking = true, dragging = false;
       const move = ev => {
         if (!tracking) return;
+        if (ev.pointerId !== pointerid) return;
         if (!dragging) {
           if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < userthreshold) return;
           dragging = true;
@@ -110,10 +126,15 @@
         updatedrag(ev.clientX, ev.clientY);
       };
       const up = ev => {
+        if (ev.type === "pointerup" && ev.pointerId !== pointerid) return;
+        if (ev.type === "pointercancel" && ev.pointerId !== pointerid) return;
         tracking = false;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
-        if (dragging) {
+        document.removeEventListener("pointercancel", up);
+        if (state.gesture && state.gesture.pointerid === pointerid) state.gesture = null;
+        if (dragging && ev.type === "pointercancel") O.canceldrag();
+        else if (dragging) {
           enddrag(ev.clientX, ev.clientY);
           ev.preventDefault();
           ev.stopPropagation();
@@ -121,6 +142,7 @@
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
+      document.addEventListener("pointercancel", up);
     });
   }
 
@@ -488,6 +510,7 @@
     for (const b of O.els.actionbtns) b.classList.remove("tumover");
     O.root.classList.remove("tumdragging");
     state.drag = null;
+    state.gesture = null;
     hidebackdrop();
     render();
   }

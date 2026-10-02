@@ -72,7 +72,7 @@
   const campos = tum.storage.create("tum.campos");
   let campostimer = 0;
   function savecampos() {clearTimeout(campostimer); campostimer = setTimeout(() => {try {campos.set({x: pan.x, y: pan.y})} catch {}}, 400)}
-  let state = {drag: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null, confirmalternate: null};
+  let state = {drag: null, gesture: null, open: false, modalopen: false, reasonopen: false, confirmopen: false, editing: null, pendingcreate: null, reasontarget: null, reasonmode: "edit", confirmtarget: null, confirmcancel: null, confirmalternate: null};
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -219,7 +219,7 @@
     scheduleminimap();
     if (els.gridlayer) {
       els.gridlayer.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
-      els.gridlayer.style.backgroundSize = `${window.innerWidth * zoom}px ${window.innerHeight * zoom}px`;
+      els.gridlayer.style.backgroundSize = `${200 * zoom}px ${288 * zoom}px`;
     }
     savecampos();
   }
@@ -251,7 +251,7 @@
 
   function updategrid() {
     if (!els.gridlayer) return;
-    const w = window.innerWidth, h = window.innerHeight, line = "rgba(255,255,255,0.16)";
+    const w = 200, h = 288, line = "rgba(255,255,255,0.11)";
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><path d='M${w - 0.5} 0V${h}M0 ${h - 0.5}H${w}' fill='none' stroke='${line}' stroke-width='1' stroke-dasharray='7 7'/></svg>`;
     els.gridlayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
     if (activefolderfilters) positionfolderfilters(folderfilternode(activefolderfilters));
@@ -443,7 +443,7 @@
       if (activefolderfilters && !e.target.closest(".tumfolderfilters, .tumfoldersort")) {closefolderfilters(); dismiss = true}
       const editing = root.querySelector(".tumcategorytitle.tumediting");
       if (editing && !e.target.closest(".tumcategorytitle")) {editing.blur(); dismiss = true}
-      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu")) {O.closectx(); dismiss = true}
+      if (O.ctxopen && O.ctxopen() && !e.target.closest(".tumcontextmenu, .tumctxpanel")) {O.closectx(); dismiss = true}
       O._ctxdismiss = dismiss;
     }, true);
     els.modalclose.addEventListener("click", O.closemodal);
@@ -478,8 +478,8 @@
       if (fn) fn();
     });
 
-    els.quickadd.addEventListener("click", () => {if (!state.drag) O.opencreatemodal()});
-    els.toolclose.addEventListener("click", () => {if (!state.drag) closeoverlay()});
+    els.quickadd.addEventListener("click", () => {if (!state.drag && !state.gesture) O.opencreatemodal()});
+    els.toolclose.addEventListener("click", () => {if (!state.drag && !state.gesture) closeoverlay()});
     els.toolexport.addEventListener("click", O.exportdata);
     els.toolimport.addEventListener("click", O.importdata);
     els.toolfit.addEventListener("click", fitall);
@@ -550,7 +550,7 @@
     render();
   }
   function toggleoverlay() {
-    if (state.drag) return;
+    if (state.drag || state.gesture) return;
     if (state.open || root.classList.contains("tumactive")) closeoverlay();
     else openoverlay();
   }
@@ -1217,12 +1217,14 @@
 
   function attachcategorydrag(node, c) {
     node.addEventListener("pointerdown", e => {
+      if (state.drag || state.gesture) return;
       if (e.button === 1) {startcamerapan(e); return}
       if (e.button !== 0) return;
       if (e.target.closest(".tumcategorytitle.tumediting")) return;
       if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
       const ontitle = !!e.target.closest(".tumcategorytitle");
       e.preventDefault();
+      state.gesture = {kind: "category", pointerid: e.pointerId};
       const startx = e.clientX, starty = e.clientY;
       const ox = c.x || 0, oy = c.y || 0;
       const members = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")]
@@ -1231,6 +1233,7 @@
       let dragging = false;
       let placed = {left: ox, top: oy};
       const move = ev => {
+        if (!state.gesture || ev.pointerId !== state.gesture.pointerid) return;
         const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
         if (!dragging) {
           if (Math.hypot(ev.clientX - startx, ev.clientY - starty) < 6) return;
@@ -1245,10 +1248,14 @@
         for (const m of members) {m.n.style.left = (m.left + actualx) + "px"; m.n.style.top = (m.top + actualy) + "px"}
       };
       const up = ev => {
+        if (!state.gesture || (ev.type === "pointerup" || ev.type === "pointercancel") && ev.pointerId !== state.gesture.pointerid) return;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
+        document.removeEventListener("pointercancel", up);
         root.classList.remove("tumfolderdragging");
+        state.gesture = null;
 
+        if (ev.type === "pointercancel") return;
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
         placed = nooverlapcategorybox(
           ox + (ev.clientX - startx) / zoom,
@@ -1270,6 +1277,7 @@
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
+      document.addEventListener("pointercancel", up);
     });
   }
 
@@ -1278,10 +1286,12 @@
       const right = handle.classList.contains("tumcatresizer") || handle.classList.contains("tumcatresizebr");
       const bottom = handle.classList.contains("tumcatresizeb") || handle.classList.contains("tumcatresizebr");
       handle.addEventListener("pointerdown", e => {
+        if (state.drag || state.gesture) return;
         if (e.button !== 0) return;
         
         e.preventDefault();
         e.stopPropagation();
+        state.gesture = {kind: "resize", pointerid: e.pointerId};
 
         const startx = e.clientX, starty = e.clientY;
         const ow = c.w || 480, oh = c.h || 360;
@@ -1311,16 +1321,25 @@
           node.style.height = h + "px";
           return {w, h};
         };
-        const move = ev => {sizing = true; sizeit(ev)};
+        const move = ev => {
+          if (!state.gesture || ev.pointerId !== state.gesture.pointerid) return;
+          sizing = true;
+          sizeit(ev);
+        };
         const up = ev => {
+          if (!state.gesture || (ev.type === "pointerup" || ev.type === "pointercancel") && ev.pointerId !== state.gesture.pointerid) return;
           document.removeEventListener("pointermove", move);
           document.removeEventListener("pointerup", up);
+          document.removeEventListener("pointercancel", up);
+          state.gesture = null;
+          if (ev.type === "pointercancel") return;
           if (!sizing) return;
           const s = sizeit(ev);
           tum.categories.update(c.id, {w: s.w, h: s.h}, true);
         };
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
+        document.addEventListener("pointercancel", up);
       });
     }
   }
@@ -1706,7 +1725,7 @@
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
-    if (!state.drag) {
+    if (!state.drag && !state.gesture) {
       if (e.key === "Escape") {
         if (activefolderfilters) {closefolderfilters(); e.preventDefault(); return}
         if (O.ctxopen && O.ctxopen()) {O.closectx(); return}
@@ -1717,6 +1736,7 @@
       if (root.classList.contains("tumactive") && SCROLLKEYS.has(e.key) && !typing) e.preventDefault();
       return;
     }
+    if (state.gesture) {e.preventDefault(); return}
     if (e.key === "Escape") {O.canceldrag(); e.preventDefault(); return}
     const folders = [...els.freeform.querySelectorAll(".tumfolder")];
     if (/^[1-9]$/.test(e.key)) {
@@ -1817,8 +1837,7 @@
     updatedrag: (x, y) => O.updatedrag(x, y),
     enddrag: (x, y) => O.enddrag(x, y),
     canceldrag: () => O.canceldrag(),
-    toast,
-    notifyfolderadd,
+    toast, notifyfolderadd,
     open: () => openoverlay(),
     canvascenter: () => ({x: Math.round((window.innerWidth / 2 - pan.x) / zoom), y: Math.round((window.innerHeight / 2 - pan.y) / zoom)}),
     opencreatemodal: opts => O.opencreatemodal(opts),

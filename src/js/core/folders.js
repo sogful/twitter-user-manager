@@ -45,6 +45,11 @@
       collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
       cat: partial.cat || null,
       description: (partial.description || "").slice(0, 200),
+      twitterlist: (() => {
+        const list = partial.twitterlist;
+        const id = typeof list === "string" ? list : list && list.id;
+        return /^\d+$/.test(String(id || "")) ? {id: String(id), private: !(list && list.private === false)} : null;
+      })(),
       pos: "px",
       x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
       y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,

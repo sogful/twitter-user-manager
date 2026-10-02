@@ -417,8 +417,14 @@
 
   let tracking = null; // {startx, starty, user, dragging}
 
+  function overlayactive() {
+    const root = tum._ov && tum._ov.root;
+    return !!(root && root.classList.contains("tumactive"));
+  }
+
   function onpointerdown(e) {
     if (e.button !== undefined && e.button !== 0) return;
+    if (overlayactive()) return;
     if (e.target.closest && e.target.closest(".tumpagefolderdot, .tumpagereasonbadge")) return;
     let mapav = null;
     if (!isdraghandle(e.target)) {
@@ -471,6 +477,11 @@
 
   function onpointermove(e) {
     if (!tracking) return;
+    if (overlayactive() && !tracking.dragging) {
+      document.body.style.userSelect = "";
+      tracking = null;
+      return;
+    }
     const dx = e.clientX - tracking.startx, dy = e.clientY - tracking.starty;
     if (!tracking.dragging) {
       if (Math.hypot(dx, dy) < userthreshold) return;

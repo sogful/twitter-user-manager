@@ -20,8 +20,8 @@ to install on firefox, use firefox nightly/dev. if those don't work, then the fi
   <li>hold <code>Ctrl</code> to hide all elements from the extension</li>
   <sup>(so in case of ctrl+prtsc press the keys at the same time for a screenshot with additional info, and hold ctrl first for a clean one! is that neat? no? ok sorry)</sup>
   <li>while dragging someone: <code>1</code>-<code>9</code> to quick drop into one of the closest 9 folders,  <code>Esc</code> to cancel</li>
-  <li>while dragging someone: arrow keys move the pill; hold <code>Shift</code> for one-pixel adjustments</li>
-  <li>inside the overlay: <code>Ctrl</code> + mouse wheel zooms the canvas, and middle-mouse dragging pans it</li>
+  <li>while dragging someone: arrow keys to move the pill, hold <code>Shift</code> for one pixel adjustments</li>
+  <li>inside the overlay: <code>Ctrl</code> + mouse wheel zooms the canvas, and middle mouse dragging pans it</li>
   <li><code>Esc</code> closes an open context menu, then the overlay</li>
   <li>right click a folder, user, category or empty canvas for its menu</li>
   

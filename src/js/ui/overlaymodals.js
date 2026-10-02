@@ -2,7 +2,7 @@
   "use strict";
 
   const O = window.tum._ov;
-  const {el, escapehtml, linkify, iconhtml, avatarurl, fullavatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
+  const {el, escapehtml, linkify, iconhtml, avatarurl, ICONS, state, render, showbackdrop, hidebackdrop, closeoverlay, toast, restorehidden, removefromsource} = O;
   const T = (...a) => tum.strings.t(...a);
   const actionlabel = action => T("action.label." + action);
 
@@ -98,15 +98,13 @@
     return out;
   }
 
-  function isunfindable(member) {
-    return !!member && (member.unfindable === true || (!member.userid && !member.pending));
-  }
   function exportfolderdata(folder) {
     return {
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
       description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
       badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
       collapsed: !!folder.collapsed, cat: folder.cat || null, x: folder.x, y: folder.y,
+      twitterlist: folder.twitterlist || null,
       members: (folder.members || []).map(exportmember)
     };
   }
@@ -596,6 +594,7 @@
           await tum.lists.uploadfolder(folder, {
             onstart: () => closeoverlay(),
             oncreated: result => {
+              tum.folders.update(folder.id, {twitterlist: {id: result.id, private: true}});
               try {
                 history.pushState({}, "", "/i/lists/" + encodeURIComponent(result.id));
                 window.dispatchEvent(new PopStateEvent("popstate"));
@@ -622,181 +621,8 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let ctxel = null;
-  function ensurectx() {
-    if (ctxel) return ctxel;
-    ctxel = el("div", "tumcontextmenu");
-    O.root.appendChild(ctxel);
-    return ctxel;
-  }
-  function ctxopen() {return !!(ctxel && ctxel.classList.contains("tumshow"))}
-  function closectx() {if (ctxel) ctxel.classList.remove("tumshow")}
-
-  function ctxrow(item) {
-    if (item.type === "section") {
-      const section = el("div", "tumctxsection");
-      const label = el("div", "tumctxsectionlabel");
-      label.textContent = item.label;
-      const link = el("a", "tumctxlink");
-      link.href = item.href;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = item.href;
-      link.addEventListener("click", e => e.stopPropagation());
-      section.append(label, link);
-      return section;
-    }
-    const r = el("button", "tumctxrow" + (item.danger ? " tumctxdanger" : ""));
-    r.innerHTML = `<span class="tumctxicon">${item.icon || ""}</span><span class="tumctxlabel">${escapehtml(item.label)}</span>`;
-    r.addEventListener("click", e => {e.stopPropagation(); closectx(); if (item.onclick) item.onclick()});
-    return r;
-  }
-  function openctx(x, y, items) {
-    const menu = ensurectx();
-    menu.innerHTML = "";
-    for (const it of items) menu.appendChild(ctxrow(it));
-    menu.style.left = "0px";
-    menu.style.top = "0px";
-    menu.classList.add("tumshow");
-    const r = menu.getBoundingClientRect();
-    menu.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + "px";
-    menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + "px";
-  }
-
-  function resolveuser(node) {
-    if (node.classList.contains("tumloosechip")) {
-      const u = tum.unsorted.list().find(x => x.handle === node.dataset.handle);
-      return u ? {source: {type: "unsorted"}, m: u} : null;
-    }
-    const fnode = node.closest(".tumfolder");
-    const f = fnode && tum.folders.get(fnode.dataset.id);
-    const m = f && (f.members || []).find(x => x.handle === node.dataset.handle);
-    return m ? {source: {type: "folder", id: f.id}, m} : null;
-  }
-
-  function newuser(target) {
-    if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
-    else toast(T("picker.addsoon"));
-  }
-  function replaceuser(info) {
-    const old = info.m;
-    const target = info.source.type === "folder" ? {type: "folder", id: info.source.id, replace: info} : {type: "canvas", cx: old.x, cy: old.y, cat: old.cat, replace: info};
-    newuser(target);
-  }
-  function openavatar(user) {
-    const url = fullavatarurl(user.avatarurl);
-    if (url) window.open(url, "_blank", "noopener");
-  }
-  function uniquerefreshmembers(members) {
-    const unique = new Map();
-    for (const member of members || []) {
-      if (!member || (!member.handle && !member.userid)) continue;
-      const key = member.userid ? "id:" + String(member.userid) : "handle:" + String(member.handle || "").toLowerCase();
-      if (!unique.has(key)) unique.set(key, {handle: member.handle, userid: member.userid || null});
-    }
-    return [...unique.values()];
-  }
-  function refreshdata(members) {
-    const users = uniquerefreshmembers(members);
-    if (!users.length) {toast(T("toast.refresh.empty")); return}
-    const start = () => {
-      if (!tum.accountdata || typeof tum.accountdata.refresh !== "function") {toast(T("toast.refresh.unavailable")); return}
-      const result = tum.accountdata.refresh(users);
-      if (result === "busy") {toast(T("settings.repopulate.busy")); return}
-      if (!result) {toast(T("toast.refresh.empty")); return}
-      toast(T("settings.repopulate.started", users.length));
-    };
-    if (users.length > 20) {
-      openconfirm({
-        title: T("confirm.refresh.title", users.length),
-        body: T("confirm.refresh.body", users.length),
-        oklabel: T("confirm.refresh.ok"),
-        onok: start
-      });
-    } else start();
-  }
-  function categorymembers(category) {
-    return [
-      ...tum.folders.list().filter(folder => folder.cat === category.id).flatMap(folder => folder.members || []),
-      ...tum.unsorted.list().filter(member => member.cat === category.id)
-    ];
-  }
-
-  function oncontextmenu(e) {
-    if (!O.root.classList.contains("tumactive") || state.drag) return;
-    if (e.target.closest("input, textarea")) return;
-    if (e.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
-    if (e.target.closest(".tumtools, .tumtoolsright, .tumminimap, .tumjumplist")) return;
-
-    const chip = e.target.closest(".tumloosechip");
-    const memberrow = e.target.closest(".tumfoldermember");
-    const foldernode = e.target.closest(".tumfolder");
-    const catnode = e.target.closest(".tumcategory");
-
-    e.preventDefault();
-    let items;
-
-    if (chip || memberrow) {
-      const info = resolveuser(chip || memberrow);
-      if (!info) {closectx(); return}
-      items = [
-        ...(isunfindable(info.m) ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
-        {label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata([info.m])},
-        {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
-        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {removefromsource(info.source, info.m.handle); state.open = true; render()}}
-      ];
-    } else if (foldernode) {
-      const f = tum.folders.get(foldernode.dataset.id);
-      if (!f) {closectx(); return}
-      const knownshare = shareurl(f);
-      const published = knownshare && f.sharedpublished !== false;
-      items = [
-        {label: f.collapsed ? T("menu.expand") : T("menu.collapse"), icon: ICONS.chevron, onclick: () => O.toggledcollapse(f.id)},
-        {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => openeditmodal(f)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(f.members || [])},
-        {label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => uploadfolderlist(f)},
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: f.id})},
-        {label: T("menu.export"), icon: ICONS.download, onclick: () => exportfolder(f)},
-        ...(f.action && !knownshare ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
-        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmfolderdelete(f)},
-        ...(knownshare ? [
-          {type: "section", label: T("menu.sharedlist"), href: knownshare},
-          ...(!published ? [{label: T("menu.republish"), icon: ICONS.upload, onclick: () => sharefolder(f)}] : []),
-          ...(published ? [
-            {label: T("menu.syncshare"), icon: ICONS.upload, onclick: () => sharefolder(f, true)},
-            {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: () => unsharefolder(f)}
-          ] : [])
-        ] : [])
-      ];
-    } else if (catnode) {
-      const cid = catnode.dataset.id;
-      const c = tum.categories.get(cid);
-      if (!c) {closectx(); return}
-      const {clientX, clientY} = e;
-      items = [
-        {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(cid)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(c))},
-        {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => confirmcategorydelete(c)},
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
-        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal({cat: cid, cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})}
-      ];
-    } else {
-      const {clientX, clientY} = e;
-      items = [
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (clientX - O.pan.x) / O.zoom(), cy: (clientY - O.pan.y) / O.zoom()})},
-        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => opencreatemodal()},
-        {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(clientX, clientY)},
-        {label: T("menu.import"), icon: ICONS.upload, onclick: () => importdata()}
-      ];
-    }
-    openctx(e.clientX, e.clientY, items);
-  }
-
-  /*//////////////////////////////////////////////////////////////////////*/
-
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
-    oncontextmenu, closectx, ctxopen, newuser, uploadfolderlist,
+    shareurl, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, confirmcategorydelete, closeconfirmsheet});

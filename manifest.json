@@ -57,6 +57,7 @@
         "src/js/ui/overlay.js",
         "src/js/ui/overlaydrag.js",
         "src/js/ui/overlaymodals.js",
+        "src/js/context.js",
         "src/js/page/badges.js",
         "src/js/page/suggest.js",
         "src/js/page/profileinfo.js",

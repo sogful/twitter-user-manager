@@ -45,7 +45,44 @@
         responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
       }
-    }
+    },
+    removemember: {
+      qid: "B5tMzrMYuFHJex_4EXFTSw",
+      op: "ListRemoveMember",
+      features: {
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        responsive_web_profile_redirect_enabled: true,
+        rweb_tipjar_consumption_enabled: true,
+        verified_phone_label_enabled: true,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    },
+    update: {
+      qid: "CToNDwmbHSq5tqV0ExBFeg",
+      op: "UpdateList",
+      features: {
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        responsive_web_profile_redirect_enabled: true,
+        rweb_tipjar_consumption_enabled: true,
+        verified_phone_label_enabled: true,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    },
+    editbanner: {
+      qid: "CChy7omMr21Rx5xgqzTDeA",
+      op: "EditListBanner",
+      features: {
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        responsive_web_profile_redirect_enabled: true,
+        rweb_tipjar_consumption_enabled: true,
+        verified_phone_label_enabled: true,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    },
+    uploadbanner: {op: "UploadListBanner"}
   };
   const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery
 
@@ -115,6 +152,47 @@
     })(data);
     return id;
   }
+
+  function folderlistid(folder) {
+    const list = folder && folder.twitterlist;
+    const id = typeof list === "string" ? list : list && list.id;
+    return /^\d+$/.test(String(id || "")) ? String(id) : "";
+  }
+  async function bannerdata() {
+    const response = await fetch(chrome.runtime.getURL("assets/images/listbanner.png"));
+    if (!response.ok) throw new Error("banner unavailable");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let text = "";
+    for (let start = 0; start < bytes.length; start += 0x8000) text += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
+    return btoa(text);
+  }
+  async function uploadlistbanner(listid) {
+    const uploaded = await listrequest(LISTEP.uploadbanner, {data: await bannerdata()});
+    if (!uploaded || !uploaded.mediaId) throw new Error("banner upload failed");
+    await listrequest(LISTEP.editbanner, {listId: listid, mediaId: String(uploaded.mediaId)});
+  }
+  async function memberids(members) {
+    const ids = new Set();
+    let unresolved = 0;
+    for (const member of members || []) {
+      const id = member && (member.userid || (member.handle && await resolveuserid(member.handle)));
+      if (id) ids.add(String(id)); else unresolved++;
+    }
+    return {ids, unresolved};
+  }
+  async function remotelistids(listid) {
+    const ids = new Set();
+    let cursor = null;
+    for (let pagecount = 0; pagecount < 100; pagecount++) {
+      const page = await eppage(EP.list, {id: listid}, cursor);
+      if (!page.ok) throw new Error("list members unavailable");
+      for (const user of page.users) if (user && user.userid) ids.add(String(user.userid));
+      if (!page.cursor || page.cursor === cursor) break;
+      cursor = page.cursor;
+    }
+    return ids;
+  }
+
   let listuploading = false;
   let uploadbar = null, uploadbartimer = 0;
   function ensureuploadbar() {
@@ -164,11 +242,12 @@
       listid = createdlistid(created);
       if (!listid) throw new Error("missing list id");
       if (oncreated) oncreated({id: listid, total: members.length});
-      const ids = new Set();
-      for (const member of members) {
-        const id = member && (member.userid || (member.handle && await resolveuserid(member.handle)));
-        if (id) ids.add(String(id));
-      }
+      let bannerfailed = false;
+      try {
+        renderuploadbar(0, members.length, T("toast.twlist.banner"));
+        await uploadlistbanner(listid);
+      } catch {bannerfailed = true}
+      const {ids} = await memberids(members);
       let added = 0;
       let skipped = members.length - ids.size;
       for (const id of ids) {
@@ -180,13 +259,53 @@
         if (onprogress) onprogress({added, total: ids.size, skipped});
         if (ids.size > 1) await sleep(1500);
       }
-      const result = {id: listid, added, skipped};
-      finishuploadbar(T("toast.twlist.done", folder.name || T("folder.unnamed"), added));
+      const result = {id: listid, added, skipped, bannerfailed};
+      finishuploadbar(T(bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", folder.name || T("folder.unnamed"), added));
       return result;
     } catch (error) {
       finishuploadbar(T("toast.twlist.failed"));
       error.batchshown = true;
       throw error;
+    } finally {listuploading = false}
+  }
+
+  async function syncfolder(folder) {
+    const listid = folderlistid(folder);
+    if (!listid) throw new Error("missing list id");
+    if (listuploading) throw new Error("busy");
+    listuploading = true;
+    try {
+      const wanted = await memberids(folder.members || []);
+      renderuploadbar(0, Math.max(1, wanted.ids.size), T("toast.twlist.syncprogress", 0, wanted.ids.size));
+      const remote = await remotelistids(listid);
+      const add = [...wanted.ids].filter(id => !remote.has(id));
+      const remove = wanted.unresolved ? [] : [...remote].filter(id => !wanted.ids.has(id));
+      const changes = [...add.map(id => ({id, operation: LISTEP.addmember})), ...remove.map(id => ({id, operation: LISTEP.removemember}))];
+      let done = 0, added = 0, removed = 0;
+      for (const change of changes) {
+        await listrequest(change.operation, {listId: listid, userId: change.id});
+        done++;
+        if (change.operation === LISTEP.addmember) added++; else removed++;
+        renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
+        if (changes.length > 1) await sleep(1500);
+      }
+      finishuploadbar(T("toast.twlist.synced", added, removed));
+      return {added, removed, unresolved: wanted.unresolved};
+    } catch (error) {
+      finishuploadbar(T("toast.twlist.syncfailed"));
+      error.batchshown = true;
+      throw error;
+    } finally {listuploading = false}
+  }
+
+  async function setlistprivacy(folder, private) {
+    const listid = folderlistid(folder);
+    if (!listid) throw new Error("missing list id");
+    if (listuploading) throw new Error("busy");
+    listuploading = true;
+    try {
+      await listrequest(LISTEP.update, {listId: listid, isPrivate: !!private});
+      return {id: listid, private: !!private};
     } finally {listuploading = false}
   }
 
@@ -673,7 +792,7 @@
   function schedule() {if (!scheduled) scheduled = setTimeout(() => {scheduled = 0; ensureicons()}, 150)}
 
   window.tum.lists = {
-    uploadfolder,
+    uploadfolder, syncfolder, setlistprivacy, folderlistid,
     init() {
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
