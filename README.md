@@ -7,8 +7,7 @@ you might also run into a new <img width="20" src=".github/folder.png"> icon, pr
 as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
 <ul>
   <li>memory.lol (<a href="https://archive.org/details/twitterstream">username history before 2021</a>),</li>
-  <li>breach.vip</li> 
-  <li>and a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li>
+  <li>a custom api. (<a href="https://haveibeenpwned.com/Breach/Twitter200M">emails</a>)</li>
 </ul>
 to get better username history results, <a href="https://api.memory.lol/v1/login/google">log in on memory.lol</a>
 <hr>
