@@ -13,10 +13,11 @@
 
   const EP = {
     list: {qid: "8rYmkvWQe9jRRZdy_-vkGA", op: "ListMembers", feat: FEATURES, vars: (x, c) => ({listId: x.id, count: 100, cursor: c || undefined})},
-    followers: {qid: "JNyQdTISpzCkj_1fqxDvFg", op: "Followers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
-    following: {qid: "qGZZDF3mp91q7X22s3HxpA", op: "Following", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
-    verified_followers: {qid: "u3PkPbg--arppBcwNbF1ig", op: "BlueVerifiedFollowers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
+    followers: {qid: "mrqxgX8JzwlL6pvYiC5CPA", op: "Followers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
+    following: {qid: "uwmIAx89XrXNuGY-Y7WFLg", op: "Following", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
+    verified_followers: {qid: "ck_SV_kTAlbD2WZiOFNbzw", op: "BlueVerifiedFollowers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
     reposts: {qid: "ROjiuYueotTnWoI8m2YaiQ", op: "Retweeters", feat: FEATURES, vars: (x, c) => ({tweetId: x.id, count: 100, includePromotedContent: false, cursor: c || undefined})},
+    people: {qid: "uGB-gNd5HE4TkpO70OcFNw", op: "SearchTimeline", feat: FEATURES, vars: (x, c) => ({rawQuery: x.query, count: 20, product: "People", withDownvotePerspective: false, withReactionsMetadata: false, withReactionsPerspective: false, cursor: c || undefined})},
     members: {qid: "woAp_YdzAdqnWDrqLTNpAw", op: "membersSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, cursor: c || null})},
     moderators: {qid: "0oYT9GRiWUhrz5xoqFE9uw", op: "moderatorsSliceTimeline_Query", feat: null, vars: (x, c) => ({communityId: x.id, count: 100, cursor: c || null})}
   };
@@ -400,7 +401,7 @@
   }
   function removebar() {if (bar) {bar.remove(); bar = null}}
 
-  const mkmember = u => ({...u, sourceurl: "https://x.com/" + u.handle, reason: "", badges: []});
+  const mkmember = u => ({...u, sourceurl: "https://x.com/" + u.handle, reason: "", badges: [], unfindable: false});
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -431,7 +432,10 @@
     let url = "/i/api/graphql/" + ep.qid + "/" + ep.op + "?variables=" + encodeURIComponent(JSON.stringify(vars));
     if (ep.feat) url += "&features=" + encodeURIComponent(ep.feat);
     let r;
-    try {r = await fetch(url, {credentials: "include", headers: hdrs(ct0())})} catch (e) {return {ok: false, status: 0, users: [], cursor: null}}
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {r = await fetch(url, {credentials: "include", headers: hdrs(ct0()), signal: controller.signal})} catch (e) {return {ok: false, status: 0, users: [], cursor: null}}
+    finally {clearTimeout(timeout)}
     let j = null;
     try {j = await r.json()} catch {}
     const parsed = j ? parsepage(j) : {users: [], cursor: null};
@@ -470,7 +474,7 @@
       if (!page.cursor || added === 0 || page.cursor === cursor) break;
       cursor = page.cursor;
       persistjob();
-      await sleep(350);
+      await sleep(400 + Math.random() * 100);
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
     if (cancel) {if (built.length) tum.folders.update(folder.id, {members: built}); removebar(); importing = false; return}
@@ -699,6 +703,12 @@
     return {parent: row, before: child.nextSibling};
   }
 
+  function searchboxrow() {
+    const input = document.querySelector('[data-testid="SearchBox_Search_Input"]');
+    const label = input && input.closest('[data-testid="SearchBox_Search_Input_label"]');
+    return label ? {parent: label} : null;
+  }
+
   const SURFACES = [
     {
       key: "list",
@@ -746,6 +756,18 @@
       variant: "tumimportgrey",
       meta: ctx => ({name: "@" + ctx.user + " repliers", description: "(" + ctx.id + ")"}),
       start: (folder, ctx, meta) => startscrapeimport(folder, 0, meta.name, "articles")
+    },
+    {
+      key: "people",
+      match: () => {
+        const params = new URLSearchParams(location.search);
+        const query = params.get("q");
+        return location.pathname === "/search" && params.get("f") === "user" && query ? {query} : null;
+      },
+      anchor: searchboxrow,
+      variant: "tumimportsearch",
+      meta: ctx => ({name: T("list.people.search", ctx.query), description: ""}),
+      start: (folder, ctx, meta) => startapiimport(folder, meta.name, 0, "people", ctx, (folder, name, expected) => startscrapeimport(folder, expected, name, "usercells"))
     }
   ];
 
@@ -770,6 +792,7 @@
   function makeicon(surface) {
     const b = document.createElement("button");
     b.className = "tumimportfolder" + (surface.variant ? " " + surface.variant : "");
+    b.dataset.surface = surface.key;
     b.type = "button";
     b.title = T("import.btn");
     b.setAttribute("aria-label", T("import.btn"));
@@ -779,13 +802,17 @@
   }
   function ensureicons() {
     const active = SURFACES.find(s => s.match());
-    const existing = document.querySelector(".tumimportfolder");
+    let existing = document.querySelector(".tumimportfolder");
     if (!active) {if (existing) existing.remove(); return}
+    const anchor = active.anchor();
+    if (existing && (!anchor || existing.dataset.surface !== active.key || existing.parentElement !== anchor.parent)) {
+      existing.remove();
+      existing = null;
+    }
     if (existing) {existing.classList.toggle("tumbusy", importing); return}
-    const a = active.anchor();
-    if (!a || !a.parent) return;
+    if (!anchor || !anchor.parent) return;
     const icon = makeicon(active);
-    if (a.before) a.parent.insertBefore(icon, a.before); else a.parent.appendChild(icon);
+    if (anchor.before) anchor.parent.insertBefore(icon, anchor.before); else anchor.parent.appendChild(icon);
     icon.classList.toggle("tumbusy", importing);
   }
 

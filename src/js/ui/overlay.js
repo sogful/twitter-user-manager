@@ -127,7 +127,9 @@
       return null;
     }
     const values = new Set((Array.isArray(badges) ? badges : []).map(presetvalue).filter(Boolean));
-    const affiliations = (Array.isArray(badges) ? badges : []).filter(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""));
+    const affiliations = [...new Map((Array.isArray(badges) ? badges : [])
+      .filter(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""))
+      .map(badge => [String(badge.handle).toLowerCase(), badge])).values()];
     if (user) {
       if (user.protected) values.add("protected");
       const verifiedtype = String(user.verifiedtype || "").toLowerCase();
@@ -554,6 +556,7 @@
     clearaffiliatetooltip();
     closefolderfilters();
     if (O.closectx) O.closectx();
+    if (O.closemergepicker) O.closemergepicker();
     if (O.closemodal()) {state.open = true; showbackdrop(); return}
     O.closereasonmodal();
     O.closeconfirmsheet();
@@ -1232,7 +1235,7 @@
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
-    const unfindable = m.unfindable === true || (!m.userid && !m.pending);
+    const unfindable = m.unfindable === true;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
@@ -1267,7 +1270,7 @@
   function buildloosechip(u) {
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
-    const unfindable = u.unfindable === true || (!u.userid && !u.pending);
+    const unfindable = u.unfindable === true;
     if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
     chip.style.left = (u.x || 0) + "px";
@@ -1718,20 +1721,40 @@
   }
   
   function findfreespot(x, y, w, h) {
-    if (!els.freeform) return {x, y};
-    const others = [...els.freeform.querySelectorAll(".tumfolder")].map(rectof);
+    if (!els.freeform) return {x, y, cat: null};
+    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].map(rectof);
+    const categories = tum.categories.list();
     const GAP = 14;
     const overlaps = (l, t) => others.some(o => l < o.left + o.w + GAP && l + w + GAP > o.left && t < o.top + o.h + GAP && t + h + GAP > o.top);
-    if (!overlaps(x, y)) return {x, y};
-    const sx = w + GAP, sy = h + GAP;
-    for (let ring = 1; ring < 60; ring++) {
-      for (let dx = -ring; dx <= ring; dx++) for (let dy = -ring; dy <= ring; dy++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        const nx = Math.round(x + dx * sx), ny = Math.round(y + dy * sy);
-        if (!overlaps(nx, ny)) return {x: nx, y: ny};
+    const categoryat = (l, t) => {
+      const touched = categories.filter(c => l < c.x + c.w && l + w > c.x && t < c.y + c.h && t + h > c.y);
+      if (!touched.length) return null;
+      const containing = touched.find(c => l >= c.x + 2 && t >= c.y + 2 && l + w <= c.x + c.w - 2 && t + h <= c.y + c.h - 2);
+      return containing && touched.length === 1 ? containing.id : false;
+    };
+    const candidate = (l, t) => {
+      if (overlaps(l, t)) return null;
+      const cat = categoryat(l, t);
+      return cat === false ? null : {x: l, y: t, cat};
+    };
+    const initial = candidate(Math.round(x), Math.round(y));
+    if (initial) return initial;
+    const step = 16;
+    for (let ring = 1;; ring++) {
+      const top = -ring, bottom = ring;
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (const dy of [top, bottom]) {
+          const spot = candidate(Math.round(x + dx * step), Math.round(y + dy * step));
+          if (spot) return spot;
+        }
+      }
+      for (let dy = -ring + 1; dy < ring; dy++) {
+        for (const dx of [-ring, ring]) {
+          const spot = candidate(Math.round(x + dx * step), Math.round(y + dy * step));
+          if (spot) return spot;
+        }
       }
     }
-    return {x, y};
   }
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -1761,6 +1784,12 @@
     const node = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
     flashfolder(node);
     togglejumplist(false);
+  }
+  function focusfolder(f) {
+    if (!f) return;
+    centeron((f.x || 0) + 100, (f.y || 0) + (f.collapsed ? 20 : 144));
+    const node = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
+    flashfolder(node);
   }
   function togglejumplist(force) {
     const show = typeof force === "boolean" ? force : els.jumplist.hidden;
@@ -2005,6 +2034,7 @@
 
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
+    if (state.mergeopen && e.key === "Escape") {O.closemergepicker(); e.preventDefault(); return}
     if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
     const historykey = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && (historykey === "z" || historykey === "y")) {
@@ -2114,7 +2144,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, clearselection, selecteditems, startselectiondrag, historybegin, historyend, historyundo, historyredo, applypan, fitall,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot,
+    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot, focusfolder,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });

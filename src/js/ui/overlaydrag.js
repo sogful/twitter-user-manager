@@ -7,7 +7,6 @@
 
   const THRESHOLD = 6;
   const userthreshold = 10;
-  let foldermergecandidate = null;
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -50,7 +49,6 @@
         const py = (ev.clientY - pan.y) / z - tracking.offsety;
         const w = tracking.width, h = tracking.height;
         const c = O.categorydrop(f.cat || null, px + w / 2, py + h / 2, w, h);
-        setfoldermergecandidate(findfoldermergecandidate(node, c.x - w / 2, c.y - h / 2, w, h));
         const a = O.nooverlapadjustbox(c.x - w / 2, c.y - h / 2, w, h, node);
 
         node.style.left = Math.round(a.left) + "px";
@@ -75,17 +73,10 @@
         O.els.quickdelete.classList.remove("tumover");
         O.els.quickdelete.classList.add("tumdisabled"); 
         if (state.gesture && state.gesture.pointerid === tracking.pointerid) state.gesture = null;
-        const merge = foldermergecandidate;
-        clearfoldermergecandidate();
         if (ev.type === "pointercancel") {
           const saved = tum.folders.get(f.id) || f;
           node.style.left = (saved.x || 0) + "px";
           node.style.top = (saved.y || 0) + "px";
-        } else if (tracking.dragging && merge && !rectcontains(tracking.deleterect, ev.clientX, ev.clientY)) {
-          const saved = tum.folders.get(f.id) || f;
-          node.style.left = (saved.x || 0) + "px";
-          node.style.top = (saved.y || 0) + "px";
-          finishfoldermerge(f.id, merge.id);
         } else if (tracking.dragging && rectcontains(tracking.deleterect, ev.clientX, ev.clientY)) {
           const s = tum.folders.get(f.id) || f;
           node.style.left = (s.x || 0) + "px";
@@ -114,35 +105,6 @@
     });
   }
 
-  function clearfoldermergecandidate() {
-    if (foldermergecandidate && foldermergecandidate.node) {
-      foldermergecandidate.node.classList.remove("tummergetarget");
-      delete foldermergecandidate.node.dataset.mergehint;
-    }
-    foldermergecandidate = null;
-  }
-  function setfoldermergecandidate(candidate) {
-    if (foldermergecandidate && (!candidate || foldermergecandidate.id !== candidate.id)) clearfoldermergecandidate();
-    if (!candidate || foldermergecandidate) return;
-    foldermergecandidate = candidate;
-    candidate.node.classList.add("tummergetarget");
-    candidate.node.dataset.mergehint = T("folder.merge.release");
-  }
-  function findfoldermergecandidate(node, left, top, width, height) {
-    for (const targetnode of O.foldernodes || []) {
-      if (targetnode === node) continue;
-      const target = tum.folders.get(targetnode.dataset.id);
-      if (!target) continue;
-      const targetleft = Number(target.x) || 0, targettop = Number(target.y) || 0;
-      const targetwidth = targetnode.offsetWidth, targetheight = targetnode.offsetHeight;
-      const overlapwidth = Math.max(0, Math.min(left + width, targetleft + targetwidth) - Math.max(left, targetleft));
-      const overlapheight = Math.max(0, Math.min(top + height, targettop + targetheight) - Math.max(top, targettop));
-      if (overlapwidth / Math.min(width, targetwidth) >= 0.8 && overlapheight / Math.min(height, targetheight) >= 0.8) {
-        return {id: target.id, node: targetnode};
-      }
-    }
-    return null;
-  }
   function mergemembers(source, target) {
     const existing = new Set((target.members || []).map(member => String(member.handle || "").toLowerCase()));
     return (source.members || []).filter(member => {
@@ -157,10 +119,28 @@
     const target = tum.folders.get(targetid);
     if (!source || !target || source.id === target.id) return;
     const members = mergemembers(source, target);
+    if (members.length > 10) {
+      O.openconfirm({
+        title: T("confirm.folder.merge.title", source.name, target.name),
+        body: T("confirm.folder.merge.body", members.length, source.name, target.name),
+        oklabel: T("confirm.folder.merge.ok"),
+        positive: true,
+        onok: () => commitfoldermerge(sourceid, targetid)
+      });
+      return;
+    }
+    commitfoldermerge(sourceid, targetid);
+  }
+  function commitfoldermerge(sourceid, targetid) {
+    const source = tum.folders.get(sourceid);
+    const target = tum.folders.get(targetid);
+    if (!source || !target || source.id === target.id) return;
+    const members = mergemembers(source, target);
     const snapshot = JSON.parse(JSON.stringify(source));
     const handles = new Set(members.map(member => String(member.handle || "").toLowerCase()));
     if (members.length) tum.folders.update(target.id, {members: [...members, ...(target.members || [])]}, true);
     tum.folders.remove(source.id);
+    if (O.focusfolder) O.focusfolder(tum.folders.get(target.id));
     toast(T("toast.folder.merged", members.length, target.name), {
       label: T("action.undo"),
       onclick: () => {
@@ -170,22 +150,6 @@
       }
     });
   }
-  function finishfoldermerge(sourceid, targetid) {
-    const source = tum.folders.get(sourceid);
-    const target = tum.folders.get(targetid);
-    if (!source || !target || source.id === target.id) return;
-    const members = mergemembers(source, target);
-    if (members.length > 10) {
-      O.openconfirm({
-        title: T("confirm.folder.merge.title", source.name, target.name),
-        body: T("confirm.folder.merge.body", members.length, source.name, target.name),
-        oklabel: T("confirm.folder.merge.ok"),
-        positive: true,
-        onok: () => mergefolders(sourceid, targetid)
-      });
-    } else mergefolders(sourceid, targetid);
-  }
-
   function attachmemberdrag(row, source, m) {
     row.addEventListener("pointerdown", e => {
       if (state.drag || state.gesture) return;
@@ -599,6 +563,6 @@
     render();
   }
 
-  Object.assign(O, {attachfolderdrag, attachmemberdrag, begindrag, updatedrag, enddrag, canceldrag, restorehidden, removefromsource, schedulerestoreall});
+  Object.assign(O, {attachfolderdrag, attachmemberdrag, begindrag, updatedrag, enddrag, canceldrag, mergefolders, restorehidden, removefromsource, schedulerestoreall});
 
 })();

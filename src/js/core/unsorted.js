@@ -25,7 +25,7 @@
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
   function cleanbadges(badges) {
-    return (Array.isArray(badges) ? badges : []).flatMap(badge => {
+    const cleaned = (Array.isArray(badges) ? badges : []).flatMap(badge => {
       if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (typeof badge === "string" && /<svg\b/i.test(badge)) {
         const label = badge.toLowerCase();
@@ -35,6 +35,13 @@
       }
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];
+    });
+    const seen = new Set();
+    return cleaned.filter(badge => {
+      const key = badge && typeof badge === "object" ? "affiliation:" + String(badge.handle || "").toLowerCase() : String(badge);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }
 

@@ -337,6 +337,13 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 .tumimportfolder:hover {background: rgba(29,155,240,0.1)}
 .tumimportfolder svg {display: block}
 .tumimportfolder.tumbusy {opacity: 0.55}
+.tumimportsearch {
+  position: absolute; top: 50%;
+  right: 5px; z-index: 1;
+  width: 30px; height: 30px;
+  transform: translateY(-50%); color: #71767b
+}
+.tumimportsearch svg {width: 18px; height: 18px}
 
 .tumimportgrey {
   width: 26px; height: 26px;

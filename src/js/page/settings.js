@@ -186,6 +186,7 @@
   }
   function profilebadges(result) {
     const badges = [];
+    const legacy = result && result.legacy || {};
     const containers = profilecontainers(result);
     const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
     const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();

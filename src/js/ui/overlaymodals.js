@@ -440,6 +440,7 @@
     const description = (O.els.modaldesc.value || "").trim();
     const icon = modalicon, action = modalaction, color = modalcolor;
     let filed = false;
+    let createdfolder = null;
     if (state.editing) {
       closemodal();
       return;
@@ -447,15 +448,16 @@
       let fx, fy, fcat = null;
       if (state.pendingfoldercat) {
         const pc = O.categorydrop(null, state.pendingfoldercat.cx, state.pendingfoldercat.cy, 200, 288);
-        fx = pc.x - 100; fy = pc.y - 144; fcat = pc.cat;
+        const spot = O.findfreespot(pc.x - 100, pc.y - 144, 200, 288);
+        fx = spot.x; fy = spot.y; fcat = spot.cat;
         state.pendingfoldercat = null;
       } else {
         let bx, by;
         if (state.pendingpos) {bx = state.pendingpos.x; by = state.pendingpos.y}
         else {let cc = null; try {cc = tum.overlay.canvascenter()} catch {} if (cc) {bx = cc.x - 100; by = cc.y - 144}}
-        if (typeof bx === "number") {const spot = O.findfreespot(bx, by, 200, 288); fx = spot.x; fy = spot.y}
+        if (typeof bx === "number") {const spot = O.findfreespot(bx, by, 200, 288); fx = spot.x; fy = spot.y; fcat = spot.cat}
       }
-      const folder = tum.folders.create({name, description, icon, action, color, x: fx, y: fy, cat: fcat});
+      const folder = createdfolder = tum.folders.create({name, description, icon, action, color, x: fx, y: fy, cat: fcat});
       if (state.pendingcreate) {
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
@@ -478,6 +480,7 @@
     if (filed && !O.keepopen()) closeoverlay();
     state.open = true;
     render();
+    O.focusfolder(createdfolder);
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -646,9 +649,89 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  let mergepicker = null;
+
+  function closemergepicker() {
+    if (!mergepicker) return;
+    mergepicker.remove();
+    mergepicker = null;
+    state.mergeopen = false;
+  }
+
+  function openmergepicker(source) {
+    if (!source || !tum.folders.get(source.id)) return;
+    closemergepicker();
+    state.mergeopen = true;
+    state.open = true;
+    showbackdrop();
+
+    const shade = el("div", "tummergeshade");
+    const card = el("div", "tummergecard");
+    const head = el("div", "tummergehead");
+    const title = el("div", "tummergetitle");
+    const close = el("button", "tummergeclose", ICONS.close);
+    const search = el("input", "tummergesearch");
+    const rows = el("div", "tummergerows");
+    title.textContent = T("folder.merge.title", source.name || T("folder.unnamed"));
+    close.type = "button";
+    close.setAttribute("aria-label", T("overlay.close"));
+    search.type = "search";
+    search.placeholder = T("folder.merge.search");
+
+    const build = () => {
+      const query = search.value.trim().toLowerCase();
+      const targets = tum.folders.list().filter(folder => {
+        if (folder.id === source.id) return false;
+        const text = ((folder.name || "") + " " + (folder.description || "")).toLowerCase();
+        return !query || text.includes(query);
+      }).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      rows.replaceChildren();
+      if (!targets.length) {
+        const empty = el("div", "tummergeempty");
+        empty.textContent = T("folder.merge.empty");
+        rows.appendChild(empty);
+        return;
+      }
+      for (const target of targets) {
+        const row = el("button", "tummergerow");
+        const dot = el("span", "tummergedot");
+        const name = el("span", "tummergename");
+        const count = el("span", "tummergecount");
+        row.type = "button";
+        dot.style.background = target.color || "#1d9bf0";
+        name.textContent = target.name || T("folder.unnamed");
+        count.textContent = String((target.members || []).length);
+        row.append(dot, name, count);
+        row.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          closemergepicker();
+          O.mergefolders(source.id, target.id);
+        });
+        rows.appendChild(row);
+      }
+    };
+
+    search.addEventListener("input", build);
+    search.addEventListener("keydown", event => event.stopPropagation());
+    close.addEventListener("click", closemergepicker);
+    shade.addEventListener("pointerdown", event => {if (event.target === shade) closemergepicker()});
+    card.addEventListener("pointerdown", event => event.stopPropagation());
+    head.append(title, close);
+    card.append(head, search, rows);
+    shade.appendChild(card);
+    O.root.appendChild(shade);
+    mergepicker = shade;
+    build();
+    requestAnimationFrame(() => search.focus());
+  }
+
+  /*//////////////////////////////////////////////////////////////////////*/
+
   Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, sharefolder, unsharefolder, openconfirm,
     shareurl, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
+    openmergepicker, closemergepicker,
     selectcolor, selectaction, toggleaction, refreshiconbtn, selecticon, selectreasonaction, togglereasonaction,
     setreasonmode, openreasonedit, openreasonview, closereasonmodal, savereason, deletenoteduser, confirmfolderdelete, confirmcategorydelete, closeconfirmsheet});
 })();

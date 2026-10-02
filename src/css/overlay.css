@@ -237,16 +237,7 @@ img {-webkit-user-drag: none; user-drag: none}
   z-index: 8; transform: translateZ(0);
   backface-visibility: hidden
 }
-.tumfolder.tummergetarget {z-index: 9}
 .tumfolder.tumselected, .tumloosechip.tumselected {outline: 2px solid white; z-index: 10}
-.tumfolder.tummergetarget::after {
-  content: attr(data-mergehint);
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  background: rgba(0,0,0,0.42); color: #f7f9f9;
-  font-size: 13px; font-weight: 800;
-  pointer-events: none
-}
 .tumfolder.tumover {outline: 3px solid white}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
 .tumfolder.tumflash {outline: 3px solid transparent; animation: tumflash .5s ease-in-out 2}
@@ -1203,4 +1194,83 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumtoastundo:disabled:hover {text-decoration: none}
 .tumtoasttext {
   min-width: 0
+}
+
+/*//////////////////////////////////////////////////////////////////////*/
+
+.tummergeshade {
+  position: absolute; inset: 0;
+  display: flex; align-items: center;
+  justify-content: center; z-index: 7;
+  pointer-events: auto; background: rgba(0,0,0,0.28)
+}
+.tummergecard {
+  width: 320px; max-width: calc(100vw - 32px);
+  max-height: min(70vh,520px); padding: 12px;
+  display: flex; flex-direction: column;
+  gap: 9px; border-radius: 12px;
+  background: var(--tumpanel,#131313); color: var(--tumtext,#e7e9ea)
+}
+.tummergehead {
+  display: flex; align-items: center;
+  gap: 8px
+}
+.tummergetitle {
+  flex: 1; min-width: 0;
+  font-size: 15px; font-weight: 800;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap
+}
+.tummergeclose {
+  display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+  width: 26px; height: 26px;
+  padding: 0; border: 0;
+  border-radius: 999px; cursor: pointer;
+  color: var(--tumtext,#e7e9ea); background: transparent
+}
+.tummergeclose:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tummergeclose svg {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round;
+  stroke-linejoin: round
+}
+.tummergesearch {
+  width: 100%; padding: 7px 11px;
+  color: var(--tumtext,#e7e9ea); background: var(--tuminput,#000);
+  border: 1px solid var(--tuminputborder,#37434d); border-radius: 999px;
+  font-size: 13px
+}
+.tummergesearch:focus {border-color: #1d9bf0}
+.tummergerows {
+  display: flex; flex-direction: column;
+  gap: 2px; overflow-y: auto
+}
+.tummergerow {
+  width: 100%; padding: 7px 6px;
+  display: flex; align-items: center;
+  gap: 7px; border: 0;
+  border-radius: 7px; cursor: pointer;
+  color: var(--tumtext,#e7e9ea); background: transparent;
+  font: inherit; font-size: 13px;
+  text-align: left
+}
+.tummergerow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tummergedot {
+  width: 12px; height: 12px;
+  flex-shrink: 0; border-radius: 3px
+}
+.tummergename {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 700
+}
+.tummergecount {
+  flex-shrink: 0; color: var(--tummuted,#71767b);
+  font-size: 11px
+}
+.tummergeempty {
+  padding: 10px 6px; color: var(--tummuted,#71767b);
+  font-size: 13px; text-align: center
 }

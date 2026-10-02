@@ -85,7 +85,7 @@
     return member ? {source: {type: "folder", id: folder.id}, m: member} : null;
   }
   function isunfindable(member) {
-    return !!member && (member.unfindable === true || (!member.userid && !member.pending));
+    return !!member && member.unfindable === true;
   }
   function newuser(target) {
     if (tum.newuser) {closeoverlay(); tum.newuser.start(target || {type: "canvas"})}
@@ -279,6 +279,7 @@
         {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(folder.members || [])},
         {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: folder.id})},
         {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportfolder(folder)},
+        {label: T("menu.merge"), icon: ICONS.folder, onclick: () => O.openmergepicker(folder)},
         ...(folder.action && !share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
         ...(!list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmfolderdelete(folder)},
