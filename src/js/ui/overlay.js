@@ -127,9 +127,8 @@
       return null;
     }
     const values = new Set((Array.isArray(badges) ? badges : []).map(presetvalue).filter(Boolean));
-    const affiliations = [...new Map((Array.isArray(badges) ? badges : [])
-      .filter(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""))
-      .map(badge => [String(badge.handle).toLowerCase(), badge])).values()];
+    const affiliation = (Array.isArray(badges) ? badges : [])
+      .find(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""));
     if (user) {
       if (user.protected) values.add("protected");
       const verifiedtype = String(user.verifiedtype || "").toLowerCase();
@@ -149,7 +148,7 @@
     for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
     const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
     const standard = [...values].map(value => `<span class="tumbadge ${badgeclass[value] || "tumbadge" + value}">${icons[value]}</span>`).join("");
-    const linked = affiliations.map(badge => `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(badge.handle)}" aria-label="@${escapehtml(badge.handle)}"><img src="${escapehtml(miniavatarurl(badge.avatarurl))}" alt=""></button>`).join("");
+    const linked = affiliation ? `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(affiliation.handle)}" aria-label="@${escapehtml(affiliation.handle)}"><img src="${escapehtml(miniavatarurl(affiliation.avatarurl))}" alt=""></button>` : "";
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }
   function readablefg(hex) {
@@ -630,7 +629,7 @@
       if (node === cursor) cursor = cursor.nextElementSibling;
       else els.freeform.insertBefore(node, cursor);
     }
-    for (const node of [...els.freeform.children]) if (!keep.has(node)) node.remove();
+    for (const node of [...els.freeform.children]) if (!keep.has(node) && node !== (userhover && userhover.card)) node.remove();
   }
   function selectionkey(node) {
     if (node.classList.contains("tumfolder")) return "folder:" + node.dataset.id;
@@ -1174,12 +1173,33 @@
   function openprofile(source, m) {
     const go = () => {
       closeoverlay();
-      setTimeout(() => {
-        try {
-          history.pushState({}, "", "/" + encodeURIComponent(m.handle));
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        } catch {}
-      }, 200);
+      const path = "/" + encodeURIComponent(m.handle);
+      const id = "navigate-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+      let settled = false;
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("message", reply);
+        const link = document.createElement("a");
+        link.href = path;
+        link.tabIndex = -1;
+        link.setAttribute("aria-hidden", "true");
+        link.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
+        (document.querySelector("#react-root") || document.body).appendChild(link);
+        link.click();
+        link.remove();
+      };
+      const reply = event => {
+        const response = event.data;
+        if (event.source !== window || !response || response.__tumnavigateresponse !== 1 || response.id !== id) return;
+        if (!response.ok) {fallback(); return}
+        settled = true;
+        clearTimeout(timer);
+        window.removeEventListener("message", reply);
+      };
+      const timer = setTimeout(fallback, 300);
+      window.addEventListener("message", reply);
+      window.postMessage({__tumnavigate: 1, id, path}, location.origin);
     };
     const folder = source && source.type === "folder" ? tum.folders.get(source.id) : null;
     if (folder && folder.action === "block") {
@@ -1383,12 +1403,13 @@
     const folder = row.closest(".tumfolder");
     const source = folder || row;
     const rect = source.getBoundingClientRect();
-    const width = Math.min(folder ? rect.width : 160, window.innerWidth - 16);
-    card.style.width = Math.max(0, width) + "px";
-    card.style.maxWidth = "calc(100vw - 16px)";
-    const left = rect.right + width <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width);
-    card.style.left = left + "px";
-    card.style.top = Math.min(Math.max(8, row.getBoundingClientRect().top), Math.max(8, window.innerHeight - card.offsetHeight - 8)) + "px";
+    const width = folder ? folder.offsetWidth : Math.max(160, source.offsetWidth);
+    const cardheight = card.offsetHeight * zoom;
+    const left = rect.right + width * zoom <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width * zoom);
+    const top = Math.min(Math.max(8, row.getBoundingClientRect().top), Math.max(8, window.innerHeight - cardheight - 8));
+    card.style.width = width + "px";
+    card.style.left = (left - pan.x) / zoom + "px";
+    card.style.top = (top - pan.y) / zoom + "px";
   }
   function showuserhover(row, user) {
     clearuserhover();
@@ -1422,7 +1443,7 @@
       hideuserhover(true);
     });
     card.addEventListener("pointerdown", e => e.stopPropagation());
-    root.appendChild(card);
+    els.freeform.appendChild(card);
     placeuserhover(row, card);
   }
   function wireuserhover(row, user) {

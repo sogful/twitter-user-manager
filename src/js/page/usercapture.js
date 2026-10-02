@@ -274,6 +274,35 @@
     }, location.origin);
   });
 
+  /*//////////////////////////////////////////////////////////////////////*/
+
+  function richhistory() {
+    for (const anchor of document.querySelectorAll("#react-root a[href]")) {
+      const key = Object.keys(anchor).find(name => name.startsWith("__reactFiber"));
+      for (let fiber = key && anchor[key]; fiber; fiber = fiber.return) {
+        for (let dependency = fiber.dependencies && fiber.dependencies.firstContext; dependency; dependency = dependency.next) {
+          const value = dependency.memoizedValue;
+          if (value && value._id === "RichHistory" && typeof value.push === "function") return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  window.addEventListener("message", event => {
+    const request = event.data;
+    if (event.source !== window || !request || request.__tumnavigate !== 1 || !request.id) return;
+    const path = String(request.path || "");
+    let ok = false;
+    if (/^\/[A-Za-z0-9_]+$/.test(path)) {
+      try {
+        const history = richhistory();
+        if (history) {history.push(path); ok = true}
+      } catch {}
+    }
+    window.postMessage({__tumnavigateresponse: 1, id: request.id, ok}, location.origin);
+  });
+
   async function uploadlistbanner(encoded, ct0) {
     if (typeof encoded !== "string" || !/^[A-Za-z0-9+/=]+$/.test(encoded)) throw new Error("invalid banner");
     const total = Math.floor(encoded.replace(/=+$/, "").length * 3 / 4);

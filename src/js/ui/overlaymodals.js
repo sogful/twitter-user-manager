@@ -666,15 +666,11 @@
     showbackdrop();
 
     const shade = el("div", "tummergeshade");
-    const card = el("div", "tummergecard");
-    const head = el("div", "tummergehead");
-    const title = el("div", "tummergetitle");
-    const close = el("button", "tummergeclose", ICONS.close);
-    const search = el("input", "tummergesearch");
-    const rows = el("div", "tummergerows");
-    title.textContent = T("folder.merge.title", source.name || T("folder.unnamed"));
-    close.type = "button";
-    close.setAttribute("aria-label", T("overlay.close"));
+    const card = el("div", "tumjumplist tummergefoldersearch");
+    const search = el("input", "tumjumpsearch");
+    const rows = el("div", "tumjumprows");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-label", T("folder.merge.title", source.name || T("folder.unnamed")));
     search.type = "search";
     search.placeholder = T("folder.merge.search");
 
@@ -693,10 +689,10 @@
         return;
       }
       for (const target of targets) {
-        const row = el("button", "tummergerow");
-        const dot = el("span", "tummergedot");
-        const name = el("span", "tummergename");
-        const count = el("span", "tummergecount");
+        const row = el("button", "tumjumprow");
+        const dot = el("span", "tumjumpdot");
+        const name = el("span", "tumjumpname");
+        const count = el("span", "tumjumpcount");
         row.type = "button";
         dot.style.background = target.color || "#1d9bf0";
         name.textContent = target.name || T("folder.unnamed");
@@ -714,11 +710,9 @@
 
     search.addEventListener("input", build);
     search.addEventListener("keydown", event => event.stopPropagation());
-    close.addEventListener("click", closemergepicker);
     shade.addEventListener("pointerdown", event => {if (event.target === shade) closemergepicker()});
     card.addEventListener("pointerdown", event => event.stopPropagation());
-    head.append(title, close);
-    card.append(head, search, rows);
+    card.append(search, rows);
     shade.appendChild(card);
     O.root.appendChild(shade);
     mergepicker = shade;

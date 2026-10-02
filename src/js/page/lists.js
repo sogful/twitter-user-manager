@@ -456,7 +456,7 @@
     const j = response.data;
     const parsed = j ? parsepage(j) : {users: [], cursor: null};
     const ok = response.ok && j && !(j.errors && j.errors.length && parsed.users.length === 0);
-    return {ok, status: response.status, users: parsed.users, cursor: parsed.cursor};
+    return {ok, status: response.status, rateLimitReset: response.rateLimitReset || 0, users: parsed.users, cursor: parsed.cursor};
   }
 
   async function runimport(folder, name, expected, pagefn, fallback, job) {
@@ -473,7 +473,8 @@
       try {page = await pagefn(cursor)} catch (e) {break}
       if (page.status === 429 || page.status === 420) {
         renderbar(built.length, expected, T("import.ratelimited"));
-        await sleep(60000);
+        const reset = Number(page.rateLimitReset) || 0;
+        await sleep(reset > Date.now() ? Math.max(65000, reset - Date.now() + 2000) : 90000);
         continue;
       }
       if (!page.ok && built.length === 0) {if (token !== runtoken) return; importing = false; if (fallback) {fallback(folder, name, expected); return} break}
@@ -490,7 +491,7 @@
       if (!page.cursor || added === 0 || page.cursor === cursor) break;
       cursor = page.cursor;
       persistjob();
-      await sleep(400 + Math.random() * 100);
+      await sleep(700 + Math.random() * 250);
     }
     if (token !== runtoken) {if (built.length) tum.folders.update(folder.id, {members: built}); return}
     if (cancel) {if (built.length) tum.folders.update(folder.id, {members: built}); removebar(); importing = false; return}
@@ -835,6 +836,7 @@
   let scheduled = 0;
   function schedule() {if (!scheduled) scheduled = setTimeout(() => {scheduled = 0; ensureicons()}, 150)}
 
+  window.tum.graphql = graphqlrequest;
   window.tum.lists = {
     uploadfolder, syncfolder, setlistprivacy, folderlistid,
     init() {
