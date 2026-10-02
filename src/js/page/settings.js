@@ -168,38 +168,50 @@
   const REFRESHPAUSE = 16 * 60 * 1000;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+  function profilecontainers(result) {
+    const legacy = result.legacy || {};
+    return [result, legacy, result.verification, result.profile_bio, result.profile_metadata, result.extended_profile,
+      legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
+  }
+  function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
+  function affiliationuser(value, depth = 0) {
+    if (!value || typeof value !== "object" || depth > 4) return null;
+    const core = value.core || {}, legacy = value.legacy || {};
+    if (core.screen_name || legacy.screen_name || value.screen_name || value.username) return value;
+    for (const key of ["user", "user_result", "user_results", "result", "data"]) {
+      const found = affiliationuser(value[key], depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
   function profilebadges(result) {
     const badges = [];
-    const legacy = result.legacy || {};
-    const verification = result.verification || {};
-    const bio = result.profile_bio || {};
-    const verifiedtype = String(verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
+    const containers = profilecontainers(result);
+    const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
+    const verifiedtype = String(values("verified_type")[0] || "").toLowerCase();
+    const blue = values("is_blue_verified").some(badgeflag);
+    const verified = values("verified").some(badgeflag);
     if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
     else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
-    else if (result.is_blue_verified) badges.push("blue");
-    else if (verification.verified || result.verified || legacy.verified) badges.push("verified");
-    const translatorflags = [
-      result.is_translator, result.translator_enabled, result.translator,
-      result.is_translator_mod, legacy.is_translator, legacy.is_translator_mod,
-      bio.is_translator, bio.is_translator_mod
-    ];
-    const translatorlabels = [
-      result.translator_type, legacy.translator_type, bio.translator_type
-    ].map(value => String(value || "").toLowerCase());
+    else if (blue) badges.push("blue");
+    else if (verified) badges.push("verified");
+
+    const translatorflags = ["is_translator", "translator_enabled", "translator", "is_translator_mod", "is_translator_moderator", "translator_moderator"];
+    const modflags = ["is_translator_mod", "is_translator_moderator", "translator_moderator"];
+    const translatorlabels = ["translator_type", "translator_badge_type", "translation_type"]
+      .flatMap(values).map(value => String(value || "").toLowerCase());
     const typedtranslator = translatorlabels.some(value => value && !/^(none|false|null|undefined)$/.test(value));
-    const istranslatormod = translatorflags[3] === true || translatorflags[5] === true || translatorflags[7] === true ||
-      translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
-    if (translatorflags.some(value => value === true) || typedtranslator) badges.push(istranslatormod ? "translatormod" : "translator");
-    const highlight = result.affiliates_highlighted_label;
+    const translatormod = modflags.some(key => values(key).some(badgeflag)) || translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
+    if (translatorflags.some(key => values(key).some(badgeflag)) || typedtranslator) badges.push(translatormod ? "translatormod" : "translator");
+
+    const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
     const label = highlight && (highlight.label || highlight);
     if (label && typeof label === "object") {
-      const url = label.url && (typeof label.url === "string" ? label.url : label.url.url);
-      const target = String(url || "");
-      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(target) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(target);
-      const linkeduser = [label.user, highlight.user, label.user_results, highlight.user_results]
-        .map(value => value && (value.user_results && value.user_results.result || value.result || value))
-        .find(value => value && typeof value === "object");
-      const handle = label.handle || label.screen_name || label.username || linkeduser && (linkeduser.core && linkeduser.core.screen_name || linkeduser.legacy && linkeduser.legacy.screen_name || linkeduser.screen_name || linkeduser.username) || (match && match[1]);
+      const rawurl = label.url && (typeof label.url === "string" ? label.url : label.url.url);
+      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
+      const linkeduser = affiliationuser(label) || affiliationuser(highlight);
+      const core = linkeduser && linkeduser.core || {}, legacy = linkeduser && linkeduser.legacy || {};
+      const handle = label.handle || label.screen_name || label.username || core.screen_name || legacy.screen_name || linkeduser && (linkeduser.screen_name || linkeduser.username) || match && match[1];
       const avatar = linkeduser && linkeduser.avatar;
       const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge && label.badge.url || null;
       const avatarurl = typeof avatarvalue === "string" ? avatarvalue : avatarvalue && (avatarvalue.url || avatarvalue.image_url) || null;
@@ -249,7 +261,8 @@
   async function requestprofile(member) {
     const byid = member.userid ? {qid: "VQfQ9wwYdk6j_u2O4vt64Q", operation: "UserByRestId", variables: {userId: String(member.userid), withGrokTranslatedBio: true}} :
       {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}};
-    const url = "/i/api/graphql/" + byid.qid + "/" + byid.operation + "?variables=" + encodeURIComponent(JSON.stringify(byid.variables)) + "&features=" + encodeURIComponent(FEATURES);
+    const toggles = '{"withAuxiliaryUserLabels":true}';
+    const url = "/i/api/graphql/" + byid.qid + "/" + byid.operation + "?variables=" + encodeURIComponent(JSON.stringify(byid.variables)) + "&features=" + encodeURIComponent(FEATURES) + "&fieldToggles=" + encodeURIComponent(toggles);
     let response;
     try {response = await fetch(url, {credentials: "include", headers: headers()})} catch {return {ok: false, retry: false, missing: false}}
     if (!response.ok) return {ok: false, retry: response.status === 429, missing: response.status === 404};

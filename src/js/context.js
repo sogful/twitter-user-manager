@@ -157,17 +157,17 @@
     const id = twitterlistid(folder);
     if (!id) return null;
     const list = typeof folder.twitterlist === "object" ? folder.twitterlist : {};
-    const private = list.private !== false;
+    const isprivate = list.private !== false;
     const setprivacy = async () => {
       try {
-        await tum.lists.setlistprivacy(folder, !private);
-        tum.folders.update(folder.id, {twitterlist: {id, private: !private}});
-        toast(T(private ? "toast.twlist.published" : "toast.twlist.unpublished"), {
+        await tum.lists.setlistprivacy(folder, !isprivate);
+        tum.folders.update(folder.id, {twitterlist: {id, private: !isprivate}});
+        toast(T(isprivate ? "toast.twlist.published" : "toast.twlist.unpublished"), {
           label: T("action.undo"),
           onclick: async () => {
             try {
-              await tum.lists.setlistprivacy(folder, private);
-              tum.folders.update(folder.id, {twitterlist: {id, private}});
+              await tum.lists.setlistprivacy(folder, isprivate);
+              tum.folders.update(folder.id, {twitterlist: {id, private: isprivate}});
               toast(T("toast.twlist.visibilityrestored"));
             } catch {toast(T("toast.twlist.privacyfailed"))}
           }
@@ -189,13 +189,13 @@
       href: "https://x.com/i/lists/" + encodeURIComponent(id),
       items: [
         {label: T("menu.synctwitter"), icon: ICONS.refresh, onclick: sync},
-        {label: T(private ? "menu.publishtwitter" : "menu.unpublishtwitter"), icon: ICONS.upload, onclick: setprivacy}
+        {label: T(isprivate ? "menu.publishtwitter" : "menu.unpublishtwitter"), icon: ICONS.upload, onclick: setprivacy}
       ]
     };
   }
 
   function oncontextmenu(event) {
-    if (!O.root.classList.contains("tumactive") || state.drag || state.gesture) return;
+    if (!O.root.classList.contains("tumactive") || state.drag || O.root.classList.contains("tumfolderdragging")) return;
     if (event.target.closest("input, textarea, .tumcontextmenu, .tumctxpanel")) return;
     if (event.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
     if (event.target.closest(".tumtools, .tumtoolsright, .tumminimap, .tumjumplist")) return;

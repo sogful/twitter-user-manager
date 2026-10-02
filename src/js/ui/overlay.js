@@ -437,7 +437,9 @@
     setupscrolllock();
     wirearrows();
 
-    root.addEventListener("contextmenu", O.oncontextmenu);
+    root.addEventListener("contextmenu", event => {
+      if (typeof O.oncontextmenu === "function") O.oncontextmenu(event);
+    });
     root.addEventListener("pointerdown", e => {
       let dismiss = false;
       if (activefolderfilters && !e.target.closest(".tumfolderfilters, .tumfoldersort")) {closefolderfilters(); dismiss = true}
@@ -1147,8 +1149,8 @@
       card.appendChild(row);
     }
     if (!card.children.length) return;
-    const state = userhover = {row, card, timer: 0};
-    card.addEventListener("pointerenter", () => clearTimeout(state.timer));
+    const hoverstate = userhover = {row, card, timer: 0};
+    card.addEventListener("pointerenter", () => clearTimeout(hoverstate.timer));
     card.addEventListener("pointerleave", e => {
       if (e.relatedTarget && row.contains(e.relatedTarget)) return;
       hideuserhover(true);
@@ -1163,9 +1165,9 @@
       if (state.drag || root.classList.contains("tumdragging", "tumfolderdragging")) return;
       if (userhover && userhover.row === row) {clearTimeout(userhover.timer); return}
       clearuserhover();
-      const state = userhover = {row, card: null, timer: 0};
-      state.timer = setTimeout(() => {
-        if (userhover === state && row.isConnected && !state.drag && !root.classList.contains("tumdragging", "tumfolderdragging")) showuserhover(row, user);
+      const hoverstate = userhover = {row, card: null, timer: 0};
+      hoverstate.timer = setTimeout(() => {
+        if (userhover === hoverstate && row.isConnected && !state.drag && !state.gesture && !root.classList.contains("tumdragging", "tumfolderdragging")) showuserhover(row, user);
       }, 420);
     });
     row.addEventListener("pointerleave", e => {

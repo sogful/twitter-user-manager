@@ -229,6 +229,15 @@ img {-webkit-user-drag: none; user-drag: none}
   z-index: 8; transform: translateZ(0);
   backface-visibility: hidden
 }
+.tumfolder.tummergetarget {z-index: 9}
+.tumfolder.tummergetarget::after {
+  content: attr(data-mergehint);
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,0.42); color: #f7f9f9;
+  font-size: 13px; font-weight: 800;
+  pointer-events: none
+}
 .tumfolder.tumover {outline: 3px solid white}
 .tumfolder.tumoverremove {outline: 3px solid #f4212e; opacity: .6}
 .tumfolder.tumflash {outline: 3px solid transparent; animation: tumflash .5s ease-in-out 2}
