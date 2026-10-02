@@ -21,9 +21,9 @@
     const badges = [];
     const containers = profilecontainers(result);
     const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
-    const verifiedtype = String(values("verified_type")[0] || "").toLowerCase();
-    const blue = values("is_blue_verified").some(badgeflag);
-    const verified = values("verified").some(badgeflag);
+    const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
+    const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
     if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
     else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
     else if (blue) badges.push("blue");
@@ -74,7 +74,7 @@
       favorites: actions.favorites_count != null ? actions.favorites_count : legacy.favourites_count,
       highlights: highlights.can_highlight_tweets ? Number(highlights.highlighted_tweets || 0) : null,
       verifiedType: ver.verified_type || u.verified_type || null,
-      blueVerified: !!u.is_blue_verified,
+      blueVerified: badgeflag(u.is_blue_verified),
       isProtected: !!(priv.protected || legacy.protected),
       badges: profilebadges(u),
       relationship: {
@@ -215,7 +215,7 @@
     if (typeof encoded !== "string" || !/^[A-Za-z0-9+/=]+$/.test(encoded)) throw new Error("invalid banner");
     const total = Math.floor(encoded.replace(/=+$/, "").length * 3 / 4);
     if (!total || total > 5 * 1024 * 1024) throw new Error("invalid banner size");
-    const base = "https://upload.twitter.com/i/media/upload.json";
+    const base = "/i/media/upload.json";
     const initurl = base + "?" + new URLSearchParams({command: "INIT", media_type: "image/png", media_category: "tweet_image", total_bytes: String(total)});
     const init = await origfetch(initurl, {method: "POST", credentials: "include", headers: listheaders(ct0)});
     const initdata = await init.json();

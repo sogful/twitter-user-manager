@@ -43,18 +43,18 @@
   const PALETTES = {
     dark: {
       elev: "#16181c", deep: "#000000", border: "#2f3336", input: "#000000",
-      inputborder: "#37434d", text: "#e7e9ea", muted: "#71767b",
-      hover: "rgba(255,255,255,0.06)", cancelborder: "#536471", backdrop: "rgba(0,0,0,0.72)"
+      inputborder: "#37434d", panel: "#131313", text: "#e7e9ea", muted: "#71767b",
+      hover: "rgba(255,255,255,0.06)", categorybg: "rgba(255,255,255,0.05)", categoryborder: "rgba(231,233,234,0.35)", cancelborder: "#536471", backdrop: "rgba(0,0,0,0.72)"
     },
     dim: {
       elev: "#1e2732", deep: "#15202b", border: "#38444d", input: "#15202b",
-      inputborder: "#38444d", text: "#f7f9f9", muted: "#8b98a5",
-      hover: "rgba(255,255,255,0.06)", cancelborder: "#38444d", backdrop: "rgba(0,0,0,0.72)"
+      inputborder: "#38444d", panel: "#1e2732", text: "#f7f9f9", muted: "#8b98a5",
+      hover: "rgba(255,255,255,0.06)", categorybg: "rgba(255,255,255,0.05)", categoryborder: "rgba(247,249,249,0.35)", cancelborder: "#38444d", backdrop: "rgba(0,0,0,0.72)"
     },
     light: {
       elev: "white", deep: "white", border: "#eff3f4", input: "white",
-      inputborder: "#cfd9de", text: "#0f1419", muted: "#536471",
-      hover: "rgba(0,0,0,0.03)", cancelborder: "#cfd9de", backdrop: "rgba(0,0,0,0.6)"
+      inputborder: "#cfd9de", panel: "white", text: "#0f1419", muted: "#536471",
+      hover: "rgba(0,0,0,0.03)", categorybg: "rgba(15,20,25,0.04)", categoryborder: "#cfd9de", cancelborder: "#cfd9de", backdrop: "rgba(0,0,0,0.6)"
     }
   };
   

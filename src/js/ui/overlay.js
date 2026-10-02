@@ -114,6 +114,7 @@
   function svgasseturl(path) {
     try {return chrome.runtime.getURL(path)} catch {return "../../" + path}
   }
+  function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
   function badgeshtml(badges, user) {
     function presetvalue(badge) {
       if (typeof badge !== "string") return null;
@@ -132,7 +133,7 @@
       const verifiedtype = String(user.verifiedtype || "").toLowerCase();
       if (/government/.test(verifiedtype)) values.add("verifiedgovernment");
       else if (/business/.test(verifiedtype)) values.add("verifiedbusiness");
-      else if (user.blueverified) {values.delete("verified"); values.add("blue")}
+      else if (badgeflag(user.blueverified)) {values.delete("verified"); values.add("blue")}
     }
     const icons = {
       blue: '<svg viewBox="0 0 24 24" aria-label="Twitter Blue account" role="img"><path d="M16.5 3H2v18h15a5.5 5.5 0 0 0 4.1-9.1v-.4q.9-1.3.9-3c0-3-2.5-5.5-5.5-5.5m-.8 6q.7 0 1.3-.4-.5.8-1.1 1.2v.3c0 3-2.3 6.3-6.4 6.3q-2 0-3.5-1h.5q1.6 0 2.8-1-1.6 0-2-1.5h1c-1-.2-1.9-1.1-1.9-2.2q.5.3 1 .3a2 2 0 0 1-.6-3 7 7 0 0 0 4.6 2.3v-.5c0-1.2 1-2.2 2.2-2.2q1 0 1.7.7l1.4-.5q-.3.8-1 1.2"/></svg>',
@@ -296,7 +297,10 @@
         state.gesture = null;
         els.selectionbox.hidden = true;
         if (selecting && ev.type === "pointerup") selectinrect(startx, starty, ev.clientX, ev.clientY, prior);
-        else if (!ctxwasdismissed && ev.type === "pointerup") clearselection();
+        else if (!ctxwasdismissed && ev.type === "pointerup") {
+          clearselection();
+          closeoverlay();
+        }
       };
       bd.addEventListener("pointermove", move);
       bd.addEventListener("pointerup", finish);
@@ -514,6 +518,7 @@
     tum.folders.subscribe(() => schedulerender());
     tum.unsorted.subscribe(() => schedulerender());
     tum.categories.subscribe(() => schedulerender());
+    installhistory();
     Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(() => {
       render();
       setTimeout(() => {if (!state.open && tum.settings && tum.settings.get("autoopen")) openoverlay()}, 350);
@@ -545,6 +550,7 @@
   }
   function closeoverlay() {
     state.open = false;
+    clearuserhover();
     clearaffiliatetooltip();
     closefolderfilters();
     if (O.closectx) O.closectx();
@@ -662,6 +668,188 @@
     for (const user of tum.unsorted.list()) if (selected.has("user:" + String(user.handle || "").toLowerCase())) out.push({type: "user", handle: user.handle, data: user});
     return out;
   }
+  const HISTORYLIMIT = 500;
+  const history = {active: false, replaying: false, depth: 0, before: null, transactionbefore: null, timer: 0, past: [], future: []};
+  function clonehistory(value) {return JSON.parse(JSON.stringify(value))}
+  function historyprofile() {
+    return {
+      folders: clonehistory(tum.folders.list()),
+      categories: clonehistory(tum.categories.list()),
+      unsorted: clonehistory(tum.unsorted.list())
+    };
+  }
+  function historykey(type, item) {return type === "user" ? String(item.handle || "").toLowerCase() : item.id}
+  function historychanges(type, before, after) {
+    const olditems = new Map(before.map(item => [historykey(type, item), item]));
+    const newitems = new Map(after.map(item => [historykey(type, item), item]));
+    const keys = new Set([...olditems.keys(), ...newitems.keys()]);
+    const changes = [];
+    for (const key of keys) {
+      const olditem = olditems.get(key), newitem = newitems.get(key);
+      if (JSON.stringify(olditem) !== JSON.stringify(newitem)) changes.push({key, before: olditem ? clonehistory(olditem) : null, after: newitem ? clonehistory(newitem) : null});
+    }
+    return changes;
+  }
+  function commithistory(before, after) {
+    if (!before || !after || history.replaying) return false;
+    const entry = {
+      folders: historychanges("folder", before.folders, after.folders),
+      categories: historychanges("category", before.categories, after.categories),
+      unsorted: historychanges("user", before.unsorted, after.unsorted)
+    };
+    if (!entry.folders.length && !entry.categories.length && !entry.unsorted.length) return false;
+    history.past.push(entry);
+    if (history.past.length > HISTORYLIMIT) history.past.splice(0, history.past.length - HISTORYLIMIT);
+    history.future = [];
+    return true;
+  }
+  function flushhistory() {
+    clearTimeout(history.timer);
+    history.timer = 0;
+    if (!history.active || history.replaying || history.depth) return;
+    const after = historyprofile();
+    commithistory(history.before, after);
+    history.before = after;
+  }
+  function queuehistory() {
+    if (!history.active || history.replaying || history.depth) return;
+    clearTimeout(history.timer);
+    history.timer = setTimeout(flushhistory, 0);
+  }
+  function historybegin() {
+    if (!history.active || history.replaying) return;
+    if (!history.depth) history.transactionbefore = historyprofile();
+    history.depth++;
+  }
+  function historyend() {
+    if (!history.active || history.replaying || !history.depth) return;
+    history.depth--;
+    if (history.depth) return;
+    clearTimeout(history.timer);
+    history.timer = 0;
+    const after = historyprofile();
+    commithistory(history.transactionbefore, after);
+    history.before = after;
+    history.transactionbefore = null;
+  }
+  function restorehistorylist(type, changes, version, items) {
+    const restored = new Map(items.map(item => [historykey(type, item), clonehistory(item)]));
+    for (const change of changes) {
+      const value = change[version];
+      if (value) restored.set(change.key, clonehistory(value));
+      else restored.delete(change.key);
+    }
+    return [...restored.values()];
+  }
+  function restorehistory(entry, version) {
+    if (!entry) return false;
+    history.replaying = true;
+    clearTimeout(history.timer);
+    history.timer = 0;
+    const categories = restorehistorylist("category", entry.categories, version, tum.categories.list());
+    const folders = restorehistorylist("folder", entry.folders, version, tum.folders.list());
+    const unsorted = restorehistorylist("user", entry.unsorted, version, tum.unsorted.list());
+    tum.categories.import(categories, true);
+    tum.folders.import(folders.map(folder => Object.assign({}, folder, {members: (folder.members || []).slice().reverse()})), true);
+    tum.unsorted.import(unsorted, true);
+    history.before = historyprofile();
+    history.replaying = false;
+    clearselection();
+    clearuserhover();
+    render(true);
+    return true;
+  }
+  function historyundo() {
+    const entry = history.past.pop();
+    if (!entry || !restorehistory(entry, "before")) return false;
+    history.future.push(entry);
+    return true;
+  }
+  function historyredo() {
+    const entry = history.future.pop();
+    if (!entry || !restorehistory(entry, "after")) return false;
+    history.past.push(entry);
+    return true;
+  }
+  function installhistory() {
+    Promise.all([tum.folders.ready, tum.unsorted.ready, tum.categories.ready]).then(() => {
+      history.before = historyprofile();
+      history.active = true;
+      tum.folders.subscribe(queuehistory);
+      tum.unsorted.subscribe(queuehistory);
+      tum.categories.subscribe(queuehistory);
+    });
+  }
+  function startselectiondrag(node, event) {
+    const ownkey = selectionkey(node);
+    if (!ownkey || !state.selection.has(ownkey) || state.selection.size < 2 || event.button !== 0 || state.drag || state.gesture) return false;
+    const selectedcategories = new Set([...state.selection].filter(key => key.startsWith("category:")).map(key => key.slice(9)));
+    const categories = tum.categories.list().filter(category => selectedcategories.has(category.id)).map(category => ({
+      id: category.id, node: (O.categorynodes || []).find(item => item.dataset.id === category.id), x: category.x || 0, y: category.y || 0
+    })).filter(item => item.node);
+    const folders = new Map();
+    for (const folder of tum.folders.list()) {
+      const direct = state.selection.has("folder:" + folder.id);
+      if (!direct && !selectedcategories.has(folder.cat)) continue;
+      const item = (O.foldernodes || []).find(node2 => node2.dataset.id === folder.id);
+      if (item) folders.set(folder.id, {id: folder.id, node: item, x: folder.x || 0, y: folder.y || 0});
+    }
+    const users = new Map();
+    for (const user of tum.unsorted.list()) {
+      const key = String(user.handle || "").toLowerCase();
+      const direct = state.selection.has("user:" + key);
+      if (!direct && !selectedcategories.has(user.cat)) continue;
+      const item = [...els.freeform.querySelectorAll(".tumloosechip")].find(node2 => String(node2.dataset.handle || "").toLowerCase() === key);
+      if (item) users.set(key, {handle: user.handle, node: item, x: user.x || 0, y: user.y || 0});
+    }
+    if (!categories.length && !folders.size && !users.size) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const startx = event.clientX, starty = event.clientY, pointerid = event.pointerId;
+    state.gesture = {kind: "selectiondrag", pointerid};
+    let dragging = false;
+    const movingnodes = [...categories, ...folders.values(), ...users.values()];
+    const place = moveevent => {
+      const dx = Math.round((moveevent.clientX - startx) / zoom), dy = Math.round((moveevent.clientY - starty) / zoom);
+      for (const item of categories) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
+      for (const item of folders.values()) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
+      for (const item of users.values()) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
+      return {dx, dy};
+    };
+    historybegin();
+    const move = moveevent => {
+      if (!state.gesture || state.gesture.pointerid !== pointerid || moveevent.pointerId !== pointerid) return;
+      if (!dragging && Math.hypot(moveevent.clientX - startx, moveevent.clientY - starty) < THRESHOLD) return;
+      if (!dragging) {
+        dragging = true;
+        clearuserhover();
+        root.classList.add("tumfolderdragging");
+        for (const item of movingnodes) item.node.classList.add("tumdragactive");
+      }
+      place(moveevent);
+    };
+    const finish = upevent => {
+      if (!state.gesture || state.gesture.pointerid !== pointerid || upevent.pointerId !== pointerid) return;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", finish);
+      document.removeEventListener("pointercancel", finish);
+      state.gesture = null;
+      root.classList.remove("tumfolderdragging");
+      for (const item of movingnodes) item.node.classList.remove("tumdragactive");
+      if (dragging && upevent.type === "pointerup") {
+        const {dx, dy} = place(upevent);
+        for (const item of categories) tum.categories.update(item.id, {x: item.x + dx, y: item.y + dy}, true);
+        if (folders.size) tum.folders.bulkmove([...folders.values()].map(item => ({id: item.id, x: item.x + dx, y: item.y + dy})));
+        if (users.size) tum.unsorted.bulkmove([...users.values()].map(item => ({handle: item.handle, x: item.x + dx, y: item.y + dy})));
+      } else if (!dragging) clearselection();
+      else render(true);
+      historyend();
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", finish);
+    document.addEventListener("pointercancel", finish);
+    return true;
+  }
   let renderraf = 0, scheduledforce = false;
   function schedulerender(force) {
     scheduledforce = scheduledforce || force === true;
@@ -774,7 +962,7 @@
     const verifiedtype = String(member.verifiedtype || "").toLowerCase();
     if (type === "protected") return !!member.protected || badges.includes("protected");
     if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
-    if (type === "blue") return badges.includes("blue") || (!!member.blueverified && !/business|government/.test(verifiedtype));
+    if (type === "blue") return badges.includes("blue") || (badgeflag(member.blueverified) && !/business|government/.test(verifiedtype));
     if (type === "verified") return badges.includes("verified");
     if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
     if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
@@ -1166,11 +1354,13 @@
     card.appendChild(row);
   }
   function appenduserhoverrelation(row, value, labelkey) {
+    const relation = el("span", "tumuserhoverrelation");
     const count = el("span", "tumuserhovercount");
     count.textContent = formatusercount(value);
     const label = el("span", "tumuserhoverlabel");
     label.textContent = T(labelkey);
-    row.append(count, label);
+    relation.append(count, label);
+    row.appendChild(relation);
   }
   function clearuserhover() {
     if (!userhover) return;
@@ -1190,7 +1380,7 @@
     const folder = row.closest(".tumfolder");
     const source = folder || row;
     const rect = source.getBoundingClientRect();
-    const width = Math.min(folder ? rect.width * 2 / 3 : 160, window.innerWidth - 16);
+    const width = Math.min(folder ? rect.width : 160, window.innerWidth - 16);
     card.style.width = Math.max(0, width) + "px";
     card.style.maxWidth = "calc(100vw - 16px)";
     const left = rect.right + width <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width);
@@ -1293,6 +1483,7 @@
       if (state.drag || state.gesture) return;
       if (e.button === 1) {startcamerapan(e); return}
       if (e.button !== 0) return;
+      if (startselectiondrag(node, e)) return;
       if (e.target.closest(".tumcategorytitle.tumediting")) return;
       if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
       const ontitle = !!e.target.closest(".tumcategorytitle");
@@ -1815,6 +2006,12 @@
   function onkeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.code === "Backquote") {toggleoverlay(); e.preventDefault(); e.stopPropagation(); return}
     if (root.querySelector(".tumcategorytitle.tumediting") || (shadow.activeElement && shadow.activeElement.isContentEditable)) return;
+    const historykey = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && (historykey === "z" || historykey === "y")) {
+      const restored = historykey === "y" || e.shiftKey ? historyredo() : historyundo();
+      if (restored) {e.preventDefault(); e.stopPropagation()}
+      return;
+    }
     if (!state.drag && !state.gesture) {
       if (e.key === "Escape") {
         if (activefolderfilters) {closefolderfilters(); e.preventDefault(); return}
@@ -1916,7 +2113,7 @@
 
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
-    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, clearselection, selecteditems, applypan, fitall,
+    render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, clearselection, selecteditems, startselectiondrag, historybegin, historyend, historyundo, historyredo, applypan, fitall,
     toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen

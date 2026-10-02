@@ -110,6 +110,7 @@
     const time = Date.parse(value || "");
     return isNaN(time) ? value : Math.floor(time / 1000);
   }
+  function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
   function cleanbadges(badges) {
     return (Array.isArray(badges) ? badges : []).flatMap(badge => {
       if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
@@ -134,8 +135,8 @@
       badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
     };
     for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable", "pending"]) {
-      if (user[key] !== undefined && user[key] !== null) entry[key] = user[key];
-      else if (existing && existing[key] !== undefined) entry[key] = existing[key];
+      const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
+      if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }
     entry.createdat = compactdate(entry.createdat);
     if (entry.userid || entry.unfindable) delete entry.pending;

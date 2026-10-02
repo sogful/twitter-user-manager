@@ -188,15 +188,15 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumcategory {
   position: absolute;
-  background: rgba(255,255,255,0.05);
-  border: 2px solid rgba(231,233,234,0.35);
+  background: var(--tumcategorybg,rgba(255,255,255,0.05));
+  border: 2px solid var(--tumcategoryborder,rgba(231,233,234,0.35));
   border-radius: 16px; pointer-events: auto
 }
-.tumcategory.tumselected {border-color: #1d9bf0; box-shadow: 0 0 0 1px #1d9bf0}
+.tumcategory.tumselected {border-color: white; box-shadow: 0 0 0 1px white}
 .tumcategorytitle {
   position: absolute; left: 2px; top: -30px;
   max-width: 100%; padding: 1px 4px;
-  color: #f7f9f9;
+  color: var(--tumtext,#f7f9f9);
   font-size: 20px; font-weight: 700;
   line-height: 24px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -227,7 +227,7 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 200px; height: 288px;
   display: flex; flex-direction: column;
   border-radius: 14px; overflow: hidden;
-  background: #131313;
+  background: var(--tumpanel,#131313);
   pointer-events: auto;
   contain: layout paint;
   --tumcolor: #1d9bf0
@@ -238,7 +238,7 @@ img {-webkit-user-drag: none; user-drag: none}
   backface-visibility: hidden
 }
 .tumfolder.tummergetarget {z-index: 9}
-.tumfolder.tumselected, .tumloosechip.tumselected {outline: 2px solid #1d9bf0}
+.tumfolder.tumselected, .tumloosechip.tumselected {outline: 2px solid white; z-index: 10}
 .tumfolder.tummergetarget::after {
   content: attr(data-mergehint);
   position: absolute; inset: 0;
@@ -351,7 +351,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfoldertools {
   display: flex; gap: 6px;
-  padding: 6px; background: #131313;
+  padding: 6px; background: var(--tumpanel,#131313);
   border-bottom: 1px solid var(--tumborder,#2f3336);
   flex-shrink: 0
 }
@@ -403,7 +403,7 @@ img {-webkit-user-drag: none; user-drag: none}
   gap: 4px; width: 88px; max-width: calc(100vw - 16px);
   max-height: min(60vh,320px); padding: 4px 2px;
   overflow: auto; pointer-events: auto;
-  background: #131313; border: 0;
+  background: var(--tumpanel,#131313); border: 0;
   outline: none; border-radius: 0 11px 11px 0;
   box-shadow: none
 }
@@ -467,7 +467,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 
 .tumfolderlist {
-  background: #131313;
+  background: var(--tumpanel,#131313);
   flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column;
   overscroll-behavior: contain;
@@ -477,10 +477,10 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumuserhover {
   position: fixed; z-index: 12;
-  max-width: calc(100vw - 16px); max-height: min(40vh,240px);
-  overflow: auto; box-sizing: border-box; padding: 5px 6px;
-  border: 0; outline: none; border-radius: 11px;
-  background: #131313; color: var(--tumtext,#e7e9ea);
+  max-width: calc(100vw - 16px); max-height: none;
+  overflow: visible; box-sizing: border-box; padding: 5px 6px;
+  border: 0; outline: none; border-radius: 0 11px 11px 0;
+  background: var(--tumpanel,#131313); color: var(--tumtext,#e7e9ea);
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
   font-size: 10px; line-height: 1.35;
   pointer-events: auto; user-select: text
@@ -492,7 +492,8 @@ img {-webkit-user-drag: none; user-drag: none}
   flex-wrap: nowrap; align-items: center;
   gap: 4px
 }
-.tumuserhoverrelations {flex-wrap: nowrap; justify-content: flex-start; gap: 8px}
+.tumuserhoverrelations {flex-wrap: nowrap; justify-content: flex-start; gap: 6px}
+.tumuserhoverrelation {display: inline-flex; align-items: baseline; gap: 2px}
 .tumuserhovertext {
   color: var(--tummuted,#aab0b6); font-weight: 400;
   white-space: nowrap
@@ -618,7 +619,7 @@ img {-webkit-user-drag: none; user-drag: none}
   position: fixed; z-index: 20;
   width: max-content; max-width: 140px;
   padding: 3px 5px; border-radius: 5px;
-  background: #131313; color: var(--tumtext,#e7e9ea);
+  background: var(--tumpanel,#131313); color: var(--tumtext,#e7e9ea);
   font-size: 10px; line-height: 1.2;
   pointer-events: none
 }
@@ -1106,7 +1107,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumcontextmenu {
   position: fixed; z-index: 8;
   min-width: 220px; max-width: 320px;
-  background: #131313; border: 0;
+  background: var(--tumpanel,#131313); border: 0;
   outline: none;
   border-radius: 14px; padding: 2px 0;
   opacity: 0; visibility: hidden;
@@ -1131,7 +1132,7 @@ img {-webkit-user-drag: none; user-drag: none}
   position: fixed; z-index: 8;
   min-width: 170px; max-width: 240px;
   padding: 7px 0 4px;
-  background: #131313; border: 0;
+  background: var(--tumpanel,#131313); border: 0;
   border-radius: 12px;
   pointer-events: auto
 }
@@ -1139,7 +1140,7 @@ img {-webkit-user-drag: none; user-drag: none}
   content: "";
   position: absolute; top: 18px; left: -18px;
   width: 18px; height: 1px;
-  background: rgba(255,255,255,0.82)
+  background: var(--tumtext,rgba(255,255,255,0.82))
 }
 .tumctxpaneltitle {
   padding: 0 11px;

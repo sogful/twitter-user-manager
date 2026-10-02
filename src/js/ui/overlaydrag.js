@@ -19,6 +19,7 @@
       if (e.button === 1) {O.startcamerapan(e); return}
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfolderremove")) return;
+      if (O.startselectiondrag && O.startselectiondrag(node, e)) return;
       const rect = node.getBoundingClientRect();
       const z = O.zoom();
       tracking = {
@@ -190,6 +191,7 @@
       if (state.drag || state.gesture) return;
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge, .tumaffbadge")) return;
+      if (source && source.type === "unsorted" && O.startselectiondrag && O.startselectiondrag(row, e)) return;
       const startx = e.clientX, starty = e.clientY;
       const pointerid = e.pointerId;
       state.gesture = {kind: "member", pointerid};

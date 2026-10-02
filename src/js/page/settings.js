@@ -188,9 +188,9 @@
     const badges = [];
     const containers = profilecontainers(result);
     const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
-    const verifiedtype = String(values("verified_type")[0] || "").toLowerCase();
-    const blue = values("is_blue_verified").some(badgeflag);
-    const verified = values("verified").some(badgeflag);
+    const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
+    const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
     if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
     else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
     else if (blue) badges.push("blue");
@@ -237,7 +237,7 @@
       favorites: result.action_counts && result.action_counts.favorites_count != null ? result.action_counts.favorites_count : legacy.favourites_count,
       highlights: result.highlights_info && result.highlights_info.can_highlight_tweets ? Number(result.highlights_info.highlighted_tweets || 0) : null,
       verifiedtype: result.verification && result.verification.verified_type || result.verified_type || null,
-      blueverified: !!result.is_blue_verified,
+      blueverified: badgeflag(result.is_blue_verified),
       protected: !!(result.privacy && result.privacy.protected || legacy.protected),
       unfindable: false
     };
@@ -318,7 +318,7 @@
       favorites: data.favorites,
       highlights: data.highlights,
       verifiedtype: data.verifiedType,
-      blueverified: data.blueVerified,
+      blueverified: badgeflag(data.blueVerified),
       protected: data.isProtected,
       badges: Array.isArray(data.badges) ? data.badges : []
     };
