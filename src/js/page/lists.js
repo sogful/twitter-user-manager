@@ -6,8 +6,6 @@
   const T = (...a) => tum.strings.t(...a);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  // https://news.ycombinator.com/item?id=35549764
-  const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
   const FEATURES = '{"rweb_video_screen_enabled":false,"rweb_cashtags_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"rweb_cashtags_composer_attachment_enabled":true,"responsive_web_jetfuel_frame":true,"responsive_web_grok_share_attachment_enabled":true,"responsive_web_grok_annotations_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"rweb_conversational_replies_downvote_enabled":false,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"content_disclosure_indicator_enabled":true,"content_disclosure_ai_generated_indicator_enabled":true,"responsive_web_grok_show_grok_translated_post":true,"responsive_web_grok_analysis_button_from_backend":true,"post_ctas_fetch_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":false,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_grok_imagine_annotation_enabled":true,"responsive_web_grok_community_note_auto_translation_is_enabled":true,"responsive_web_enhance_cards_enabled":false}';
   const CQFEATURES = '{"c9s_list_members_action_api_enabled":false,"c9s_superc9s_indication_enabled":false}';
 
@@ -87,12 +85,11 @@
   };
   const CQID = "-ElI1vg3dYbttVMhBhGdLw"; // CommunityQuery
 
-  const hdrs = ct0 => ({authorization: BEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session", "x-twitter-active-user": "yes", "x-twitter-client-language": "en"});
-  const ct0 = () => (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-
   const useridmap = new Map();
   let listrequestid = 0;
   const listrequests = new Map();
+  let graphqlrequestid = 0;
+  const graphqlrequests = new Map();
   window.addEventListener("message", e => {
     if (!e.data || e.data.__tumuser !== 1 || !e.data.data) return;
     const d = e.data.data;
@@ -107,15 +104,42 @@
     clearTimeout(pending.timer);
     response.ok ? pending.resolve(response.data || {}) : pending.reject(new Error(response.error || "request failed"));
   });
+  window.addEventListener("message", e => {
+    const response = e.data;
+    if (e.source !== window || !response || response.__tumgraphqlresponse !== 1) return;
+    const pending = graphqlrequests.get(response.id);
+    if (!pending) return;
+    graphqlrequests.delete(response.id);
+    clearTimeout(pending.timer);
+    pending.resolve(response);
+  });
+  function graphqlrequest(endpoint, variables) {
+    const id = "graphql-" + Date.now().toString(36) + "-" + (++graphqlrequestid);
+    return new Promise(resolve => {
+      const timer = setTimeout(() => {
+        graphqlrequests.delete(id);
+        resolve({ok: false, status: 0, data: null});
+      }, 15000);
+      graphqlrequests.set(id, {resolve, timer});
+      window.postMessage({
+        __tumgraphqlrequest: 1,
+        id,
+        qid: endpoint.qid,
+        operation: endpoint.op,
+        variables,
+        features: endpoint.feat,
+        fieldToggles: endpoint.toggles
+      }, location.origin);
+    });
+  }
   const UBSN = {qid: "Gb-d6r0vxPOADdG62OEBpQ", features: '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"subscriptions_feature_can_gift_premium":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}', toggles: '{"withPayments":false,"withAuxiliaryUserLabels":true}'};
   async function resolveuserid(handle) {
     const cached = useridmap.get(handle.toLowerCase());
     if (cached) return cached;
     try {
       const vars = {screen_name: handle, withGrokTranslatedBio: true};
-      const url = "/i/api/graphql/" + UBSN.qid + "/UserByScreenName?variables=" + encodeURIComponent(JSON.stringify(vars)) + "&features=" + encodeURIComponent(UBSN.features) + "&fieldToggles=" + encodeURIComponent(UBSN.toggles);
-      const r = await fetch(url, {credentials: "include", headers: hdrs(ct0())});
-      const j = await r.json();
+      const page = await graphqlrequest({qid: UBSN.qid, op: "UserByScreenName", feat: UBSN.features, toggles: UBSN.toggles}, vars);
+      const j = page.data;
       let id = "";
       (function w(o) {if (!o || typeof o !== "object" || id) return; if (o.rest_id && o.core && o.core.screen_name) {id = o.rest_id; return} for (const k in o) if (o[k] && typeof o[k] === "object") w(o[k])})(j);
       if (id) {useridmap.set(handle.toLowerCase(), String(id)); return String(id)}
@@ -371,9 +395,8 @@
 
   async function communityname(id) {
     try {
-      const url = "/i/api/graphql/" + CQID + "/CommunityQuery?variables=" + encodeURIComponent(JSON.stringify({communityId: id})) + "&features=" + encodeURIComponent(CQFEATURES);
-      const r = await fetch(url, {credentials: "include", headers: hdrs(ct0())});
-      const j = await r.json();
+      const page = await graphqlrequest({qid: CQID, op: "CommunityQuery", feat: CQFEATURES}, {communityId: id});
+      const j = page.data;
       let out = "";
       (function w(o) {if (!o || typeof o !== "object" || out) return; if (o.__typename === "Community" && o.name) {out = o.name; return} for (const k in o) if (o[k] && typeof o[k] === "object") w(o[k])})(j);
       return out;
@@ -429,18 +452,11 @@
   }
   async function eppage(ep, ctx, cursor) {
     const vars = ep.vars(ctx, cursor);
-    let url = "/i/api/graphql/" + ep.qid + "/" + ep.op + "?variables=" + encodeURIComponent(JSON.stringify(vars));
-    if (ep.feat) url += "&features=" + encodeURIComponent(ep.feat);
-    let r;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {r = await fetch(url, {credentials: "include", headers: hdrs(ct0()), signal: controller.signal})} catch (e) {return {ok: false, status: 0, users: [], cursor: null}}
-    finally {clearTimeout(timeout)}
-    let j = null;
-    try {j = await r.json()} catch {}
+    const response = await graphqlrequest(ep, vars);
+    const j = response.data;
     const parsed = j ? parsepage(j) : {users: [], cursor: null};
-    const ok = r.ok && j && !(j.errors && j.errors.length && parsed.users.length === 0);
-    return {ok, status: r.status, users: parsed.users, cursor: parsed.cursor};
+    const ok = response.ok && j && !(j.errors && j.errors.length && parsed.users.length === 0);
+    return {ok, status: response.status, users: parsed.users, cursor: parsed.cursor};
   }
 
   async function runimport(folder, name, expected, pagefn, fallback, job) {

@@ -147,11 +147,9 @@
     aboutdone.add(key);
     try {
       const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
-      const url = "/i/api/graphql/" + aboutqid() + "/AboutAccountQuery?variables=" + encodeURIComponent(JSON.stringify({screenName: handle}));
-      const r = await origfetch(url, {credentials: "include", headers: {
-        authorization: bearer || PUBBEARER, "x-csrf-token": ct0, "x-twitter-auth-type": "OAuth2Session",
-        "x-twitter-active-user": "yes", "x-twitter-client-language": "en"
-      }});
+      const path = "/i/api/graphql/" + aboutqid() + "/AboutAccountQuery";
+      const url = path + "?variables=" + encodeURIComponent(JSON.stringify({screenName: handle}));
+      const r = await origfetch(url, {credentials: "include", headers: await graphqlheaders(ct0, "GET", path)});
       if (!r.ok) return;
       const j = await r.json();
       const ab = j && j.data && j.data.user_result_by_screen_name && j.data.user_result_by_screen_name.result && j.data.user_result_by_screen_name.result.about_profile;
@@ -192,6 +190,36 @@
   const isexplore = url => typeof url === "string" && url.indexOf("ExplorePage") >= 0;
 
   const origfetch = window.fetch;
+  let webpackrequire = null;
+  let transactionfactory = null;
+  async function transactionmarkup() {
+    const response = await origfetch(location.origin + "/", {credentials: "include", cache: "no-store"});
+    if (!response.ok) throw new Error("request failed");
+    const source = new DOMParser().parseFromString(await response.text(), "text/html");
+    const frames = [...source.querySelectorAll("[id^='loading-x-anim']")];
+    if (!frames.length) throw new Error("request failed");
+    let host = document.querySelector("[data-tum-transaction-markup]");
+    if (!host) {
+      host = document.createElement("div");
+      host.hidden = true;
+      host.dataset.tumTransactionMarkup = "";
+      document.body.appendChild(host);
+    }
+    host.replaceChildren(...frames.map(frame => document.importNode(frame, true)));
+  }
+  async function transactionid(path, method) {
+    if (!webpackrequire) {
+      const chunks = window.webpackChunk_twitter_responsive_web;
+      if (!chunks || typeof chunks.push !== "function") throw new Error("request failed");
+      chunks.push([["tum-transaction"], {}, require => {webpackrequire = require}]);
+    }
+    if (!transactionfactory) {
+      await transactionmarkup();
+      await webpackrequire.e(59924);
+      transactionfactory = webpackrequire(88716).default();
+    }
+    return transactionfactory(path, method);
+  }
   const LISTMUTATIONS = {
     CreateList: "UQRa0jJ9doxGEIQRea1Y0w",
     ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q",
@@ -211,6 +239,39 @@
     if (type) headers["content-type"] = type;
     return headers;
   }
+  async function graphqlheaders(ct0, method, path, type) {
+    const headers = listheaders(ct0, type);
+    headers["x-client-transaction-id"] = await transactionid(path, method);
+    return headers;
+  }
+
+  window.addEventListener("message", async event => {
+    const request = event.data;
+    if (event.source !== window || !request || request.__tumgraphqlrequest !== 1) return;
+    if (!request.id || !request.operation || !request.qid || !request.variables || typeof request.variables !== "object") return;
+    let response = null, data = null, failure = "";
+    try {
+      const qid = qids[request.operation] || request.qid;
+      const path = "/i/api/graphql/" + qid + "/" + request.operation;
+      let url = path + "?variables=" + encodeURIComponent(JSON.stringify(request.variables));
+      if (request.features) url += "&features=" + encodeURIComponent(request.features);
+      if (request.fieldToggles) url += "&fieldToggles=" + encodeURIComponent(request.fieldToggles);
+      const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
+      response = await origfetch(url, {
+        credentials: "include",
+        headers: await graphqlheaders(ct0, "GET", path)
+      });
+      try {data = await response.json()} catch {}
+    } catch (error) {failure = error && error.message || "request failed"}
+    window.postMessage({
+      __tumgraphqlresponse: 1,
+      id: request.id,
+      ok: !!(response && response.ok),
+      status: response ? response.status : 0,
+      data,
+      error: failure || (!response ? "network" : "request failed")
+    }, location.origin);
+  });
 
   async function uploadlistbanner(encoded, ct0) {
     if (typeof encoded !== "string" || !/^[A-Za-z0-9+/=]+$/.test(encoded)) throw new Error("invalid banner");
@@ -251,11 +312,12 @@
       const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
       if (banner) data = {mediaId: await uploadlistbanner(request.variables.data, ct0)};
       else {
-        response = await origfetch("/i/api/graphql/" + queryId + "/" + request.operation, {
+        const path = "/i/api/graphql/" + (qids[request.operation] || queryId) + "/" + request.operation;
+        response = await origfetch(path, {
           method: "POST",
           credentials: "include",
-          headers: listheaders(ct0, "application/json"),
-          body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId})
+          headers: await graphqlheaders(ct0, "POST", path, "application/json"),
+          body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId: qids[request.operation] || queryId})
         });
         try {data = await response.json()} catch {}
       }
@@ -265,6 +327,7 @@
       __tumlistresponse: 1,
       id: request.id,
       ok: banner ? !!(data && data.mediaId) : !!(response && response.ok && data && data.data),
+      status: response ? response.status : 0,
       data,
       error: error || failure || (!response ? "network" : "request failed")
     }, location.origin);
