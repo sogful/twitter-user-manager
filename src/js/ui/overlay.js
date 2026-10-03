@@ -299,8 +299,8 @@
         els.selectionbox.hidden = true;
         if (selecting && ev.type === "pointerup") selectinrect(startx, starty, ev.clientX, ev.clientY, prior);
         else if (!ctxwasdismissed && ev.type === "pointerup") {
-          clearselection();
-          closeoverlay();
+          if (state.selection.size) clearselection();
+          else closeoverlay();
         }
       };
       bd.addEventListener("pointermove", move);

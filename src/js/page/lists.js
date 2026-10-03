@@ -247,6 +247,24 @@
     clearTimeout(uploadbartimer);
     uploadbartimer = setTimeout(removeuploadbar, 2600);
   }
+  let refreshsequence = 0;
+  function refreshcurrentlist(listid) {
+    const id = "tumlistrefresh" + Date.now() + (++refreshsequence);
+    return new Promise(resolve => {
+      const finish = value => {
+        clearTimeout(timer);
+        window.removeEventListener("message", receive);
+        resolve(value);
+      };
+      const receive = event => {
+        const response = event.data;
+        if (event.source === window && response && response.__tumlistrefreshresponse === 1 && response.id === id) finish(!!response.ok);
+      };
+      const timer = setTimeout(() => finish(false), 5000);
+      window.addEventListener("message", receive);
+      window.postMessage({__tumlistrefresh: 1, id, listid: String(listid)}, location.origin);
+    });
+  }
   async function uploadfolder(folder, callbacks) {
     if (listuploading) throw new Error("busy");
     const members = Array.isArray(folder && folder.members) ? folder.members : [];
@@ -285,6 +303,7 @@
         if (ids.size > 1) await sleep(1500);
       }
       const result = {id: listid, added, skipped, bannerfailed};
+      await refreshcurrentlist(listid);
       finishuploadbar(T(bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", folder.name || T("folder.unnamed"), added));
       return result;
     } catch (error) {
@@ -314,6 +333,7 @@
         renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
         if (changes.length > 1) await sleep(1500);
       }
+      await refreshcurrentlist(listid);
       finishuploadbar(T("toast.twlist.synced", added, removed));
       return {added, removed, unresolved: wanted.unresolved};
     } catch (error) {
@@ -330,6 +350,7 @@
     listuploading = true;
     try {
       await listrequest(LISTEP.update, {listId: listid, isPrivate: !!isprivate});
+      await refreshcurrentlist(listid);
       return {id: listid, private: !!isprivate};
     } finally {listuploading = false}
   }
@@ -838,7 +859,7 @@
 
   window.tum.graphql = graphqlrequest;
   window.tum.lists = {
-    uploadfolder, syncfolder, setlistprivacy, folderlistid,
+    uploadfolder, syncfolder, setlistprivacy, refreshcurrentlist, folderlistid,
     init() {
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});

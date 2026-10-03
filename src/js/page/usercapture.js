@@ -327,6 +327,64 @@
     return headers;
   }
 
+  let webpackrequire = null;
+  function findlistmodule() {
+    if (!webpackrequire) {
+      const chunks = window.webpackChunk_twitter_responsive_web;
+      if (!chunks || typeof chunks.push !== "function") return null;
+      chunks.push([["tumlistrefresh"], {}, value => {webpackrequire = value}]);
+    }
+    if (!webpackrequire || !webpackrequire.c) return null;
+    for (const entry of Object.values(webpackrequire.c)) {
+      const values = [entry && entry.exports, ...Object.values(entry && entry.exports || {})];
+      for (const value of values) {
+        if (value && value.namespace === "lists" && typeof value.fetchOne === "function") return value;
+      }
+    }
+    return null;
+  }
+  function findlistcomponent(listid) {
+    const wanted = String(listid);
+    for (const element of document.querySelectorAll("*")) {
+      for (const name of Object.keys(element)) {
+        if (!name.startsWith("__reactFiber$")) continue;
+        let fiber = element[name], depth = 0;
+        while (fiber && depth++ < 80) {
+          const component = fiber.stateNode;
+          const timelineid = String(component && component.props && component.props.timelineId || "");
+          const store = component && component.context && component.context.store;
+          if (component && component._timelineAPI && timelineid.includes(wanted) && store && typeof store.dispatch === "function") return component;
+          fiber = fiber.return;
+        }
+      }
+    }
+    return null;
+  }
+  function refreshcurrentlist(listid) {
+    const route = /^\/i\/lists\/(\d+)/.exec(location.pathname);
+    if (!route || route[1] !== String(listid)) return false;
+    const component = findlistcomponent(listid);
+    if (!component) return false;
+    const requests = [];
+    const listmodule = findlistmodule();
+    if (listmodule) {
+      try {requests.push(Promise.resolve(component.context.store.dispatch(listmodule.fetchOne(String(listid)))))} catch {}
+    }
+    try {requests.push(Promise.resolve(component._timelineAPI.fetchTop({requestContext: "REFRESH"})))} catch {}
+    if (!requests.length) return false;
+    Promise.allSettled(requests);
+    return true;
+  }
+  window.addEventListener("message", event => {
+    const request = event.data;
+    if (event.source !== window || !request || request.__tumlistrefresh !== 1 || !request.id || !/^\d+$/.test(String(request.listid || ""))) return;
+    Promise.resolve(refreshcurrentlist(request.listid)).then(ok => {
+      window.postMessage({__tumlistrefreshresponse: 1, id: request.id, ok}, location.origin);
+    }).catch(() => {
+      window.postMessage({__tumlistrefreshresponse: 1, id: request.id, ok: false}, location.origin);
+    });
+  });
+
   window.addEventListener("message", async event => {
     const request = event.data;
     if (event.source !== window || !request || request.__tumgraphqlrequest !== 1) return;
