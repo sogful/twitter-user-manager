@@ -11,6 +11,11 @@
     if (search && clear) clear.hidden = !search.value;
   }
   function filterfolderrows(list, query) {
+    const folder = list && list.closest(".tumfolder");
+    if (folder && typeof folder._tumfiltermembers === "function") {
+      folder._tumfiltermembers(query);
+      return;
+    }
     const q = (query || "").trim().toLowerCase();
     for (const row of list.querySelectorAll(".tumfoldermember")) {
       row.style.display = !q || row.textContent.toLowerCase().includes(q) ? "" : "none";

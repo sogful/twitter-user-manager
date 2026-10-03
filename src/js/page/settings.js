@@ -408,7 +408,7 @@
         if (repopulation.index < repopulation.members.length && repopulation.index % REFRESHBATCHSIZE === 0) {
           repopulation.waituntil = Date.now() + REFRESHPAUSE;
           await persistrepopulation();
-          await waitrepopulate(repopulation.waituntil, remaining => T("settings.repopulate.pause", remaining, REFRESHBATCHSIZE));
+          await waitrepopulate(repopulation.waituntil, remaining => T("settings.repopulate.pause", REFRESHBATCHSIZE, remaining));
           if (!repopulation || repopulatecancel) break;
           repopulation.waituntil = 0;
         }

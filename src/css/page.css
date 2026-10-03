@@ -282,7 +282,8 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
   bottom: 20px; left: auto;
   transform: none; z-index: 2147483647;
   width: 320px; max-width: calc(100vw - 32px);
-  height: 61px; box-sizing: border-box;
+  height: auto; min-height: 61px;
+  box-sizing: border-box;
   background: var(--tumelev,#16181c); border: 1px solid var(--tumborder,#2f3336);
   border-radius: 12px; overflow: hidden;
   font-family: "TwitterChirp",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -295,12 +296,13 @@ html.tumpickuser [data-testid="typeaheadResult"]:not(:has(img)) {display: none !
 .tumbatchrow {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 10px 14px;
-  height: 56px; box-sizing: border-box
+  min-height: 56px; height: auto;
+  box-sizing: border-box
 }
 .tumbatchlabel {
   font-size: 13px; font-weight: 700;
-  overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap
+  min-width: 0; overflow-wrap: anywhere;
+  white-space: normal
 }
 .tumbatchcancel {
   flex: 0 0 auto; border: 1px solid var(--tumcancelborder,#536471);

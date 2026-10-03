@@ -168,21 +168,37 @@
       const src = {type: "folder", id: f.id};
       const foldercount = tum.folders.list().length;
       const membercap = foldercount > 180 ? 12 : foldercount > 60 ? 24 : MEMBERCAP;
-      const fill = shown => {
-        for (const m of members.slice(shown - membercap < 0 ? 0 : shown - membercap, shown)) list.appendChild(buildmemberrow(src, m));
-        if (members.length > shown) {
+      let shown = Math.min(members.length, Math.max(membercap, showncap.get(f.id) || 0));
+      let query = "";
+      const matchesquery = member => [
+        member.displayname,
+        member.handle,
+        member.reason,
+        member.unfindable ? T("user.unfindable") : ""
+      ].join(" ").toLowerCase().includes(query);
+      const renderrows = () => {
+        const visible = query ? members.filter(matchesquery) : members.slice(0, shown);
+        list.replaceChildren(...visible.map(member => buildmemberrow(src, member)));
+        if (query && !visible.length) {
+          list.appendChild(el("div", "tumfolderempty", T("folder.search.empty")));
+          return;
+        }
+        if (!query && members.length > shown) {
           const more = el("div", "tumfoldermore", T("folder.more", members.length - shown));
-          more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = shown + membercap; showncap.set(f.id, next); fill(next)});
+          more.addEventListener("click", event => {
+            event.stopPropagation();
+            shown = Math.min(members.length, shown + membercap);
+            showncap.set(f.id, shown);
+            renderrows();
+          });
           list.appendChild(more);
         }
       };
-      const cap = Math.max(membercap, showncap.get(f.id) || 0);
-      for (const m of members.slice(0, cap)) list.appendChild(buildmemberrow(src, m));
-      if (members.length > cap) {
-        const more = el("div", "tumfoldermore", T("folder.more", members.length - cap));
-        more.addEventListener("click", e => {e.stopPropagation(); more.remove(); const next = cap + membercap; showncap.set(f.id, next); fill(next)});
-        list.appendChild(more);
-      }
+      node._tumfiltermembers = value => {
+        query = (value || "").trim().toLowerCase();
+        renderrows();
+      };
+      renderrows();
     }
     O.attachfolderdrag(node, f);
     node._tumremove.addEventListener("click", e => {
