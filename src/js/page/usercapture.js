@@ -190,35 +190,117 @@
   const isexplore = url => typeof url === "string" && url.indexOf("ExplorePage") >= 0;
 
   const origfetch = window.fetch;
-  let webpackrequire = null;
-  let transactionfactory = null;
-  async function transactionmarkup() {
+  let transactionready = null;
+
+  function textbytes(value) {
+    const raw = atob(value);
+    return Array.from(raw, char => char.charCodeAt(0));
+  }
+  function bytesbase64(bytes) {
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.slice(i, i + 0x8000));
+    return btoa(text).replace(/=/g, "");
+  }
+  function floathex(value) {
+    const result = [];
+    let quotient = Math.floor(value);
+    let fraction = value - quotient;
+    while (quotient > 0) {
+      quotient = Math.floor(value / 16);
+      const remainder = Math.floor(value - quotient * 16);
+      result.unshift(remainder > 9 ? String.fromCharCode(remainder + 55) : String(remainder));
+      value = quotient;
+    }
+    if (fraction === 0) return result.join("");
+    result.push(".");
+    while (fraction > 0) {
+      fraction *= 16;
+      const integer = Math.floor(fraction);
+      fraction -= integer;
+      result.push(integer > 9 ? String.fromCharCode(integer + 55) : String(integer));
+    }
+    return result.join("");
+  }
+  function cubicvalue(curves, time) {
+    const calculate = (a, b, value) => 3 * a * (1 - value) * (1 - value) * value + 3 * b * (1 - value) * value * value + value * value * value;
+    if (time <= 0) {
+      if (curves[0] > 0) return curves[1] / curves[0] * time;
+      if (curves[1] === 0 && curves[2] > 0) return curves[3] / curves[2] * time;
+      return 0;
+    }
+    if (time >= 1) {
+      if (curves[2] < 1) return 1 + (curves[3] - 1) / (curves[2] - 1) * (time - 1);
+      if (curves[2] === 1 && curves[0] < 1) return 1 + (curves[1] - 1) / (curves[0] - 1) * (time - 1);
+      return 1;
+    }
+    let start = 0, middle = 0, end = 1;
+    while (start < end) {
+      middle = (start + end) / 2;
+      const estimate = calculate(curves[0], curves[2], middle);
+      if (Math.abs(time - estimate) < 0.00001) return calculate(curves[1], curves[3], middle);
+      if (estimate < time) start = middle;
+      else end = middle;
+    }
+    return calculate(curves[1], curves[3], middle);
+  }
+  function animationkey(keybytes, rowindex, indices, source) {
+    const frames = [...source.querySelectorAll("[id^='loading-x-anim']")];
+    const frame = frames[keybytes[5] % 4];
+    const path = frame && frame.children[0] && frame.children[0].children[1];
+    const d = path && path.getAttribute("d");
+    if (!d) throw new Error("transaction animation unavailable");
+    const rows = d.substring(9).split("C").map(item => {
+      const values = item.replace(/[^\d]+/g, " ").trim();
+      return values ? values.split(/\s+/).map(Number) : [];
+    });
+    const row = rows[keybytes[rowindex] % 16];
+    if (!row || row.length < 11) throw new Error("transaction animation unavailable");
+    let frametime = indices.reduce((total, index) => total * (keybytes[index] % 16), 1);
+    frametime = Math.round(frametime / 10) * 10;
+    const blend = cubicvalue(row.slice(7).map((value, index) => {
+      const low = index % 2 ? -1 : 0;
+      return Math.round((value * (1 - low) / 255 + low) * 100) / 100;
+    }), frametime / 4096);
+    const colors = row.slice(0, 3).map((value, index) => Math.round(value * (1 - blend) + row[index + 3] * blend)).map(value => Math.max(value, 0));
+    const degrees = Math.floor(row[6] * 300 / 255 + 60) * blend;
+    const radians = degrees * Math.PI / 180;
+    const matrix = [Math.cos(radians), -Math.sin(radians), Math.sin(radians), Math.cos(radians)];
+    const parts = colors.map(value => value.toString(16));
+    for (let value of matrix) {
+      value = Math.round(value * 100) / 100;
+      if (value < 0) value = -value;
+      const hex = floathex(value);
+      parts.push(hex.startsWith(".") ? "0" + hex.toLowerCase() : hex || "0");
+    }
+    return parts.concat("0", "0").join("").replace(/[.-]/g, "");
+  }
+  async function transactiondata() {
+    if (transactionready) return transactionready;
+    transactionready = (async () => {
     const response = await origfetch("/i/jf/", {credentials: "include", cache: "no-store"});
     if (!response.ok) throw new Error("request failed");
     const source = new DOMParser().parseFromString(await response.text(), "text/html");
-    const frames = [...source.querySelectorAll("[id^='loading-x-anim']")];
-    if (!frames.length) throw new Error("request failed");
-    let host = document.querySelector("[data-tum-transaction-markup]");
-    if (!host) {
-      host = document.createElement("div");
-      host.hidden = true;
-      host.dataset.tumTransactionMarkup = "";
-      document.body.appendChild(host);
-    }
-    host.replaceChildren(...frames.map(frame => document.importNode(frame, true)));
+    const key = source.querySelector("[name='twitter-site-verification']")?.getAttribute("content") || "";
+    const runtime = [...source.querySelectorAll("script")].map(script => script.textContent || "").join("\n") + "\n" + source.documentElement.outerHTML;
+    const match = /(\d+):\s*["']ondemand\.s["'][\s\S]*?\}\)\[e\]\s*\|\|\s*e\)\s*\+\s*["']\.["']\s*\+\s*\(\{[\s\S]*?\b\1:\s*["']([a-zA-Z0-9_-]+)["']/s.exec(runtime);
+    if (!key || !match || !source.querySelector("[id^='loading-x-anim']")) throw new Error("transaction data unavailable");
+    const ondemand = await origfetch("https://abs.twimg.com/responsive-web/client-web/ondemand.s." + match[2] + "a.js", {cache: "no-store"});
+    if (!ondemand.ok) throw new Error("transaction data unavailable");
+    const indices = [...(await ondemand.text()).matchAll(/\(\w\[(\d{1,2})\],\s*16\)/g)].map(item => Number(item[1]));
+    if (indices.length < 2) throw new Error("transaction data unavailable");
+    const keybytes = textbytes(key);
+    return {keybytes, animationkey: animationkey(keybytes, indices[0], indices.slice(1), source)};
+    })();
+    try {return await transactionready}
+    catch (error) {transactionready = null; throw error}
   }
   async function transactionid(path, method) {
-    if (!webpackrequire) {
-      const chunks = window.webpackChunk_twitter_responsive_web;
-      if (!chunks || typeof chunks.push !== "function") throw new Error("request failed");
-      chunks.push([["tum-transaction"], {}, require => {webpackrequire = require}]);
-    }
-    if (!transactionfactory) {
-      await transactionmarkup();
-      await webpackrequire.e(59924);
-      transactionfactory = webpackrequire(88716).default();
-    }
-    return transactionfactory(path, method);
+    const transaction = await transactiondata();
+    const now = Math.floor((Date.now() - 1682924400 * 1000) / 1000);
+    const timebytes = [now & 255, now >> 8 & 255, now >> 16 & 255, now >> 24 & 255];
+    const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(method.toUpperCase() + "!" + path + "!" + now + "obfiowerehiring" + transaction.animationkey)));
+    const random = Math.floor(Math.random() * 256);
+    return bytesbase64([random, ...transaction.keybytes, ...timebytes, ...bytes.slice(0, 16), 3].map(value => value ^ random));
   }
   const LISTMUTATIONS = {
     CreateList: "UQRa0jJ9doxGEIQRea1Y0w",
