@@ -229,36 +229,39 @@
     return node;
   }
 
+  function navigatepath(path) {
+    closeoverlay();
+    const id = "navigate-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    let settled = false;
+    const fallback = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("message", reply);
+      const link = document.createElement("a");
+      link.href = path;
+      link.tabIndex = -1;
+      link.setAttribute("aria-hidden", "true");
+      link.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
+      (document.querySelector("#react-root") || document.body).appendChild(link);
+      link.click();
+      link.remove();
+    };
+    const reply = event => {
+      const response = event.data;
+      if (event.source !== window || !response || response.__tumnavigateresponse !== 1 || response.id !== id) return;
+      if (!response.ok) {fallback(); return}
+      settled = true;
+      clearTimeout(timer);
+      window.removeEventListener("message", reply);
+    };
+    const timer = setTimeout(fallback, 300);
+    window.addEventListener("message", reply);
+    window.postMessage({__tumnavigate: 1, id, path}, location.origin);
+  }
+  O.navigatepath = navigatepath;
   function openprofile(source, m) {
     const go = () => {
-      closeoverlay();
-      const path = "/" + encodeURIComponent(m.handle);
-      const id = "navigate-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-      let settled = false;
-      const fallback = () => {
-        if (settled) return;
-        settled = true;
-        window.removeEventListener("message", reply);
-        const link = document.createElement("a");
-        link.href = path;
-        link.tabIndex = -1;
-        link.setAttribute("aria-hidden", "true");
-        link.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
-        (document.querySelector("#react-root") || document.body).appendChild(link);
-        link.click();
-        link.remove();
-      };
-      const reply = event => {
-        const response = event.data;
-        if (event.source !== window || !response || response.__tumnavigateresponse !== 1 || response.id !== id) return;
-        if (!response.ok) {fallback(); return}
-        settled = true;
-        clearTimeout(timer);
-        window.removeEventListener("message", reply);
-      };
-      const timer = setTimeout(fallback, 300);
-      window.addEventListener("message", reply);
-      window.postMessage({__tumnavigate: 1, id, path}, location.origin);
+      navigatepath("/" + encodeURIComponent(m.handle));
     };
     const folder = source && source.type === "folder" ? tum.folders.get(source.id) : null;
     if (folder && folder.action === "block") {
@@ -537,6 +540,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-    Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, openprofile, wireavatar, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover, toggledcollapse});
+    Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, navigatepath, openprofile, wireavatar, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover, toggledcollapse});
   }
 })();

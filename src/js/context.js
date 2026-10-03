@@ -39,10 +39,18 @@
     if (item.href) {
       const link = el("a", "tumctxlink");
       link.href = item.href;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
+      if (!item.path) {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
       link.textContent = item.href;
-      link.addEventListener("click", event => event.stopPropagation());
+      link.addEventListener("click", event => {
+        event.stopPropagation();
+        if (!item.path) return;
+        event.preventDefault();
+        closectx();
+        O.navigatepath(item.path);
+      });
       panel.appendChild(link);
     }
     for (const entry of item.items || []) panel.appendChild(ctxrow(entry));
@@ -188,6 +196,7 @@
       type: "panel",
       label: T("menu.twitterlist"),
       href: "https://x.com/i/lists/" + encodeURIComponent(id),
+      path: "/i/lists/" + encodeURIComponent(id),
       items: [
         {label: T("menu.synctwitter"), icon: ICONS.refresh, onclick: sync},
         {label: T(isprivate ? "menu.publishtwitter" : "menu.unpublishtwitter"), icon: ICONS.upload, onclick: setprivacy}

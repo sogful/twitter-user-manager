@@ -434,7 +434,7 @@
     if (event.source !== window || !request || request.__tumnavigate !== 1 || !request.id) return;
     const path = String(request.path || "");
     let ok = false;
-    if (/^\/[A-Za-z0-9_]+$/.test(path)) {
+    if (/^\/[A-Za-z0-9_]+$/.test(path) || /^\/i\/lists\/\d+$/.test(path)) {
       try {
         const history = richhistory();
         if (history) {history.push(path); ok = true}
