@@ -193,7 +193,7 @@
   let webpackrequire = null;
   let transactionfactory = null;
   async function transactionmarkup() {
-    const response = await origfetch(location.origin + "/", {credentials: "include", cache: "no-store"});
+    const response = await origfetch("/i/jf/", {credentials: "include", cache: "no-store"});
     if (!response.ok) throw new Error("request failed");
     const source = new DOMParser().parseFromString(await response.text(), "text/html");
     const frames = [...source.querySelectorAll("[id^='loading-x-anim']")];
