@@ -316,6 +316,7 @@
       favorites: data.favorites,
       highlights: data.highlights,
       verifiedtype: data.verifiedType,
+      translatortype: data.translatorType,
       blueverified: badgeflag(data.blueVerified),
       protected: data.isProtected,
       badges: Array.isArray(data.badges) ? data.badges : []
