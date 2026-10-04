@@ -89,12 +89,12 @@
   }
   function exportmember(member) {
     const out = {};
-    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "translatortype", "blueverified", "unfindable"]) {
+    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "unfindable"]) {
       if (member[key] !== undefined && member[key] !== null && member[key] !== "") out[key] = key === "createdat" ? compactdate(member[key]) : member[key];
     }
     if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);
     const badges = (Array.isArray(member.badges) ? member.badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(badge)) return [badge];
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];
     });
@@ -106,15 +106,16 @@
   function exportfolderdata(folder) {
     return {
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
+      x: folder.x, y: folder.y,
       description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
-      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|protected|affiliated|translator|translatormod)$/.test(type)))],
+      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|protected|affiliated|translator|translatormod)$/.test(type)))],
       collapsed: !!folder.collapsed, cat: folder.cat || null,
       twitterlist: folder.twitterlist || null,
       members: (folder.members || []).map(exportmember)
     };
   }
 
-  function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h}}
+  function exportcategory(category) {return {id: category.id, name: category.name, x: category.x, y: category.y, w: category.w, h: category.h}}
 
   function exportcategorydata(category) {
     return {
@@ -124,10 +125,10 @@
     };
   }
 
-  function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false})}
+  function exportloosemember(member) {return Object.assign(exportmember(member), {x: member.x, y: member.y, cat: member.cat || null, placed: member.placed !== false})}
 
   function exportdata() {
-    downloadjson({version: 2, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
+    downloadjson({version: 3, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
@@ -182,10 +183,12 @@
       categorysourceids.set(id, category.id);
       return layout;
     });
-    for (const category of categories) {
-      const count = sourcefolders.filter(folder => folder.cat === categorysourceids.get(category.id)).length;
-      const columns = Math.max(1, Math.floor((category.w - 4) / 200));
-      category.h = Math.max(category.h, 4 + Math.ceil(count / columns) * 288);
+    if (!(data && data.version >= 3)) {
+      for (const category of categories) {
+        const count = sourcefolders.filter(folder => folder.cat === categorysourceids.get(category.id)).length;
+        const columns = Math.max(1, Math.floor((category.w - 4) / 200));
+        category.h = Math.max(category.h, 4 + Math.ceil(count / columns) * 288);
+      }
     }
     const autolayout = (item, index, loose) => {
       if (typeof item.x === "number" && typeof item.y === "number") return importposition(item, index);

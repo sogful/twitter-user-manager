@@ -593,6 +593,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumbadgeverified {color: #1d9bf0}
 .tumbadgeblue {color: #1d9bf0}
 .tumbadgegov {color: #829aab}
+.tumbadgeaffiliate {color: #8b7cf6}
 .tumbadgelock {color: var(--tumfg,var(--tumtext,#e7e9ea))}
 .tumbadgetranslator {color: #1d9bf0}
 .tumbadgetranslatorregular {

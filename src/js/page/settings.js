@@ -173,6 +173,42 @@
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
+  const legacyverifiedcutoff = Date.parse("2022-12-12T00:00:00Z");
+  const legacycheckmarksunset = Date.parse("2023-04-21T00:00:00Z");
+  function profileblueverified(result) {
+    const legacy = result && result.legacy || {};
+    const containers = profilecontainers(result || {});
+    const verification = result && result.verification || {};
+    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
+    const reason = info.reason || {};
+    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
+    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
+    const since = Number(reason.verified_since_msec);
+    if (/subscribed to x premium|premium subscription/.test(reasontext) || /^blue$/.test(verifiedtype)) return true;
+    if (Number.isFinite(since) && since >= legacyverifiedcutoff) return true;
+    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const created = Date.parse(result && result.core && result.core.created_at || legacy.created_at || "");
+    return blue && Number.isFinite(created) && created >= legacycheckmarksunset;
+  }
+  function profileverificationkind(result) {
+    const legacy = result && result.legacy || {};
+    const containers = profilecontainers(result || {});
+    const verification = result && result.verification || {};
+    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
+    const reason = info.reason || {};
+    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
+    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
+    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const verified = badgeflag(verification.verified) || badgeflag(result && result.verified) || badgeflag(legacy.verified);
+    const since = Number(reason.verified_since_msec);
+    if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
+    if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
+    if (/\baffiliate of\b/.test(reasontext)) return "affiliate";
+    if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
+    if (profileblueverified(result)) return "blue";
+    if (verified && !blue) return "legacy";
+    return blue ? "unknown" : "none";
+  }
   function profiletranslationtype(result) {
     const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
     const type = translation && translation.translator_type;
@@ -190,25 +226,26 @@
   }
   function profilebadges(result) {
     const badges = [];
-    const legacy = result && result.legacy || {};
     const containers = profilecontainers(result);
-    const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
-    if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
-    else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
-    else if (blue) badges.push("blue");
-    else if (verified) badges.push("verified");
+    const verificationkind = profileverificationkind(result);
+    if (verificationkind === "government") badges.push("verifiedgovernment");
+    else if (verificationkind === "business") badges.push("verifiedbusiness");
+    else if (verificationkind === "affiliate") badges.push("verifiedaffiliate");
+    else if (verificationkind === "blue") badges.push("blue");
+    else if (verificationkind === "legacy") {
+      if (profileblueverified(result)) badges.push("blue");
+      badges.push("verified");
+    }
 
-    const translatorType = profiletranslationtype(result);
-    if (translatorType === "regular" || translatorType === "badged") badges.push("translator");
-    else if (translatorType === "moderator") badges.push("translatormod");
+    const translatortype = profiletranslationtype(result);
+    if (translatortype === "regular" || translatortype === "badged") badges.push("translator");
+    else if (translatortype === "moderator") badges.push("translatormod");
 
     const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
     const label = highlight && (highlight.label || highlight);
     if (label && typeof label === "object") {
       const rawurl = label.url && (typeof label.url === "string" ? label.url : label.url.url);
-      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
+      const match = /x\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
       const linkeduser = affiliationuser(label) || affiliationuser(highlight);
       const core = linkeduser && linkeduser.core || {}, legacy = linkeduser && linkeduser.legacy || {};
       const handle = label.handle || label.screen_name || label.username || core.screen_name || legacy.screen_name || linkeduser && (linkeduser.screen_name || linkeduser.username) || match && match[1];
@@ -224,6 +261,8 @@
     const core = result.core || {}, legacy = result.legacy || {}, rel = result.relationship_counts || {}, tweets = result.tweet_counts || {};
     const handle = core.screen_name || legacy.screen_name;
     if (!handle || !result.rest_id) return null;
+    const verificationkind = profileverificationkind(result);
+    const blueverified = verificationkind === "blue" || verificationkind === "legacy" && profileblueverified(result);
     const user = {
       handle,
       displayname: core.name || legacy.name || handle,
@@ -237,12 +276,13 @@
       favorites: result.action_counts && result.action_counts.favorites_count != null ? result.action_counts.favorites_count : legacy.favourites_count,
       highlights: result.highlights_info && result.highlights_info.can_highlight_tweets ? Number(result.highlights_info.highlighted_tweets || 0) : null,
       verifiedtype: result.verification && result.verification.verified_type || result.verified_type || null,
-      blueverified: badgeflag(result.is_blue_verified),
+      verificationkind,
+      blueverified,
       protected: !!(result.privacy && result.privacy.protected || legacy.protected),
       unfindable: false
     };
-    const translatorType = profiletranslationtype(result);
-    if (translatorType !== undefined) user.translatortype = translatorType;
+    const translatortype = profiletranslationtype(result);
+    if (translatortype !== undefined) user.translatortype = translatortype;
     const badges = profilebadges(result);
     if (badges) user.badges = badges;
     return user;
@@ -257,15 +297,33 @@
     return null;
   }
   async function requestprofile(member) {
-    const byid = member.userid ? {qid: "VQfQ9wwYdk6j_u2O4vt64Q", operation: "UserByRestId", variables: {userId: String(member.userid), withGrokTranslatedBio: true}} :
-      {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}};
+    const byhandle = member.handle ? {qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: member.handle, withGrokTranslatedBio: true}} : null;
+    const byid = member.userid ? {qid: "VQfQ9wwYdk6j_u2O4vt64Q", operation: "UserByRestId", variables: {userId: String(member.userid), withGrokTranslatedBio: true}} : null;
     const toggles = '{"withAuxiliaryUserLabels":true}';
-    let response;
-    try {response = await tum.graphql({qid: byid.qid, op: byid.operation, feat: FEATURES, toggles}, byid.variables)} catch {return {ok: false, retry: false, missing: false}}
-    if (!response || !response.ok) return {ok: false, retry: response && response.status === 429, missing: response && response.status === 404, rateLimitReset: response && response.rateLimitReset};
-    const json = response.data;
-    const user = profilefromresult(finduser(json, {n: 30000}));
-    return user ? {ok: true, user} : {ok: false, retry: false, missing: true};
+    async function query(spec) {
+      if (!spec) return {ok: false, status: 404, data: null};
+      try {return await tum.graphql({qid: spec.qid, op: spec.operation, feat: FEATURES, toggles}, spec.variables)}
+      catch {return {ok: false, status: 0, data: null}}
+    }
+    function parsed(response) {return response && response.ok ? profilefromresult(finduser(response.data, {n: 30000})) : null}
+    if (byhandle) {
+      const response = await query(byhandle);
+      if (response && response.status === 429) return {ok: false, retry: true, missing: false, rateLimitReset: response.rateLimitReset};
+      const user = parsed(response);
+      if (user && (!member.userid || String(user.userid) === String(member.userid))) return {ok: true, user};
+    }
+    if (byid) {
+      const response = await query(byid);
+      if (response && response.status === 429) return {ok: false, retry: true, missing: false, rateLimitReset: response.rateLimitReset};
+      const user = parsed(response);
+      if (!user) return {ok: false, retry: false, missing: !!(response && response.status === 404)};
+      const current = await query({qid: "Gb-d6r0vxPOADdG62OEBpQ", operation: "UserByScreenName", variables: {screen_name: user.handle, withGrokTranslatedBio: true}});
+      if (current && current.status === 429) return {ok: false, retry: true, missing: false, rateLimitReset: current.rateLimitReset};
+      const refreshed = parsed(current);
+      if (refreshed && String(refreshed.userid) === String(user.userid)) return {ok: true, user: refreshed};
+      return {ok: true, user};
+    }
+    return {ok: false, retry: false, missing: true};
   }
   function saveprofile(oldhandle, user) {
     const members = [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()];
@@ -275,8 +333,11 @@
       : String(member.handle || "").toLowerCase() === key);
     const badges = new Map();
     const newbadges = Array.isArray(user.badges) ? user.badges : [];
+    const freshcheckmark = typeof user.verificationkind === "string";
+    const checkmarkbadges = ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"];
     const existingBadges = existing.flatMap(member => Array.isArray(member.badges) ? member.badges : [])
-      .filter(badge => !(typeof user.translatortype === "string" && ["translator", "translatormod"].includes(badge)));
+      .filter(badge => !(freshcheckmark && checkmarkbadges.includes(badge))
+        && !(typeof user.translatortype === "string" && ["translator", "translatormod"].includes(badge)));
     for (const badge of [...existingBadges, ...newbadges]) {
       const key = badge && typeof badge === "object" ? "affiliation" : String(badge);
       badges.set(key, badge);
@@ -315,9 +376,10 @@
       mediatweets: data.mediaTweets,
       favorites: data.favorites,
       highlights: data.highlights,
-      verifiedtype: data.verifiedType,
-      translatortype: data.translatorType,
-      blueverified: badgeflag(data.blueVerified),
+      verifiedtype: data.verifiedtype,
+      verificationkind: data.verificationkind,
+      translatortype: data.translatortype,
+      blueverified: badgeflag(data.blueverified),
       protected: data.isProtected,
       badges: Array.isArray(data.badges) ? data.badges : []
     };

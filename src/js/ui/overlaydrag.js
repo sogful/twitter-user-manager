@@ -200,7 +200,7 @@
     if (!targets) return;
     for (const t of targets) if (t) {
       t.style.visibility = "hidden";
-      if (t.querySelectorAll) for (const b of t.querySelectorAll(".tumpagereasonbadge, .tumpageprofilereasonbadge")) b.style.visibility = "visible";
+      if (t.querySelectorAll) for (const b of t.querySelectorAll(".tumpagereasonbadge, .tumpageprofilereasonbadge, .tumpageaccountbadge")) b.style.visibility = "visible";
     }
   }
   function recordhidden(handle, targets) {

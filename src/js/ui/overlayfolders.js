@@ -5,10 +5,13 @@
   function memberhasbadge(member, type) {
     const badges = Array.isArray(member.badges) ? member.badges : [];
     const verifiedtype = String(member.verifiedtype || "").toLowerCase();
+    const kindtype = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"}[member.verificationkind];
     if (type === "protected") return !!member.protected || badges.includes("protected");
     if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
-    if (type === "blue") return badges.includes("blue") || (badgeflag(member.blueverified) && !/business|government/.test(verifiedtype));
-    if (type === "verified") return badges.includes("verified");
+    if (["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"].includes(type) && typeof member.verificationkind === "string") {
+      return kindtype === type || type === "blue" && member.verificationkind === "legacy" && badgeflag(member.blueverified);
+    }
+    if (type === "blue" || type === "verified") return false;
     if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
     if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
     return badges.includes(type);

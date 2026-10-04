@@ -7,6 +7,42 @@
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
+  const legacyverifiedcutoff = Date.parse("2022-12-12T00:00:00Z");
+  const legacycheckmarksunset = Date.parse("2023-04-21T00:00:00Z");
+  function profileblueverified(result) {
+    const legacy = result && result.legacy || {};
+    const containers = profilecontainers(result || {});
+    const verification = result && result.verification || {};
+    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
+    const reason = info.reason || {};
+    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
+    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
+    const since = Number(reason.verified_since_msec);
+    if (/subscribed to x premium|premium subscription/.test(reasontext) || /^blue$/.test(verifiedtype)) return true;
+    if (Number.isFinite(since) && since >= legacyverifiedcutoff) return true;
+    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const created = Date.parse(result && result.core && result.core.created_at || legacy.created_at || "");
+    return blue && Number.isFinite(created) && created >= legacycheckmarksunset;
+  }
+  function profileverificationkind(result) {
+    const legacy = result && result.legacy || {};
+    const containers = profilecontainers(result || {});
+    const verification = result && result.verification || {};
+    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
+    const reason = info.reason || {};
+    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
+    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
+    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const verified = badgeflag(verification.verified) || badgeflag(result && result.verified) || badgeflag(legacy.verified);
+    const since = Number(reason.verified_since_msec);
+    if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
+    if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
+    if (/\baffiliate of\b/.test(reasontext)) return "affiliate";
+    if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
+    if (profileblueverified(result)) return "blue";
+    if (verified && !blue) return "legacy";
+    return blue ? "unknown" : "none";
+  }
   function profiletranslationtype(result) {
     const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
     const type = translation && translation.translator_type;
@@ -24,25 +60,26 @@
   }
   function profilebadges(result) {
     const badges = [];
-    const legacy = result && result.legacy || {};
     const containers = profilecontainers(result);
-    const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
-    if (/government/.test(verifiedtype)) badges.push("verifiedgovernment");
-    else if (/business/.test(verifiedtype)) badges.push("verifiedbusiness");
-    else if (blue) badges.push("blue");
-    else if (verified) badges.push("verified");
+    const verificationkind = profileverificationkind(result);
+    if (verificationkind === "government") badges.push("verifiedgovernment");
+    else if (verificationkind === "business") badges.push("verifiedbusiness");
+    else if (verificationkind === "affiliate") badges.push("verifiedaffiliate");
+    else if (verificationkind === "blue") badges.push("blue");
+    else if (verificationkind === "legacy") {
+      if (profileblueverified(result)) badges.push("blue");
+      badges.push("verified");
+    }
 
-    const translatorType = profiletranslationtype(result);
-    if (translatorType === "regular" || translatorType === "badged") badges.push("translator");
-    else if (translatorType === "moderator") badges.push("translatormod");
+    const translatortype = profiletranslationtype(result);
+    if (translatortype === "regular" || translatortype === "badged") badges.push("translator");
+    else if (translatortype === "moderator") badges.push("translatormod");
 
     const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
     const label = highlight && (highlight.label || highlight);
     if (label && typeof label === "object") {
       const rawurl = label.url && (typeof label.url === "string" ? label.url : label.url.url);
-      const match = /(?:x|twitter)\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
+      const match = /x\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
       const linkeduser = affiliationuser(label) || affiliationuser(highlight);
       const core = linkeduser && linkeduser.core || {}, legacy = linkeduser && linkeduser.legacy || {};
       const handle = label.handle || label.screen_name || label.username || core.screen_name || legacy.screen_name || linkeduser && (linkeduser.screen_name || linkeduser.username) || match && match[1];
@@ -60,6 +97,8 @@
     const ver = u.verification || {}, priv = u.privacy || {}, legacy = u.legacy || {}, bio = u.profile_bio || {};
     const actions = u.action_counts || {}, highlights = u.highlights_info || {}, media = u.media_permissions || {};
     const professional = u.professional || {}, perspectives = u.relationship_perspectives || {};
+    const verificationkind = profileverificationkind(u);
+    const blueverified = verificationkind === "blue" || verificationkind === "legacy" && profileblueverified(u);
     const withheld = [bio.withheld_in_countries, u.withheld_in_countries, legacy.withheld_in_countries].find(c => Array.isArray(c) && c.length) || null;
     const handle = core.screen_name || legacy.screen_name;
     if (!handle) return null;
@@ -74,9 +113,10 @@
       mediaTweets: tw.media_tweets != null ? tw.media_tweets : legacy.media_count,
       favorites: actions.favorites_count != null ? actions.favorites_count : legacy.favourites_count,
       highlights: highlights.can_highlight_tweets ? Number(highlights.highlighted_tweets || 0) : null,
-      verifiedType: ver.verified_type || u.verified_type || null,
-      blueVerified: badgeflag(u.is_blue_verified),
-      translatorType: profiletranslationtype(u) || null,
+      verifiedtype: ver.verified_type || u.verified_type || null,
+      verificationkind,
+      blueverified,
+      translatortype: profiletranslationtype(u) || null,
       isProtected: !!(priv.protected || legacy.protected),
       badges: profilebadges(u),
       relationship: {
@@ -92,7 +132,7 @@
       subscriptionsEligible: u.super_follow_eligible != null ? !!u.super_follow_eligible : null,
       profileInterstitialType: (u.profile_metadata && u.profile_metadata.profile_interstitial_type) || legacy.profile_interstitial_type || null,
       seedTweets: u.user_seed_tweet_count != null ? u.user_seed_tweet_count : legacy.user_seed_tweet_count,
-      verifiedSinceMsec: u.verification_info && u.verification_info.verified_since_msec ? Number(u.verification_info.verified_since_msec) : null,
+      verifiedSinceMsec: u.verification_info && u.verification_info.reason && u.verification_info.reason.verified_since_msec ? Number(u.verification_info.reason.verified_since_msec) : null,
       professional: professional.category && professional.category.length ? {
         category: professional.category[0].name || null,
         categoryId: professional.category[0].id != null ? professional.category[0].id : null,

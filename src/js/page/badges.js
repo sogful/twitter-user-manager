@@ -9,23 +9,29 @@
   const SKIPHREF = /^\/(i|home|search|notifications|messages)\/?$/;
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)\/?$/;
 
-  let reasonmap = new Map(); // handle (lowercased) -> {handle, reason, sourceurl, source}
-  let membermap = new Map(); // handle (lowercased) -> {name, color} of the folder they're filed in
+  let reasonmap = new Map();
+  let membermap = new Map();
+  let accountmap = new Map();
+  const capturedaccountmap = new Map();
 
   /*//////////////////////////////////////////////////////////////////////*/
 
   function rebuildreasonmap() {
     reasonmap = new Map();
     membermap = new Map();
+    accountmap = new Map();
     for (const u of tum.unsorted.list()) {
+      if (u.handle) accountmap.set(u.handle.toLowerCase(), u);
       if (u.reason) reasonmap.set(u.handle.toLowerCase(), {handle: u.handle, reason: u.reason, sourceurl: u.sourceurl, source: {type: "unsorted"}});
     }
     for (const f of tum.folders.list()) {
       for (const m of (f.members || [])) {
+        if (m.handle) accountmap.set(m.handle.toLowerCase(), m);
         if (m.reason) reasonmap.set(m.handle.toLowerCase(), {handle: m.handle, reason: m.reason, sourceurl: m.sourceurl, source: {type: "folder", id: f.id}});
         if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {id: f.id, name: f.name, color: f.color, icon: f.icon, action: f.action});
       }
     }
+    for (const [handle, user] of capturedaccountmap) if (!accountmap.has(handle)) accountmap.set(handle, user);
   }
 
   function handlefromnamebox(namebox) {
@@ -39,6 +45,47 @@
   function openbadge(handle) {
     const entry = reasonmap.get((handle || "").toLowerCase());
     if (entry) tum.overlay.openreasonview(entry.source, entry);
+  }
+
+  function accountbadgecontent(user, includetranslator = true) {
+    if (!user || !tum._ov || !tum._ov.scope || typeof tum._ov.scope.badgeshtml !== "function") return null;
+    const badges = Array.isArray(user.badges) ? user.badges : [];
+    const kindmap = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"};
+    const badgeset = new Set(badges.filter(value => typeof value === "string"));
+    if (typeof user.verificationkind === "string") {
+      for (const type of ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"]) badgeset.delete(type);
+      if (kindmap[user.verificationkind]) badgeset.add(kindmap[user.verificationkind]);
+      if (user.verificationkind === "legacy" && user.blueverified === true) badgeset.add("blue");
+    } else {
+      const verifiedtype = String(user.verifiedtype || "").toLowerCase();
+      if (/government/.test(verifiedtype)) badgeset.add("verifiedgovernment");
+      else if (/business/.test(verifiedtype)) badgeset.add("verifiedbusiness");
+      badgeset.delete("blue"); badgeset.delete("verified");
+    }
+    const translator = String(user.translatortype || "").toLowerCase();
+    if (includetranslator && (translator === "regular" || translator === "badged")) badgeset.add("translator");
+    else if (includetranslator && translator === "moderator") badgeset.add("translatormod");
+    const visible = [...badgeset].filter(type => ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"].includes(type)
+      || includetranslator && ["translator", "translatormod"].includes(type));
+    if (!visible.length) return null;
+    return {
+      html: tum._ov.scope.badgeshtml(visible, user),
+      signature: JSON.stringify({kind: user.verificationkind, verifiedtype: user.verifiedtype, translator, visible: visible.slice().sort()})
+    };
+  }
+
+  function makeaccountbadge(handle, user, profile = false) {
+    const content = accountbadgecontent(user, !profile);
+    if (!content || !content.html) return null;
+    const badge = document.createElement("span");
+    badge.className = profile ? "tumpageaccountbadge tumpageprofileaccountbadge" : "tumpageaccountbadge";
+    badge.dataset.handle = handle;
+    badge.dataset.signature = content.signature;
+    badge.setAttribute("aria-label", T("badge.accountstatus"));
+    badge.innerHTML = content.html;
+    const labels = [...badge.querySelectorAll("svg[aria-label]")].map(icon => icon.getAttribute("aria-label")).filter(Boolean);
+    badge.title = labels.join(" · ");
+    return badge;
   }
 
   function makebadge(handle, entry) {
@@ -56,10 +103,23 @@
   }
 
   function scantweets() {
+    const notesenabled = setting("pagepencils");
     for (const namebox of document.querySelectorAll(NAMEBOXSEL)) {
       const handle = handlefromnamebox(namebox);
       const existing = namebox.querySelector(".tumpagereasonbadge");
+      const accountbadge = namebox.querySelector(".tumpageaccountbadge");
       const entry = handle ? reasonmap.get(handle.toLowerCase()) : null;
+      const account = handle ? accountmap.get(handle.toLowerCase()) : null;
+      const nextbadge = handle ? makeaccountbadge(handle, account) : null;
+      if (accountbadge && nextbadge && accountbadge.dataset.signature === nextbadge.dataset.signature) {
+        nextbadge.remove();
+      } else if (accountbadge) accountbadge.remove();
+      if (nextbadge && !namebox.querySelector(".tumpageaccountbadge")) {
+        const anchor = namebox.querySelector('a[role="link"][href^="/"]');
+        const nameline = anchor && (anchor.querySelector('div[dir="ltr"]') || anchor);
+        if (nameline) nameline.appendChild(nextbadge);
+      }
+      if (!notesenabled) {if (existing) existing.remove(); continue}
       if (!entry) {
         if (existing) existing.remove();
         continue;
@@ -99,6 +159,22 @@
     const badge = makebadge(handle, entry);
     badge.classList.add("tumpageprofilereasonbadge");
     nameel.parentNode.insertBefore(badge, nameel.nextSibling);
+  }
+
+  function scanprofileaccountbadge() {
+    const m = PROFILEPATH.exec(location.pathname);
+    const namebox = document.querySelector('[data-testid="UserName"]');
+    const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
+    const existing = document.querySelector(".tumpageprofileaccountbadge");
+    const handle = m && m[1];
+    const user = handle ? accountmap.get(handle.toLowerCase()) : null;
+    const nextbadge = handle && nameel ? makeaccountbadge(handle, user, true) : null;
+    if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {nextbadge.remove(); return}
+    if (existing) existing.remove();
+    if (!nextbadge || !nameel || !nameel.parentNode) return;
+    const note = namebox.querySelector(".tumpageprofilereasonbadge");
+    if (note && note.parentNode === nameel.parentNode) nameel.parentNode.insertBefore(nextbadge, note.nextSibling);
+    else nameel.parentNode.insertBefore(nextbadge, nameel.nextSibling);
   }
 
   function dotcontrast(hex) {
@@ -153,8 +229,10 @@
   function removeall(sel) {for (const n of document.querySelectorAll(sel)) n.remove()}
 
   function scan() {
-    if (setting("pagepencils")) {scantweets(); scanprofileheader()}
+    scantweets();
+    if (setting("pagepencils")) scanprofileheader();
     else removeall(".tumpagereasonbadge, .tumpageprofilereasonbadge");
+    scanprofileaccountbadge();
     if (setting("avatardots")) scanavatars();
     else removeall(".tumpagefolderdot");
   }
@@ -169,6 +247,23 @@
     init() {
       tum.folders.subscribe(() => {rebuildreasonmap(); schedulescan()});
       tum.unsorted.subscribe(() => {rebuildreasonmap(); schedulescan()});
+      window.addEventListener("message", event => {
+        if (event.source !== window || !event.data || event.data.__tumuser !== 1 || !event.data.data || !event.data.data.handle) return;
+        const handle = event.data.data.handle.toLowerCase();
+        const user = {
+          handle: event.data.data.handle,
+          badges: event.data.data.badges,
+          verificationkind: event.data.data.verificationkind,
+          verifiedtype: event.data.data.verifiedtype,
+          blueverified: event.data.data.blueverified,
+          translatortype: event.data.data.translatortype
+        };
+        capturedaccountmap.delete(handle);
+        capturedaccountmap.set(handle, user);
+        accountmap.set(handle, user);
+        if (capturedaccountmap.size > 500) capturedaccountmap.delete(capturedaccountmap.keys().next().value);
+        schedulescan();
+      });
       if (tum.settings) tum.settings.onchange(schedulescan);
       Promise.all([tum.folders.ready, tum.unsorted.ready]).then(() => {rebuildreasonmap(); schedulescan()});
       new MutationObserver(schedulescan).observe(document.body, {childList: true, subtree: true});
