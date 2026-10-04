@@ -141,7 +141,7 @@
       reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
       badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable", "pending"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "translatortype", "blueverified", "protected", "unfindable", "pending"]) {
       const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
       if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }

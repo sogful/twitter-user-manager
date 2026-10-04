@@ -147,7 +147,11 @@
     };
     for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
     const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
-    const standard = [...values].map(value => `<span class="tumbadge ${badgeclass[value] || "tumbadge" + value}">${icons[value]}</span>`).join("");
+    const standard = [...values].map(value => {
+      const classes = ["tumbadge", badgeclass[value] || "tumbadge" + value];
+      if (value === "translator" && user && user.translatortype === "regular") classes.push("tumbadgetranslatorregular");
+      return `<span class="${classes.join(" ")}">${icons[value]}</span>`;
+    }).join("");
     const linked = affiliation ? `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(affiliation.handle)}" aria-label="@${escapehtml(affiliation.handle)}"><img src="${escapehtml(miniavatarurl(affiliation.avatarurl))}" alt=""></button>` : "";
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }

@@ -59,7 +59,7 @@
       x: typeof x === "number" ? x : (existing ? existing.x : 80),
       y: typeof y === "number" ? y : (existing ? existing.y : 80)
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "protected", "unfindable", "pending"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "translatortype", "blueverified", "protected", "unfindable", "pending"]) {
       const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
       if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }

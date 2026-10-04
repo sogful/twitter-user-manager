@@ -173,6 +173,11 @@
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
+  function profiletranslationtype(result) {
+    const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
+    const type = translation && translation.translator_type;
+    return typeof type === "string" && type.trim() ? type.trim().toLowerCase() : undefined;
+  }
   function affiliationuser(value, depth = 0) {
     if (!value || typeof value !== "object" || depth > 4) return null;
     const core = value.core || {}, legacy = value.legacy || {};
@@ -187,7 +192,6 @@
     const badges = [];
     const legacy = result && result.legacy || {};
     const containers = profilecontainers(result);
-    const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
     const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
     const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
     const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
@@ -196,13 +200,9 @@
     else if (blue) badges.push("blue");
     else if (verified) badges.push("verified");
 
-    const translatorflags = ["is_translator", "translator_enabled", "translator", "is_translator_mod", "is_translator_moderator", "translator_moderator"];
-    const modflags = ["is_translator_mod", "is_translator_moderator", "translator_moderator"];
-    const translatorlabels = ["translator_type", "translator_badge_type", "translation_type"]
-      .flatMap(values).map(value => String(value || "").toLowerCase());
-    const typedtranslator = translatorlabels.some(value => value && !/^(none|false|null|undefined)$/.test(value));
-    const translatormod = modflags.some(key => values(key).some(badgeflag)) || translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
-    if (translatorflags.some(key => values(key).some(badgeflag)) || typedtranslator) badges.push(translatormod ? "translatormod" : "translator");
+    const translatorType = profiletranslationtype(result);
+    if (translatorType === "regular" || translatorType === "badged") badges.push("translator");
+    else if (translatorType === "moderator") badges.push("translatormod");
 
     const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
     const label = highlight && (highlight.label || highlight);
@@ -241,6 +241,8 @@
       protected: !!(result.privacy && result.privacy.protected || legacy.protected),
       unfindable: false
     };
+    const translatorType = profiletranslationtype(result);
+    if (translatorType !== undefined) user.translatortype = translatorType;
     const badges = profilebadges(result);
     if (badges) user.badges = badges;
     return user;
@@ -273,7 +275,9 @@
       : String(member.handle || "").toLowerCase() === key);
     const badges = new Map();
     const newbadges = Array.isArray(user.badges) ? user.badges : [];
-    for (const badge of [...existing.flatMap(member => Array.isArray(member.badges) ? member.badges : []), ...newbadges]) {
+    const existingBadges = existing.flatMap(member => Array.isArray(member.badges) ? member.badges : [])
+      .filter(badge => !(typeof user.translatortype === "string" && ["translator", "translatormod"].includes(badge)));
+    for (const badge of [...existingBadges, ...newbadges]) {
       const key = badge && typeof badge === "object" ? "affiliation" : String(badge);
       badges.set(key, badge);
     }

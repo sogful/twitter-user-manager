@@ -3,6 +3,7 @@
 
   window.tum = window.tum || {};
   const T = (...a) => tum.strings.t(...a);
+  const TRANSLATORPATH = "M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z";
 
   const PROFILEPATH = /^\/([A-Za-z0-9_]+)(?:\/(?:with_replies|media|likes|highlights|articles))?\/?$/;
   const SKIP = /^\/(i|home|explore|search|notifications|messages|settings|compose)\/?$/i;
@@ -150,6 +151,32 @@
     };
     set('a[href$="/' + handle + '/verified_followers"], a[href$="/' + handle + '/followers"]', u.followers);
     set('a[href$="/' + handle + '/following"]', u.following);
+  }
+
+  function applytranslatorregular(handle, u) {
+    const existing = document.querySelector(".tumtranslatorregularbadge");
+    if (!u || u.translatorType !== "regular") {if (existing) existing.remove(); return}
+    const header = document.querySelector('[data-testid="UserName"]');
+    const line = header && header.querySelector('div[dir="ltr"]');
+    if (!line) {if (existing) existing.remove(); return}
+    const native = [...line.querySelectorAll("svg[aria-label]")].some(svg => /translator/i.test(svg.getAttribute("aria-label") || ""));
+    if (native) {if (existing) existing.remove(); return}
+    if (existing && existing.dataset.handle === handle.toLowerCase() && existing.parentElement === line) return;
+    if (existing) existing.remove();
+    const badge = document.createElement("span");
+    badge.className = "tumtranslatorregularbadge";
+    badge.dataset.handle = handle.toLowerCase();
+    badge.setAttribute("role", "img");
+    badge.setAttribute("aria-label", T("badge.translator"));
+    badge.title = T("badge.translator");
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(SVGNS, "path");
+    path.setAttribute("d", TRANSLATORPATH);
+    svg.appendChild(path);
+    badge.appendChild(svg);
+    line.appendChild(badge);
   }
 
   function applypoststats(u) {
@@ -490,11 +517,13 @@
   }
 
   function scan() {
-    if (tum.settings && !tum.settings.get("extrainfo")) {removeextras(); return}
     const handle = currenthandle();
-    const items = document.querySelector(ITEMSSEL);
-    if (!handle) return;
+    if (!handle) {document.querySelectorAll(".tumtranslatorregularbadge").forEach(node => node.remove()); if (tum.settings && !tum.settings.get("extrainfo")) removeextras(); return}
     const key = handle.toLowerCase();
+    const u = userdata.get(key);
+    applytranslatorregular(handle, u);
+    if (tum.settings && !tum.settings.get("extrainfo")) {removeextras(); return}
+    const items = document.querySelector(ITEMSSEL);
     if (!cache.has(key)) {
       cache.set(key, null);
       try {
@@ -527,7 +556,6 @@
     }
     */
    
-    const u = userdata.get(key);
     if (u) {
       if (items) applyjoin(items, u);
       applycounts(handle, u);
@@ -557,6 +585,7 @@
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
       if (tum.settings) tum.settings.onchange(schedule);
       schedule();
+      window.postMessage({__tumusercaptureinit: 1}, location.origin);
     }
   };
 })();

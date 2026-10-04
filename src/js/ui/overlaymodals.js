@@ -89,7 +89,7 @@
   }
   function exportmember(member) {
     const out = {};
-    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "blueverified", "unfindable"]) {
+    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "translatortype", "blueverified", "unfindable"]) {
       if (member[key] !== undefined && member[key] !== null && member[key] !== "") out[key] = key === "createdat" ? compactdate(member[key]) : member[key];
     }
     if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);

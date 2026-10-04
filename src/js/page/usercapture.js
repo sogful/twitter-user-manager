@@ -7,6 +7,11 @@
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
+  function profiletranslationtype(result) {
+    const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
+    const type = translation && translation.translator_type;
+    return typeof type === "string" && type.trim() ? type.trim().toLowerCase() : undefined;
+  }
   function affiliationuser(value, depth = 0) {
     if (!value || typeof value !== "object" || depth > 4) return null;
     const core = value.core || {}, legacy = value.legacy || {};
@@ -21,7 +26,6 @@
     const badges = [];
     const legacy = result && result.legacy || {};
     const containers = profilecontainers(result);
-    const values = key => containers.map(item => item[key]).filter(value => value !== undefined && value !== null && value !== "");
     const verifiedtype = String(result.verification && result.verification.verified_type || result.verified_type || legacy.verified_type || "").toLowerCase();
     const blue = badgeflag(result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
     const verified = badgeflag(result.verified) || badgeflag(legacy.verified);
@@ -30,13 +34,9 @@
     else if (blue) badges.push("blue");
     else if (verified) badges.push("verified");
 
-    const translatorflags = ["is_translator", "translator_enabled", "translator", "is_translator_mod", "is_translator_moderator", "translator_moderator"];
-    const modflags = ["is_translator_mod", "is_translator_moderator", "translator_moderator"];
-    const translatorlabels = ["translator_type", "translator_badge_type", "translation_type"]
-      .flatMap(values).map(value => String(value || "").toLowerCase());
-    const typedtranslator = translatorlabels.some(value => value && !/^(none|false|null|undefined)$/.test(value));
-    const translatormod = modflags.some(key => values(key).some(badgeflag)) || translatorlabels.some(value => /mod|moderator|r-1cvl2hr/.test(value));
-    if (translatorflags.some(key => values(key).some(badgeflag)) || typedtranslator) badges.push(translatormod ? "translatormod" : "translator");
+    const translatorType = profiletranslationtype(result);
+    if (translatorType === "regular" || translatorType === "badged") badges.push("translator");
+    else if (translatorType === "moderator") badges.push("translatormod");
 
     const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
     const label = highlight && (highlight.label || highlight);
@@ -76,6 +76,7 @@
       highlights: highlights.can_highlight_tweets ? Number(highlights.highlighted_tweets || 0) : null,
       verifiedType: ver.verified_type || u.verified_type || null,
       blueVerified: badgeflag(u.is_blue_verified),
+      translatorType: profiletranslationtype(u) || null,
       isProtected: !!(priv.protected || legacy.protected),
       badges: profilebadges(u),
       relationship: {
@@ -112,15 +113,27 @@
     }
     return null;
   }
+  const profilecache = new Map();
   function relay(text) {
     try {
       const j = JSON.parse(text);
       const data = j && j.data;
       const u = data && (data.user && data.user.result || data.user_result_by_screen_name && data.user_result_by_screen_name.result) || profilefrompayload(data);
       const d = pick(u);
-      if (d) {window.postMessage({__tumuser: 1, data: d}, location.origin); fetchabout(d.handle)}
+      if (d) {
+        const key = d.handle.toLowerCase();
+        profilecache.delete(key);
+        profilecache.set(key, d);
+        if (profilecache.size > 40) profilecache.delete(profilecache.keys().next().value);
+        window.postMessage({__tumuser: 1, data: d}, location.origin);
+        fetchabout(d.handle);
+      }
     } catch {}
   }
+  window.addEventListener("message", event => {
+    if (event.source !== window || !event.data || event.data.__tumusercaptureinit !== 1) return;
+    for (const user of profilecache.values()) window.postMessage({__tumuser: 1, data: user}, location.origin);
+  });
 
   const PUBBEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
   const ABOUTQID = "TzOG2twZEfhr9KmClvVVqA";
