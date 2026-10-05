@@ -83,13 +83,11 @@
   function markaffiliatecheck(namebox, user) {
     if (!namebox) return;
     const badges = Array.isArray(user && user.badges) ? user.badges : [];
-    const affiliate = accountaffiliate(user, badges);
+    const affiliate = accountaffiliate(user, badges) && accountblue(user, badges);
     for (const icon of namebox.querySelectorAll("svg")) {
       if (icon.closest(".tumpageaccountbadge")) continue;
-      const label = String(icon.getAttribute("aria-label") || "").toLowerCase();
-      const testid = String(icon.getAttribute("data-testid") || "").toLowerCase();
       const checkmark = [...icon.querySelectorAll("path")].some(path => /^M20\.396 11c/.test(path.getAttribute("d") || ""));
-      if (/verified account|checkmark/.test(label) || testid === "icon-verified" || checkmark) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
+      if (checkmark) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
     }
   }
 
@@ -100,6 +98,14 @@
     if (user.verificationkind === "affiliate" || verifiedtype === "affiliate"
       || badges.some(value => value && typeof value === "object" && value.type === "affiliation")) return true;
     return badges.includes("verifiedaffiliate") && typeof user.verificationkind !== "string";
+  }
+
+  function accountblue(user, badges) {
+    if (!user) return false;
+    const verifiedtype = String(user.verifiedtype || "").toLowerCase();
+    if (user.verificationkind === "business" || user.verificationkind === "government"
+      || /business|government/.test(verifiedtype)) return false;
+    return user.verificationkind === "blue" || user.blueverified === true || verifiedtype === "blue" || badges.includes("blue");
   }
 
   function makeaccountbadge(handle, user, profile = false) {

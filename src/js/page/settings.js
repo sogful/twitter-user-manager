@@ -183,10 +183,12 @@
     const reason = info.reason || {};
     const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
     const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
+    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
+    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
     const since = Number(reason.verified_since_msec);
     if (/subscribed to x premium|premium subscription/.test(reasontext) || /^blue$/.test(verifiedtype)) return true;
+    if (blue && explicitverified === false) return true;
     if (Number.isFinite(since) && since >= legacyverifiedcutoff) return true;
-    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
     const created = Date.parse(result && result.core && result.core.created_at || legacy.created_at || "");
     return blue && Number.isFinite(created) && created >= legacycheckmarksunset;
   }
@@ -200,9 +202,11 @@
     const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
     const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
     const verified = badgeflag(verification.verified) || badgeflag(result && result.verified) || badgeflag(legacy.verified);
+    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
     const since = Number(reason.verified_since_msec);
     if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
     if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
+    if (blue && explicitverified === false) return "blue";
     if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
     if (profileblueverified(result)) return "blue";
     if (verified && !blue) return "legacy";
@@ -428,6 +432,7 @@
       verificationkind: data.verificationkind,
       translatortype: data.translatortype,
       blueverified: badgeflag(data.blueverified),
+      affiliateverified: typeof data.affiliateverified === "boolean" ? data.affiliateverified : undefined,
       protected: data.isProtected,
       badges: Array.isArray(data.badges) ? data.badges : []
     };

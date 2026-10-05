@@ -5,16 +5,10 @@
   function memberhasbadge(member, type) {
     const badges = Array.isArray(member.badges) ? member.badges : [];
     const verifiedtype = String(member.verifiedtype || "").toLowerCase();
-    const kindtype = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"}[member.verificationkind];
+    const kindtype = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment"}[member.verificationkind];
     if (type === "protected") return !!member.protected || badges.includes("protected");
     if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
-    if (type === "verifiedaffiliate") {
-      if (typeof member.affiliateverified === "boolean") return member.affiliateverified;
-      if (kindtype === type || verifiedtype === "affiliate"
-        || badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation")) return true;
-      return badges.includes(type) && typeof member.verificationkind !== "string";
-    }
-    if (["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"].includes(type) && typeof member.verificationkind === "string") {
+    if (["blue", "verified", "verifiedbusiness", "verifiedgovernment"].includes(type) && typeof member.verificationkind === "string") {
       return kindtype === type || type === "blue" && member.verificationkind === "legacy" && badgeflag(member.blueverified);
     }
     if (type === "blue" || type === "verified") return false;
@@ -29,7 +23,8 @@
     if (sort === "az") members.sort((a, b) => (a.displayname || a.handle).localeCompare(b.displayname || b.handle));
     else if (sort === "za") members.sort((a, b) => (b.displayname || b.handle).localeCompare(a.displayname || a.handle));
     else if (sort === "old") members.reverse();
-    const badgefilters = new Set(Array.isArray(f.badgefilters) ? f.badgefilters : []);
+    const badgefilters = new Set((Array.isArray(f.badgefilters) ? f.badgefilters : [])
+      .filter(type => badgefilteroptions.some(option => option.value === type)));
     if (badgefilters.size) members = members.filter(member => [...badgefilters].some(type => memberhasbadge(member, type)));
     return members;
   }
