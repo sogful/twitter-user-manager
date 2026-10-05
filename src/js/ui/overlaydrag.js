@@ -21,16 +21,28 @@
         const west = edge.includes("w"), east = edge.includes("e");
         const north = edge.includes("n"), south = edge.includes("s");
         const startx = e.clientX, starty = e.clientY;
-        const oldx = f.x || 0, oldy = f.y || 0;
-        const oldscalex = f.scalex || 1, oldscaley = f.scaley || 1;
-        const oldwidth = 200 * oldscalex, oldheight = 288 * oldscaley;
+        const stylex = parseFloat(node.style.left), styley = parseFloat(node.style.top);
+        const oldx = Number.isFinite(stylex) ? stylex : Number(f.x) || 0;
+        const oldy = Number.isFinite(styley) ? styley : Number(f.y) || 0;
+        const scalevaluex = Number(f.scalex), scalevaluey = Number(f.scaley);
+        const oldscalex = Number.isFinite(scalevaluex) ? Math.min(2, Math.max(0.5, scalevaluex)) : 1;
+        const oldscaley = Number.isFinite(scalevaluey) ? Math.min(2, Math.max(0.5, scalevaluey)) : 1;
+        const stylewidth = parseFloat(node.style.width), styleheight = parseFloat(node.style.height);
+        const oldwidth = Number.isFinite(stylewidth) && stylewidth > 0 ? stylewidth : 200 * oldscalex;
+        const oldheight = Number.isFinite(styleheight) && styleheight > 0 ? styleheight : 288 * oldscaley;
+        const olduiscale = node.style.getPropertyValue("--tumfolderuiscale");
         const right = oldx + oldwidth, bottom = oldy + oldheight;
         state.gesture = {kind: "folderresize", pointerid: e.pointerId};
         let sizing = false;
         let placed = {x: oldx, y: oldy, scalex: oldscalex, scaley: oldscaley};
+        const setuiscale = (scalex, scaley) => {
+          const value = Math.max(0.75, Math.min(1.25, Math.sqrt(scalex * scaley)));
+          node.style.setProperty("--tumfolderuiscale", value.toFixed(3));
+        };
 
         const sizeit = ev => {
-          const dx = (ev.clientX - startx) / O.zoom(), dy = (ev.clientY - starty) / O.zoom();
+          const zoom = Number(O.zoom()) || 1;
+          const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
           const targetx = west || east ? Math.min(2, Math.max(0.5, Math.round(((oldwidth + (west ? -dx : dx)) / 200) * 4) / 4)) : oldscalex;
           const targety = north || south ? Math.min(2, Math.max(0.5, Math.round(((oldheight + (north ? -dy : dy)) / 288) * 4) / 4)) : oldscaley;
           const xscales = west || east ? scales : [oldscalex];
@@ -61,6 +73,7 @@
           node.style.top = best.y + "px";
           node.style.width = best.width + "px";
           node.style.height = best.height + "px";
+          setuiscale(best.scalex, best.scaley);
           return placed;
         };
         const move = ev => {
@@ -84,6 +97,8 @@
             node.style.top = oldy + "px";
             node.style.width = oldwidth + "px";
             node.style.height = oldheight + "px";
+            if (olduiscale) node.style.setProperty("--tumfolderuiscale", olduiscale);
+            else node.style.removeProperty("--tumfolderuiscale");
             return;
           }
           if (!sizing) return;

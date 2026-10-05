@@ -130,10 +130,13 @@
     const fg = readablefg(f.color);
     node.style.setProperty("--tumheaderfg", fg);
     node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
+    const scalex = Math.min(2, Math.max(0.5, Number(f.scalex) || 1));
+    const scaley = Math.min(2, Math.max(0.5, Number(f.scaley) || 1));
+    node.style.setProperty("--tumfolderuiscale", Math.max(0.75, Math.min(1.25, Math.sqrt(scalex * scaley))).toFixed(3));
     node.style.left = (f.x || 0) + "px";
     node.style.top = (f.y || 0) + "px";
-    node.style.width = (200 * (f.scalex || 1)) + "px";
-    node.style.height = (288 * (f.scaley || 1)) + "px";
+    node.style.width = (200 * scalex) + "px";
+    node.style.height = (288 * scaley) + "px";
     node.dataset.id = f.id;
     node.innerHTML = `
       <div class="tumfolderhead">
