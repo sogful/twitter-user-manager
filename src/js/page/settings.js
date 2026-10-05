@@ -399,6 +399,24 @@
     const unsorted = tum.unsorted.refreshmember(oldhandle, refreshed);
     return folders || unsorted;
   }
+  async function waitprofiledata() {
+    while (true) {
+      const foldersready = tum.folders.whenready ? tum.folders.whenready() : tum.folders.ready;
+      const unsortedready = tum.unsorted.whenready ? tum.unsorted.whenready() : tum.unsorted.ready;
+      await Promise.all([foldersready, unsortedready]);
+      if ((!tum.folders.whenready || foldersready === tum.folders.whenready())
+        && (!tum.unsorted.whenready || unsortedready === tum.unsorted.whenready())) return;
+    }
+  }
+  let profilesavequeue = Promise.resolve();
+  function queueprofile(data) {
+    const user = storedprofile(data);
+    if (!user) return;
+    profilesavequeue = profilesavequeue.catch(() => {}).then(async () => {
+      await waitprofiledata();
+      saveprofile(user.handle, user);
+    });
+  }
   function markunfindable(member) {
     const user = {handle: member.handle, userid: member.userid, unfindable: true};
     tum.folders.refreshmember(member.handle, user);
@@ -611,12 +629,13 @@
     btn.textContent = T("settings.deleteall.button");
     let armed = false, timer = 0;
     const reset = () => {armed = false; btn.classList.remove("tumarmed"); btn.textContent = T("settings.deleteall.button")};
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       if (!armed) {armed = true; btn.classList.add("tumarmed"); btn.textContent = T("settings.deleteall.confirm"); clearTimeout(timer); timer = setTimeout(reset, 4000); return}
       clearTimeout(timer);
       for (const f of tum.folders.list()) tum.folders.remove(f.id);
       for (const c of (tum.categories ? tum.categories.list() : [])) tum.categories.remove(c.id);
       for (const u of tum.unsorted.list()) tum.unsorted.remove(u.handle);
+      if (tum.badges && tum.badges.clearaccountcache) await tum.badges.clearaccountcache();
       btn.classList.remove("tumarmed");
       btn.textContent = T("settings.deleteall.done");
       btn.disabled = true;
@@ -705,8 +724,7 @@
       window.addEventListener("tumaccountchange", loadrepopulation);
       window.addEventListener("message", e => {
         if (e.source !== window || !e.data || !e.data.__tumuser) return;
-        const user = storedprofile(e.data.data);
-        if (user) saveprofile(user.handle, user);
+        queueprofile(e.data.data);
       });
       document.addEventListener("click", e => {
         if (e.target.closest && e.target.closest('[data-testid="usermanagerLink"]')) {

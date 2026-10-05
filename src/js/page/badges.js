@@ -13,7 +13,14 @@
   let membermap = new Map();
   let accountmap = new Map();
   const capturedaccountmap = new Map();
+  const cachedaccountmap = new Map();
   const nativecheckoriginals = new WeakMap();
+  const accountcache = tum.storage.create("tum.accountbadges", {global: true});
+  const accountcachelimit = 500;
+  const checkmarktypes = new Set(["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"]);
+  let accountcachevalues = null;
+  let accountcacheload = Promise.resolve();
+  let accountcachequeue = Promise.resolve();
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -32,7 +39,120 @@
         if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {id: f.id, name: f.name, color: f.color, icon: f.icon, action: f.action});
       }
     }
+    for (const [handle, user] of cachedaccountmap) {
+      const existing = accountmap.get(handle);
+      if (existing && existing.userid && user.userid && String(existing.userid) !== String(user.userid)) continue;
+      accountmap.set(handle, existing ? mergeaccountdata(user, existing) : user);
+    }
     for (const [handle, user] of capturedaccountmap) accountmap.set(handle, user);
+  }
+
+  function cachebadgekey(badge) {
+    return badge && typeof badge === "object" && badge.type === "affiliation"
+      ? "affiliation:" + String(badge.handle || "").toLowerCase() : String(badge);
+  }
+  function cleanaccountbadges(values) {
+    const badges = (Array.isArray(values) ? values : []).filter(value =>
+      typeof value === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(value)
+      || value && typeof value === "object" && value.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(value.handle || ""));
+    const seen = new Set();
+    return badges.filter(badge => {
+      const key = cachebadgekey(badge);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function normalizeaccount(user) {
+    if (!user || typeof user !== "object" || typeof user.handle !== "string" || !user.handle.trim()) return null;
+    const entry = {handle: user.handle.trim(), badges: cleanaccountbadges(user.badges)};
+    const userid = user.userid || user.restId;
+    if (userid != null && String(userid)) entry.userid = String(userid);
+    if (typeof user.displayname === "string") entry.displayname = user.displayname;
+    for (const key of ["verificationkind", "verifiedtype", "translatortype"]) {
+      if (typeof user[key] === "string" && user[key]) entry[key] = user[key];
+    }
+    for (const key of ["blueverified", "affiliateverified"]) {
+      if (typeof user[key] === "boolean") entry[key] = user[key];
+    }
+    return entry;
+  }
+  function sameaccount(a, b) {
+    if (!a || !b) return false;
+    if (a.userid && b.userid) return String(a.userid) === String(b.userid);
+    return String(a.handle || "").toLowerCase() === String(b.handle || "").toLowerCase();
+  }
+  function mergeaccountdata(existing, incoming) {
+    const merged = {...existing};
+    for (const [key, value] of Object.entries(incoming || {})) {
+      if (value !== undefined && value !== null) merged[key] = value;
+    }
+    let badges = cleanaccountbadges(existing && existing.badges);
+    if (incoming && typeof incoming.verificationkind === "string") badges = badges.filter(badge => typeof badge !== "string" || !checkmarktypes.has(badge));
+    if (incoming && typeof incoming.translatortype === "string") badges = badges.filter(badge => badge !== "translator" && badge !== "translatormod");
+    if (incoming && incoming.affiliateverified === false) badges = badges.filter(badge => badge !== "verifiedaffiliate" && !(badge && typeof badge === "object" && badge.type === "affiliation"));
+    for (const badge of cleanaccountbadges(incoming && incoming.badges)) {
+      const key = cachebadgekey(badge);
+      badges = badges.filter(value => cachebadgekey(value) !== key);
+      badges.push(badge);
+    }
+    merged.badges = cleanaccountbadges(badges);
+    return merged;
+  }
+  function loadaccountcache(values) {
+    const entries = [];
+    for (const value of Array.isArray(values) ? values : []) {
+      const entry = normalizeaccount(value);
+      if (!entry) continue;
+      for (let index = entries.length - 1; index >= 0; index--) {
+        if (entry.userid && entries[index].userid && String(entry.userid) !== String(entries[index].userid)
+          && String(entry.handle).toLowerCase() === String(entries[index].handle).toLowerCase()) entries.splice(index, 1);
+      }
+      const index = entries.findIndex(existing => sameaccount(existing, entry));
+      if (index >= 0) {
+        const prior = entries.splice(index, 1)[0];
+        entries.push(mergeaccountdata(prior, entry));
+      } else entries.push(entry);
+    }
+    accountcachevalues = entries.slice(-accountcachelimit);
+    cachedaccountmap.clear();
+    for (const entry of accountcachevalues) cachedaccountmap.set(entry.handle.toLowerCase(), entry);
+    rebuildreasonmap();
+    schedulescan();
+  }
+  function persistaccountcache(user) {
+    accountcachequeue = accountcachequeue.catch(() => {}).then(async () => {
+      await accountcacheload;
+      const entry = normalizeaccount(user);
+      if (!entry) return;
+      accountcachevalues = accountcachevalues.filter(existing =>
+        !(entry.userid && existing.userid && String(entry.userid) !== String(existing.userid)
+          && String(entry.handle).toLowerCase() === String(existing.handle).toLowerCase()));
+      const index = accountcachevalues.findIndex(existing => sameaccount(existing, entry));
+      if (index >= 0) {
+        const prior = accountcachevalues.splice(index, 1)[0];
+        accountcachevalues.push(mergeaccountdata(prior, entry));
+      } else accountcachevalues.push(entry);
+      accountcachevalues = accountcachevalues.slice(-accountcachelimit);
+      cachedaccountmap.clear();
+      for (const value of accountcachevalues) cachedaccountmap.set(value.handle.toLowerCase(), value);
+      rebuildreasonmap();
+      schedulescan();
+      await accountcache.set(accountcachevalues);
+    }).catch(() => {});
+    return accountcachequeue;
+  }
+  function clearaccountcache() {
+    accountcachequeue = accountcachequeue.catch(() => {}).then(async () => {
+      await accountcacheload;
+      accountcachevalues = [];
+      cachedaccountmap.clear();
+      capturedaccountmap.clear();
+      rebuildreasonmap();
+      schedulescan();
+      await accountcache.set([]);
+    }).catch(() => {});
+    return accountcachequeue;
   }
 
   function handlefromnamebox(namebox) {
@@ -393,6 +513,8 @@
     init() {
       tum.folders.subscribe(() => {rebuildreasonmap(); schedulescan()});
       tum.unsorted.subscribe(() => {rebuildreasonmap(); schedulescan()});
+      accountcache.subscribe(loadaccountcache);
+      accountcacheload = accountcache.get().then(loadaccountcache, () => loadaccountcache([]));
       window.addEventListener("message", event => {
         if (event.source !== window || !event.data || event.data.__tumuser !== 1 || !event.data.data || !event.data.data.handle) return;
         const handle = event.data.data.handle.toLowerCase();
@@ -410,6 +532,7 @@
         capturedaccountmap.set(handle, user);
         accountmap.set(handle, user);
         if (capturedaccountmap.size > 500) capturedaccountmap.delete(capturedaccountmap.keys().next().value);
+        persistaccountcache({...user, userid: event.data.data.restId});
         for (const namebox of document.querySelectorAll(NAMEBOXSEL)) {
           if (String(handlefromnamebox(namebox) || "").toLowerCase() === handle) markaffiliatecheck(namebox, user);
         }
@@ -420,6 +543,7 @@
       if (tum.settings) tum.settings.onchange(schedulescan);
       Promise.all([tum.folders.ready, tum.unsorted.ready]).then(() => {rebuildreasonmap(); schedulescan()});
       new MutationObserver(schedulescan).observe(document.body, {childList: true, subtree: true});
-    }
+    },
+    clearaccountcache
   };
 })();

@@ -10,6 +10,7 @@
   const listeners = new Set();
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
+  let loadready = ready;
 
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
@@ -82,11 +83,14 @@
 
   async function load() {
     const version = ++loadversion;
+    let resolveload;
+    loadready = new Promise(res => {resolveload = res});
     const v = await store.get();
-    if (version !== loadversion) return;
+    if (version !== loadversion) {resolveload(); return}
     list = Array.isArray(v) ? v : [];
     migratepositions();
     resolveready();
+    resolveload();
     emit();
   }
   load();
@@ -98,6 +102,7 @@
 
   window.tum.unsorted = {
     ready,
+    whenready: () => loadready,
     list: () => list.slice(),
     get: handle => list.find(m => m.handle.toLowerCase() === (handle || "").toLowerCase()),
     add(user, x, y) {

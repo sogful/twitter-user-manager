@@ -23,6 +23,7 @@
   const listeners = new Set();
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
+  let loadready = ready;
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -86,11 +87,14 @@
 
   async function load() {
     const version = ++loadversion;
+    let resolveload;
+    loadready = new Promise(res => {resolveload = res});
     const v = await tum.storage.get();
-    if (version !== loadversion) return;
+    if (version !== loadversion) {resolveload(); return}
     list = Array.isArray(v) ? v : [];
     migratepositions();
     resolveready();
+    resolveload();
     emit();
   }
   load();
@@ -158,6 +162,7 @@
   window.tum.folders = {
     ACTIONS, COLORS,
     ready,
+    whenready: () => loadready,
     list: () => list.slice(),
     get: id => list.find(f => f.id === id),
     create(partial) {
