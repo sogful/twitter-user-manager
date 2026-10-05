@@ -47,7 +47,7 @@
     if (entry) tum.overlay.openreasonview(entry.source, entry);
   }
 
-  function accountbadgecontent(user, includetranslator = true) {
+  function accountbadgecontent(user, includetranslator = true, includecheck = true) {
     if (!user || !tum._ov || !tum._ov.scope || typeof tum._ov.scope.badgeshtml !== "function") return null;
     const badges = Array.isArray(user.badges) ? user.badges : [];
     const kindmap = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"};
@@ -71,23 +71,50 @@
     const translator = String(user.translatortype || "").toLowerCase();
     if (includetranslator && (translator === "regular" || translator === "badged")) badgeset.add("translator");
     else if (includetranslator && translator === "moderator") badgeset.add("translatormod");
-    const visible = [...badgeset].filter(type => !affiliate && ["blue", "verified", "verifiedbusiness", "verifiedgovernment"].includes(type)
+    const visible = [...badgeset].filter(type => includecheck && !affiliate && ["blue", "verified", "verifiedbusiness", "verifiedgovernment"].includes(type)
       || includetranslator && ["translator", "translatormod"].includes(type));
     if (!visible.length) return null;
+    const displayuser = includecheck ? user : {
+      ...user,
+      badges: [],
+      verificationkind: null,
+      verifiedtype: null,
+      blueverified: false,
+      affiliateverified: false
+    };
     return {
-      html: tum._ov.scope.badgeshtml(visible, user),
+      html: tum._ov.scope.badgeshtml(visible, displayuser),
       signature: JSON.stringify({kind: user.verificationkind, verifiedtype: user.verifiedtype, translator, visible: visible.slice().sort()})
     };
+  }
+
+  function isverifiedicon(icon) {
+    if (icon.closest(".tumpageaccountbadge")) return false;
+    if (icon.getAttribute("data-testid") === "icon-verified" || icon.getAttribute("aria-label") === "Verified account") return true;
+    if (icon.querySelector('[aria-label="Verified account"]')) return true;
+    return [...icon.querySelectorAll("path")].some(path => /^M20\.396 11c/.test(path.getAttribute("d") || ""));
+  }
+
+  function hasnativecheckinside(namebox) {
+    if (!namebox) return false;
+    for (const icon of namebox.querySelectorAll('svg,[data-testid="icon-verified"],[aria-label="Verified account"]')) {
+      if (isverifiedicon(icon)) return true;
+    }
+    return false;
+  }
+
+  function hasnativecheck(namebox) {
+    return hasnativecheckinside(namebox) || hasnativecheckinside(namebox && namebox.parentElement);
   }
 
   function markaffiliatecheck(namebox, user) {
     if (!namebox) return;
     const badges = Array.isArray(user && user.badges) ? user.badges : [];
     const affiliate = accountaffiliate(user, badges) && accountblue(user, badges);
-    for (const icon of namebox.querySelectorAll("svg")) {
-      if (icon.closest(".tumpageaccountbadge")) continue;
-      const checkmark = [...icon.querySelectorAll("path")].some(path => /^M20\.396 11c/.test(path.getAttribute("d") || ""));
-      if (checkmark) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
+    const containers = [namebox, namebox.parentElement].filter(Boolean);
+    const icons = new Set(containers.flatMap(container => [...container.querySelectorAll("svg")]));
+    for (const icon of icons) {
+      if (isverifiedicon(icon)) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
     }
   }
 
@@ -108,11 +135,13 @@
     return user.verificationkind === "blue" || user.blueverified === true || verifiedtype === "blue" || badges.includes("blue");
   }
 
-  function makeaccountbadge(handle, user, profile = false) {
-    const content = accountbadgecontent(user);
+  function makeaccountbadge(handle, user, profile = false, includecheck = true, sticky = false) {
+    const content = accountbadgecontent(user, true, includecheck);
     if (!content || !content.html) return null;
     const badge = document.createElement("span");
-    badge.className = profile ? "tumpageaccountbadge tumpageprofileaccountbadge" : "tumpageaccountbadge";
+    badge.className = profile
+      ? "tumpageaccountbadge tumpageprofileaccountbadge" + (sticky ? " tumpageprofilestickybadge" : "")
+      : "tumpageaccountbadge";
     badge.dataset.handle = handle;
     badge.dataset.signature = content.signature;
     badge.setAttribute("aria-label", T("badge.accountstatus"));
@@ -145,14 +174,16 @@
       const entry = handle ? reasonmap.get(handle.toLowerCase()) : null;
       const account = handle ? accountmap.get(handle.toLowerCase()) : null;
       markaffiliatecheck(namebox, account);
-      const nextbadge = handle ? makeaccountbadge(handle, account) : null;
-      if (accountbadge && nextbadge && accountbadge.dataset.signature === nextbadge.dataset.signature) {
-        nextbadge.remove();
-      } else if (accountbadge) accountbadge.remove();
-      if (nextbadge && !namebox.querySelector(".tumpageaccountbadge")) {
-        const anchor = namebox.querySelector('a[role="link"][href^="/"]');
-        const nameline = anchor && (anchor.querySelector('div[dir="ltr"]') || anchor);
-        if (nameline) nameline.appendChild(nextbadge);
+      if (account || !accountbadge) {
+        const nextbadge = handle ? makeaccountbadge(handle, account, false, !hasnativecheck(namebox)) : null;
+        if (accountbadge && nextbadge && accountbadge.dataset.signature === nextbadge.dataset.signature) {
+          nextbadge.remove();
+        } else if (accountbadge) accountbadge.remove();
+        if (nextbadge && !namebox.querySelector(".tumpageaccountbadge")) {
+          const anchor = namebox.querySelector('a[role="link"][href^="/"]');
+          const nameline = anchor && (anchor.querySelector('div[dir="ltr"]') || anchor);
+          if (nameline) nameline.appendChild(nextbadge);
+        }
       }
       if (!notesenabled) {if (existing) existing.remove(); continue}
       if (!entry) {
@@ -198,19 +229,59 @@
 
   function scanprofileaccountbadge() {
     const m = PROFILEPATH.exec(location.pathname);
-    const namebox = document.querySelector('[data-testid="UserName"]');
-    const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
-    const existing = document.querySelector(".tumpageprofileaccountbadge");
     const handle = m && m[1];
     const user = handle ? accountmap.get(handle.toLowerCase()) : null;
-    markaffiliatecheck(namebox, user);
-    const nextbadge = handle && nameel ? makeaccountbadge(handle, user, true) : null;
-    if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {nextbadge.remove(); return}
-    if (existing) existing.remove();
-    if (!nextbadge || !nameel || !nameel.parentNode) return;
-    const note = namebox.querySelector(".tumpageprofilereasonbadge");
-    if (note && note.parentNode === nameel.parentNode) nameel.parentNode.insertBefore(nextbadge, note.nextSibling);
-    else nameel.parentNode.insertBefore(nextbadge, nameel.nextSibling);
+    if (!handle) {
+      for (const badge of document.querySelectorAll(".tumpageprofileaccountbadge")) badge.remove();
+      return;
+    }
+    const targets = [];
+    const namebox = document.querySelector('[data-testid="UserName"]');
+    const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
+    if (namebox && nameel) targets.push({box: namebox, line: nameel, sticky: false});
+    const displayname = String(user && user.displayname || "").trim().toLowerCase();
+    for (const heading of document.querySelectorAll('h1,h2,h3,[role="heading"]')) {
+      if (namebox && namebox.contains(heading)) continue;
+      const bounds = heading.getBoundingClientRect();
+      if (!bounds.width || bounds.top < 0 || bounds.top > 110) continue;
+      const title = String(heading.innerText || heading.textContent || "").split("\n")[0].trim().toLowerCase();
+      const nativecheck = hasnativecheckinside(heading);
+      if (title !== displayname && title !== handle.toLowerCase() && title !== "@" + handle.toLowerCase() && !nativecheck) continue;
+      const nameline = [...heading.querySelectorAll("span,div")].find(node => String(node.textContent || "").trim().toLowerCase() === title);
+      let line = heading;
+      for (let parent = nameline && nameline.parentElement; parent && parent !== heading; parent = parent.parentElement) {
+        const display = getComputedStyle(parent).display;
+        if (["flex", "inline-flex"].includes(display) && [...parent.querySelectorAll("svg")].some(isverifiedicon)) {
+          line = parent;
+          break;
+        }
+      }
+      targets.push({box: heading, line, sticky: true});
+    }
+    for (const badge of document.querySelectorAll(".tumpageprofileaccountbadge")) {
+      if (!targets.some(target => target.box.contains(badge))) badge.remove();
+    }
+    for (const target of targets) {
+      markaffiliatecheck(target.box, user);
+      const selector = target.sticky ? ".tumpageprofilestickybadge" : ".tumpageprofileaccountbadge:not(.tumpageprofilestickybadge)";
+      const existingbadges = [...target.box.querySelectorAll(selector)];
+      const existing = existingbadges[0];
+      const nextbadge = makeaccountbadge(handle, user, true, !hasnativecheck(target.box), target.sticky);
+      if (!user && existing) continue;
+      if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {
+        nextbadge.remove();
+        for (const duplicate of existingbadges.slice(1)) duplicate.remove();
+        continue;
+      }
+      for (const badge of existingbadges) badge.remove();
+      if (!nextbadge || !target.line) continue;
+      if (target.sticky) target.line.appendChild(nextbadge);
+      else {
+        const note = target.box.querySelector(".tumpageprofilereasonbadge");
+        if (note && note.parentNode === target.line.parentNode) target.line.parentNode.insertBefore(nextbadge, note.nextSibling);
+        else target.line.parentNode.insertBefore(nextbadge, target.line.nextSibling);
+      }
+    }
   }
 
   function dotcontrast(hex) {
@@ -288,6 +359,7 @@
         const handle = event.data.data.handle.toLowerCase();
         const user = {
           handle: event.data.data.handle,
+          displayname: event.data.data.displayname,
           badges: event.data.data.badges,
           verificationkind: event.data.data.verificationkind,
           verifiedtype: event.data.data.verifiedtype,

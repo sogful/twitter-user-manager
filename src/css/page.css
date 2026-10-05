@@ -12,14 +12,20 @@
 .tumpageaccountbadge {
   display: inline-flex; align-items: center;
   vertical-align: middle; margin-left: 3px;
-  width: auto; height: 19px; line-height: 0;
-  flex-shrink: 0; white-space: nowrap
+  width: auto; height: 19px;
+  line-height: 0; flex-shrink: 0;
+  white-space: nowrap
 }
-.tumpageaccountbadge .tumbadges {display: inline-flex; align-items: center; gap: 3px}
-.tumpageaccountbadge .tumbadge {display: inline-flex; width: 19px; height: 19px}
+.tumpageaccountbadge .tumbadges {
+  display: inline-flex; align-items: center;
+  gap: 3px; height: 100%;
+  top: 0
+}
+.tumpageaccountbadge .tumbadge {
+  display: inline-flex; width: 19px;
+  height: 19px; flex: 0 0 19px
+}
 .tumpageaccountbadge .tumbadge svg {display: block; width: 100%; height: 100%; fill: currentColor}
-.tumpageaccountbadge .tumbadgetranslator,
-.tumpageaccountbadge .tumbadgemod {width: 14px; height: 14px}
 .tumpageaccountbadge .tumbadgeverified {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgeblue {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgegov {color: #829aab}
@@ -27,10 +33,13 @@
 .tumpageaccountbadge .tumbadgetranslator {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgetranslatorregular {opacity: 0.7}
 .tumpageaccountbadge .tumbadgemod {color: #ffd400}
-.tumpageprofileaccountbadge {width: auto; height: 20px; vertical-align: -0.2em}
-.tumpageprofileaccountbadge .tumbadge {width: 20px; height: 20px}
-.tumpageprofileaccountbadge .tumbadgetranslator,
-.tumpageprofileaccountbadge .tumbadgemod {width: 14px; height: 14px}
+.tumpageprofileaccountbadge {
+  width: auto; height: 20px;
+  vertical-align: -0.2em
+}
+.tumpageprofileaccountbadge .tumbadge {width: 20px; height: 20px; flex: 0 0 20px}
+.tumpageprofilestickybadge {height: 20px; vertical-align: middle}
+.tumpageprofilestickybadge .tumbadge {width: 20px; height: 20px; flex: 0 0 20px}
 .tumaffiliatecheck {
   color: #7183df !important;
   fill: #7183df !important
