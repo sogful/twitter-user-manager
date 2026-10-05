@@ -10,7 +10,7 @@
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {
-    keepopen: true, folderaddtoast: true, nooverlap: false,
+    keepopen: true, folderaddtoast: true, nooverlap: false, minifyexports: false,
     autoopen: false, pagepencils: true, avatardots: true, 
     extrainfo: true, hideposts: false, confirmactions: false, confirmdelete: false, destroyoption: false
   };
@@ -18,6 +18,9 @@
   const SECTIONS = [
     {title: "settings.section.overlay", items: [
       {key: "keepopen"}, {key: "folderaddtoast"}, {key: "nooverlap"}, {key: "autoopen"}
+    ]},
+    {title: "settings.section.exports", items: [
+      {key: "minifyexports"}
     ]},
     {title: "settings.section.onpage", items: [
       {key: "pagepencils"}, {key: "avatardots"}, {key: "extrainfo"}
@@ -173,44 +176,19 @@
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
-  const legacyverifiedcutoff = Date.parse("2022-12-12T00:00:00Z");
-  const legacycheckmarksunset = Date.parse("2023-04-21T00:00:00Z");
-  function profileblueverified(result) {
-    const legacy = result && result.legacy || {};
-    const containers = profilecontainers(result || {});
+  function profileblueverified(result) {return !!(result && result.is_blue_verified === true)}
+  function profileverifiedtype(result) {
     const verification = result && result.verification || {};
-    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
-    const reason = info.reason || {};
-    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
-    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
-    const since = Number(reason.verified_since_msec);
-    if (/subscribed to x premium|premium subscription/.test(reasontext) || /^blue$/.test(verifiedtype)) return true;
-    if (blue && explicitverified === false) return true;
-    if (Number.isFinite(since) && since >= legacyverifiedcutoff) return true;
-    const created = Date.parse(result && result.core && result.core.created_at || legacy.created_at || "");
-    return blue && Number.isFinite(created) && created >= legacycheckmarksunset;
+    return String(verification.verified_type || result && result.verified_type || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
   }
   function profileverificationkind(result) {
-    const legacy = result && result.legacy || {};
-    const containers = profilecontainers(result || {});
     const verification = result && result.verification || {};
-    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
-    const reason = info.reason || {};
-    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
-    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const verified = badgeflag(verification.verified) || badgeflag(result && result.verified) || badgeflag(legacy.verified);
-    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
-    const since = Number(reason.verified_since_msec);
-    if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
-    if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
-    if (blue && explicitverified === false) return "blue";
-    if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
-    if (profileblueverified(result)) return "blue";
-    if (verified && !blue) return "legacy";
-    return blue ? "unknown" : "none";
+    const type = profileverifiedtype(result);
+    if (/^(government|multilateralorganization)$/.test(type)) return "government";
+    if (/^business$/.test(type)) return "business";
+    if (/^affiliate$/.test(type)) return "affiliate";
+    if (verification.verified === true) return "legacy";
+    return profileblueverified(result) ? "blue" : "none";
   }
   function profiletranslationtype(result) {
     const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
@@ -274,12 +252,10 @@
     return null;
   }
   function profileaffiliate(result) {
-    const verifiedtype = profilecontainers(result).map(item => item.verified_type || item.verification && item.verification.verified_type).filter(Boolean).join(" ").toLowerCase();
-    return !!profilehighlight(result) || /^affiliate$/.test(verifiedtype);
+    return !!profilehighlight(result) || profileverifiedtype(result) === "affiliate";
   }
   function profilebadges(result) {
     const badges = [];
-    const containers = profilecontainers(result);
     const verificationkind = profileverificationkind(result);
     if (verificationkind === "government") badges.push("verifiedgovernment");
     else if (verificationkind === "business") badges.push("verifiedbusiness");
@@ -287,7 +263,7 @@
     else if (verificationkind === "legacy") {
       if (profileblueverified(result)) badges.push("blue");
       badges.push("verified");
-    }
+    } else if (verificationkind === "affiliate" && profileblueverified(result)) badges.push("blue");
 
     const translatortype = profiletranslationtype(result);
     if (translatortype === "regular" || translatortype === "badged") badges.push("translator");
@@ -312,7 +288,7 @@
     const handle = core.screen_name || legacy.screen_name;
     if (!handle || !result.rest_id) return null;
     const verificationkind = profileverificationkind(result);
-    const blueverified = verificationkind === "blue" || verificationkind === "legacy" && profileblueverified(result);
+    const blueverified = profileblueverified(result) && !["business", "government"].includes(verificationkind);
     const user = {
       handle,
       displayname: core.name || legacy.name || handle,

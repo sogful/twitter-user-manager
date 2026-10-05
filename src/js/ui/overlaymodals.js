@@ -44,7 +44,9 @@
     return h || "account";
   }
   function downloadjson(data, name) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+    const source = JSON.stringify(data, null, 2);
+    const contents = tum.settings && tum.settings.get("minifyexports") ? JSONC.minify(source) : source;
+    const blob = new Blob([contents], {type: "application/json"});
     const url = URL.createObjectURL(blob);
     const a = el("a");
     a.href = url;
@@ -106,17 +108,14 @@
   function exportfolderdata(folder) {
     return {
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
-      x: folder.x, y: folder.y,
-      description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
+      description: folder.description || "", icon: exporticon(folder.icon),
       scalex: folder.scalex || 1, scaley: folder.scaley || 1,
-      badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|protected|affiliated|translator|translatormod)$/.test(type)))],
       cat: folder.cat || null,
-      twitterlist: folder.twitterlist || null,
       members: (folder.members || []).map(exportmember)
     };
   }
 
-  function exportcategory(category) {return {id: category.id, name: category.name, x: category.x, y: category.y, w: category.w, h: category.h}}
+  function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h}}
 
   function exportcategorydata(category) {
     return {
@@ -126,7 +125,7 @@
     };
   }
 
-  function exportloosemember(member) {return Object.assign(exportmember(member), {x: member.x, y: member.y, cat: member.cat || null, placed: member.placed !== false})}
+  function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false})}
 
   function exportdata() {
     downloadjson({version: 3, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
@@ -134,19 +133,61 @@
   }
   function importdata() {pickjson(applyimport)}
 
-  function importposition(item, index) {
-    return {
-      x: typeof item.x === "number" ? item.x : 60 + (index % 5) * 240,
-      y: typeof item.y === "number" ? item.y : 80 + Math.floor(index / 5) * 340
-    };
-  }
-
-  function rightedge() {
-    let edge = 0;
-    for (const folder of tum.folders.list()) edge = Math.max(edge, (folder.x || 0) + 214);
-    for (const category of tum.categories.list()) edge = Math.max(edge, (category.x || 0) + (category.w || 480));
-    for (const member of tum.unsorted.list()) edge = Math.max(edge, (member.x || 0) + 90);
-    return edge;
+  function placeimportmodules(categories, sourcefolders, sourceunsorted, sourcecategoryids, replace) {
+    const modules = [];
+    for (const category of categories) modules.push({type: "category", item: category, width: category.w, height: category.h});
+    for (const folder of sourcefolders) if (!sourcecategoryids.has(folder.cat)) {
+      const scalex = Math.max(0.5, Math.min(2, Number(folder.scalex) || 1));
+      const scaley = Math.max(0.5, Math.min(2, Number(folder.scaley) || 1));
+      modules.push({type: "folder", item: folder, width: 200 * scalex, height: 288 * scaley});
+    }
+    for (const member of sourceunsorted) if (!sourcecategoryids.has(member.cat)) modules.push({type: "member", item: member, width: 150, height: 58});
+    if (!modules.length) return {folderpositions: new Map(), memberpositions: new Map()};
+    const columns = Math.ceil(Math.sqrt(modules.length));
+    const rows = Math.ceil(modules.length / columns);
+    const columnwidths = Array(columns).fill(0), rowheights = Array(rows).fill(0);
+    for (let index = 0; index < modules.length; index++) {
+      const module = modules[index];
+      columnwidths[index % columns] = Math.max(columnwidths[index % columns], module.width);
+      rowheights[Math.floor(index / columns)] = Math.max(rowheights[Math.floor(index / columns)], module.height);
+    }
+    const gap = 80;
+    const totalwidth = columnwidths.reduce((total, width) => total + width, 0) + gap * (columns - 1);
+    const totalheight = rowheights.reduce((total, height) => total + height, 0) + gap * (rows - 1);
+    const center = tum.overlay.canvascenter();
+    const folderpositions = new Map(), memberpositions = new Map();
+    const nooverlap = !replace && tum.settings && tum.settings.get("nooverlap");
+    const columnleft = [], rowtop = [];
+    let offset = center.x - totalwidth / 2;
+    for (const width of columnwidths) {columnleft.push(offset); offset += width + gap}
+    offset = center.y - totalheight / 2;
+    for (const height of rowheights) {rowtop.push(offset); offset += height + gap}
+    for (let index = 0; index < modules.length; index++) {
+      const module = modules[index];
+      const column = index % columns, row = Math.floor(index / columns);
+      let x = columnleft[column] + (columnwidths[column] - module.width) / 2;
+      let y = rowtop[row] + (rowheights[row] - module.height) / 2;
+      if (module.type === "category") {
+        if (nooverlap && O.nooverlapcategorybox) {
+          const adjusted = O.nooverlapcategorybox(x, y, module.width, module.height);
+          x = adjusted.left; y = adjusted.top;
+        }
+        module.item.x = Math.round(x); module.item.y = Math.round(y);
+      } else if (module.type === "folder") {
+        if (nooverlap && O.nooverlapadjustbox) {
+          const adjusted = O.nooverlapadjustbox(x, y, module.width, module.height);
+          x = adjusted.left; y = adjusted.top;
+        }
+        folderpositions.set(module.item, {x: Math.round(x), y: Math.round(y)});
+      } else {
+        if (nooverlap && O.nooverlapadjustbox) {
+          const adjusted = O.nooverlapadjustbox(x, y, module.width, module.height);
+          x = adjusted.left; y = adjusted.top;
+        }
+        memberpositions.set(module.item, {x: Math.round(x + module.width / 2), y: Math.round(y + module.height / 2)});
+      }
+    }
+    return {folderpositions, memberpositions};
   }
 
   function profilesnapshot() {
@@ -167,19 +208,31 @@
 
   function importprofile(data, replace) {
     const previous = profilesnapshot();
-    const sourcefolders = Array.isArray(data && data.folders) ? data.folders.filter(folder => folder && typeof folder === "object") : [];
-    const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object") : [];
-    const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle) : [];
+    const sourcefolders = Array.isArray(data && data.folders) ? data.folders.filter(folder => folder && typeof folder === "object").map(folder => {
+      const item = {...folder};
+      for (const key of ["x", "y", "badgefilters", "sort", "twitterlist"]) delete item[key];
+      return item;
+    }) : [];
+    const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object").map(category => {
+      const item = {...category};
+      delete item.x; delete item.y;
+      return item;
+    }) : [];
+    const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle).map(member => {
+      const item = {...member};
+      delete item.x; delete item.y;
+      return item;
+    }) : [];
     const categoryids = new Set(replace ? [] : tum.categories.list().map(category => category.id));
     const categorymap = new Map(), categorylayouts = new Map(), categoryslots = new Map(), categorysourceids = new Map();
+    const sourcecategoryids = new Set(sourcecategories.map(category => category.id));
     const categories = sourcecategories.map((category, index) => {
       const id = category.id && !categoryids.has(category.id) ? category.id : "cimport" + Date.now().toString(36) + index.toString(36);
       categoryids.add(id);
       categorymap.set(category.id, id);
-      const hasposition = typeof category.x === "number" && typeof category.y === "number";
-      const x = hasposition ? category.x : 60 + (index % 3) * 540;
-      const y = hasposition ? category.y : 80 + Math.floor(index / 3) * 920;
-      const layout = Object.assign({}, category, {id, x, y, w: category.w || 480, h: category.h || 360});
+      const width = typeof category.w === "number" && Number.isFinite(category.w) && category.w > 0 ? category.w : 480;
+      const height = typeof category.h === "number" && Number.isFinite(category.h) && category.h > 0 ? category.h : 360;
+      const layout = Object.assign({}, category, {id, x: 0, y: 0, w: width, h: height});
       categorylayouts.set(category.id, layout);
       categorysourceids.set(id, category.id);
       return layout;
@@ -191,10 +244,10 @@
         category.h = Math.max(category.h, 4 + Math.ceil(count / columns) * 288);
       }
     }
+    const positions = placeimportmodules(categories, sourcefolders, sourceunsorted, sourcecategoryids, replace);
     const autolayout = (item, index, loose) => {
-      if (typeof item.x === "number" && typeof item.y === "number") return importposition(item, index);
       const category = categorylayouts.get(item.cat);
-      if (!category) return importposition(item, index);
+      if (!category) return (loose ? positions.memberpositions : positions.folderpositions).get(item) || tum.overlay.canvascenter();
       const slot = categoryslots.get(item.cat) || 0;
       categoryslots.set(item.cat, slot + 1);
       const width = loose ? 150 : 200 * (item.scalex || 1);
@@ -206,13 +259,6 @@
     };
     const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, autolayout(folder, index, false), {cat: categorymap.get(folder.cat) || null}));
     const unsorted = sourceunsorted.map((member, index) => Object.assign({}, member, autolayout(member, index, true), {cat: categorymap.get(member.cat) || null}));
-    if (!replace) {
-      const left = Math.min(0, ...folders.map(folder => folder.x), ...categories.map(category => category.x || 0), ...unsorted.map(member => member.x));
-      const shift = rightedge() - left + 80;
-      for (const category of categories) category.x = (category.x || 0) + shift;
-      for (const folder of folders) folder.x += shift;
-      for (const member of unsorted) member.x += shift;
-    }
     tum.categories.import(categories, replace);
     tum.folders.import(folders.map(folder => Object.assign({}, folder, {icon: importicon(folder.icon)})), replace);
     tum.unsorted.import(unsorted, replace);
@@ -317,7 +363,15 @@
   function finishfolderimport(f) {
     const members = (Array.isArray(f.members) ? f.members : []).filter(m => m && m.handle);
     const doimport = () => {
-      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon)});
+      const center = tum.overlay.canvascenter();
+      const scalex = Math.max(0.5, Math.min(2, Number(f.scalex) || 1));
+      const scaley = Math.max(0.5, Math.min(2, Number(f.scaley) || 1));
+      let x = center.x - 100 * scalex, y = center.y - 144 * scaley;
+      if (tum.settings && tum.settings.get("nooverlap") && O.nooverlapadjustbox) {
+        const adjusted = O.nooverlapadjustbox(x, y, 200 * scalex, 288 * scaley);
+        x = adjusted.left; y = adjusted.top;
+      }
+      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), scalex, scaley, x, y});
       tum.folders.addmembers(created.id, members);
       state.open = true;
       render();

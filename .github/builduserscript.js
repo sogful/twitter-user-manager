@@ -62,6 +62,7 @@ const sandboxfiles = [
   "src/js/page/lists.js",
   "src/js/ui/overlay.js",
   "src/js/ui/overlaydrag.js",
+  "src/js/vendor/jsonc.min.js",
   "src/js/ui/overlaymodals.js",
   "src/js/page/badges.js",
   "src/js/page/suggest.js",

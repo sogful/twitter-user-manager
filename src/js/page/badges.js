@@ -42,7 +42,7 @@
     for (const [handle, user] of cachedaccountmap) {
       const existing = accountmap.get(handle);
       if (existing && existing.userid && user.userid && String(existing.userid) !== String(user.userid)) continue;
-      accountmap.set(handle, existing ? mergeaccountdata(user, existing) : user);
+      accountmap.set(handle, existing ? mergeaccountdata(existing, user) : user);
     }
     for (const [handle, user] of capturedaccountmap) accountmap.set(handle, user);
   }
@@ -65,16 +65,28 @@
   }
   function normalizeaccount(user) {
     if (!user || typeof user !== "object" || typeof user.handle !== "string" || !user.handle.trim()) return null;
-    const entry = {handle: user.handle.trim(), badges: cleanaccountbadges(user.badges)};
+    const currentverification = user.verificationversion === 1;
+    const badges = cleanaccountbadges(user.badges);
+    const entry = {handle: user.handle.trim(), badges: currentverification ? badges : badges.filter(badge => typeof badge !== "string" || !checkmarktypes.has(badge))};
     const userid = user.userid || user.restId;
     if (userid != null && String(userid)) entry.userid = String(userid);
     if (typeof user.displayname === "string") entry.displayname = user.displayname;
-    for (const key of ["verificationkind", "verifiedtype", "translatortype"]) {
+    if (currentverification) {
+      entry.verificationversion = 1;
+      for (const key of ["verificationkind", "verifiedtype"]) {
+        if (typeof user[key] === "string" && user[key]) entry[key] = user[key];
+      }
+    } else {
+      entry.verificationkind = "unknown";
+      entry.blueverified = false;
+    }
+    for (const key of ["translatortype"]) {
       if (typeof user[key] === "string" && user[key]) entry[key] = user[key];
     }
-    for (const key of ["blueverified", "affiliateverified"]) {
+    for (const key of ["affiliateverified"]) {
       if (typeof user[key] === "boolean") entry[key] = user[key];
     }
+    if (currentverification && typeof user.blueverified === "boolean") entry.blueverified = user.blueverified;
     return entry;
   }
   function sameaccount(a, b) {
@@ -87,6 +99,7 @@
     for (const [key, value] of Object.entries(incoming || {})) {
       if (value !== undefined && value !== null) merged[key] = value;
     }
+    if (incoming && incoming.verificationkind === "unknown") delete merged.verifiedtype;
     let badges = cleanaccountbadges(existing && existing.badges);
     if (incoming && typeof incoming.verificationkind === "string") badges = badges.filter(badge => typeof badge !== "string" || !checkmarktypes.has(badge));
     if (incoming && typeof incoming.translatortype === "string") badges = badges.filter(badge => badge !== "translator" && badge !== "translatormod");
@@ -526,7 +539,8 @@
           verifiedtype: event.data.data.verifiedtype,
           blueverified: event.data.data.blueverified,
           affiliateverified: event.data.data.affiliateverified,
-          translatortype: event.data.data.translatortype
+          translatortype: event.data.data.translatortype,
+          verificationversion: event.data.data.verificationversion
         };
         capturedaccountmap.delete(handle);
         capturedaccountmap.set(handle, user);

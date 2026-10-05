@@ -115,7 +115,12 @@
     if (!pending) return;
     listrequests.delete(response.id);
     clearTimeout(pending.timer);
-    response.ok ? pending.resolve(response.data || {}) : pending.reject(new Error(response.error || "request failed"));
+    if (response.ok) pending.resolve(response.data || {});
+    else {
+      const error = new Error(response.error || "request failed");
+      error.status = response.status || 0;
+      pending.reject(error);
+    }
   });
   window.addEventListener("message", e => {
     const response = e.data;
@@ -189,6 +194,7 @@
       }, location.origin);
     });
   }
+  function isratelimited(error) {return !!error && (error.status === 429 || error.status === 420)}
   async function getlist(id) {
     const result = await graphqlrequest(EP.listinfo, {listId: String(id)});
     if (!result || !result.ok) throw new Error("network");
@@ -348,20 +354,22 @@
       } catch {bannerfailed = true}
       if (oncreated) oncreated({id: listid, total: members.length});
       const {ids} = await memberids(members);
-      let added = 0;
+      let added = 0, ratelimited = false;
       let skipped = members.length - ids.size;
       for (const id of ids) {
         try {
           await listrequest(LISTEP.addmember, {listId: listid, userId: id});
           added++;
-        } catch {skipped++}
+        } catch (error) {
+          if (isratelimited(error)) {ratelimited = true; break}
+          skipped++;
+        }
         renderuploadbar(added, ids.size);
         if (onprogress) onprogress({added, total: ids.size, skipped});
-        if (ids.size > 1) await sleep(1500);
       }
-      const result = {id: listid, added, skipped, bannerfailed};
+      const result = {id: listid, added, skipped, bannerfailed, ratelimited};
       await refreshcurrentlist(listid);
-      finishuploadbar(T(bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", folder.name || T("folder.unnamed"), added));
+      finishuploadbar(T(ratelimited ? "toast.twlist.ratelimited" : bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", ratelimited ? added : folder.name || T("folder.unnamed"), ratelimited ? ids.size : added));
       return result;
     } catch (error) {
       finishuploadbar(T("toast.twlist.failed"));
@@ -377,6 +385,7 @@
     const operation = {cancelled: false, cancelrequest: null};
     listsync = operation;
     listuploading = true;
+    let done = 0, added = 0, removed = 0, totalchanges = 0;
     try {
       renderuploadbar(0, 0, T("toast.twlist.syncchecking"), true);
       const wanted = await memberids(folder.members || [], operation);
@@ -385,19 +394,18 @@
       const add = [...wanted.ids].filter(id => !remote.has(id));
       const remove = wanted.unresolved ? [] : [...remote].filter(id => !wanted.ids.has(id));
       const changes = [...add.map(id => ({id, operation: LISTEP.addmember})), ...remove.map(id => ({id, operation: LISTEP.removemember}))];
+      totalchanges = changes.length;
       renderuploadbar(0, changes.length, T("toast.twlist.syncprogress", 0, changes.length), true);
       if (!changes.length) {
         finishuploadbar(T("toast.twlist.synced", 0, 0));
         return {added: 0, removed: 0, unresolved: wanted.unresolved};
       }
-      let done = 0, added = 0, removed = 0;
       for (const change of changes) {
         if (operation.cancelled) break;
         await listrequest(change.operation, {listId: listid, userId: change.id});
         done++;
         if (change.operation === LISTEP.addmember) added++; else removed++;
         renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
-        if (changes.length > 1) await sleep(1500);
       }
       if (operation.cancelled) {
         finishuploadbar(T("toast.twlist.syncstopped", done));
@@ -411,6 +419,11 @@
       if (operation.cancelled) {
         finishuploadbar(T("toast.twlist.syncstopped", 0));
         return {added: 0, removed: 0, cancelled: true};
+      }
+      if (isratelimited(error)) {
+        finishuploadbar(T("toast.twlist.syncratelimited", done, totalchanges));
+        error.batchshown = true;
+        throw error;
       }
       finishuploadbar(T("toast.twlist.syncfailed"));
       error.batchshown = true;

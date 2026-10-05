@@ -6,45 +6,19 @@
     return [result, legacy, result.verification, result.profile_bio, result.profile_metadata, result.extended_profile,
       legacy.verification, legacy.profile_bio, legacy.extended_profile].filter(value => value && typeof value === "object");
   }
-  function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
-  const legacyverifiedcutoff = Date.parse("2022-12-12T00:00:00Z");
-  const legacycheckmarksunset = Date.parse("2023-04-21T00:00:00Z");
-  function profileblueverified(result) {
-    const legacy = result && result.legacy || {};
-    const containers = profilecontainers(result || {});
+  function profileblueverified(result) {return !!(result && result.is_blue_verified === true)}
+  function profileverifiedtype(result) {
     const verification = result && result.verification || {};
-    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
-    const reason = info.reason || {};
-    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
-    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
-    const since = Number(reason.verified_since_msec);
-    if (/subscribed to x premium|premium subscription/.test(reasontext) || /^blue$/.test(verifiedtype)) return true;
-    if (blue && explicitverified === false) return true;
-    if (Number.isFinite(since) && since >= legacyverifiedcutoff) return true;
-    const created = Date.parse(result && result.core && result.core.created_at || legacy.created_at || "");
-    return blue && Number.isFinite(created) && created >= legacycheckmarksunset;
+    return String(verification.verified_type || result && result.verified_type || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
   }
   function profileverificationkind(result) {
-    const legacy = result && result.legacy || {};
-    const containers = profilecontainers(result || {});
     const verification = result && result.verification || {};
-    const info = containers.map(item => item.verification_info).find(value => value && typeof value === "object") || {};
-    const reason = info.reason || {};
-    const reasontext = String(reason.description && reason.description.text || "").toLowerCase();
-    const verifiedtype = String(verification.verified_type || result && result.verified_type || legacy.verified_type || "").toLowerCase();
-    const blue = badgeflag(result && result.is_blue_verified) || badgeflag(legacy.is_blue_verified);
-    const verified = badgeflag(verification.verified) || badgeflag(result && result.verified) || badgeflag(legacy.verified);
-    const explicitverified = [verification.verified, result && result.verified, legacy.verified].find(value => typeof value === "boolean");
-    const since = Number(reason.verified_since_msec);
-    if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
-    if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
-    if (blue && explicitverified === false) return "blue";
-    if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
-    if (profileblueverified(result)) return "blue";
-    if (verified && !blue) return "legacy";
-    return blue ? "unknown" : "none";
+    const type = profileverifiedtype(result);
+    if (/^(government|multilateralorganization)$/.test(type)) return "government";
+    if (/^business$/.test(type)) return "business";
+    if (/^affiliate$/.test(type)) return "affiliate";
+    if (verification.verified === true) return "legacy";
+    return profileblueverified(result) ? "blue" : "none";
   }
   function profiletranslationtype(result) {
     const translation = profilecontainers(result).map(item => item.profile_translation).find(value => value && typeof value === "object");
@@ -108,12 +82,10 @@
     return null;
   }
   function profileaffiliate(result) {
-    const verifiedtype = profilecontainers(result).map(item => item.verified_type || item.verification && item.verification.verified_type).filter(Boolean).join(" ").toLowerCase();
-    return !!profilehighlight(result) || /^affiliate$/.test(verifiedtype);
+    return !!profilehighlight(result) || profileverifiedtype(result) === "affiliate";
   }
   function profilebadges(result) {
     const badges = [];
-    const containers = profilecontainers(result);
     const verificationkind = profileverificationkind(result);
     if (verificationkind === "government") badges.push("verifiedgovernment");
     else if (verificationkind === "business") badges.push("verifiedbusiness");
@@ -121,7 +93,7 @@
     else if (verificationkind === "legacy") {
       if (profileblueverified(result)) badges.push("blue");
       badges.push("verified");
-    }
+    } else if (verificationkind === "affiliate" && profileblueverified(result)) badges.push("blue");
 
     const translatortype = profiletranslationtype(result);
     if (translatortype === "regular" || translatortype === "badged") badges.push("translator");
@@ -148,7 +120,7 @@
     const actions = u.action_counts || {}, highlights = u.highlights_info || {}, media = u.media_permissions || {};
     const professional = u.professional || {}, perspectives = u.relationship_perspectives || {};
     const verificationkind = profileverificationkind(u);
-    const blueverified = verificationkind === "blue" || verificationkind === "legacy" && profileblueverified(u);
+    const blueverified = profileblueverified(u) && !["business", "government"].includes(verificationkind);
     const withheld = [bio.withheld_in_countries, u.withheld_in_countries, legacy.withheld_in_countries].find(c => Array.isArray(c) && c.length) || null;
     const handle = core.screen_name || legacy.screen_name;
     if (!handle) return null;
@@ -166,6 +138,7 @@
       verifiedtype: ver.verified_type || u.verified_type || null,
       verificationkind,
       blueverified,
+      verificationversion: 1,
       affiliateverified: profileaffiliate(u),
       translatortype: profiletranslationtype(u) || null,
       isProtected: !!(priv.protected || legacy.protected),
@@ -491,6 +464,16 @@
   });
 
   const graphqlcontrollers = new Map();
+  function ratelimitreset(response) {
+    if (!response) return 0;
+    const reset = Number(response.headers.get("x-rate-limit-reset") || 0);
+    if (reset > 0) return reset * 1000;
+    const retryafter = response.headers.get("retry-after") || "";
+    const seconds = Number(retryafter);
+    if (seconds > 0) return Date.now() + seconds * 1000;
+    const date = Date.parse(retryafter);
+    return Number.isFinite(date) ? date : 0;
+  }
   window.addEventListener("message", event => {
     const request = event.data;
     if (event.source !== window || !request || request.__tumgraphqlcancel !== 1 || !request.id) return;
@@ -524,7 +507,7 @@
       id: request.id,
       ok: !!(response && response.ok),
       status: response ? response.status : 0,
-      rateLimitReset: response && Number(response.headers.get("x-rate-limit-reset") || 0) ? Number(response.headers.get("x-rate-limit-reset")) * 1000 : response && Number(response.headers.get("retry-after") || 0) ? Date.now() + Number(response.headers.get("retry-after")) * 1000 : 0,
+      rateLimitReset: ratelimitreset(response),
       data,
       error: failure || (!response ? "network" : "request failed")
     }, location.origin);

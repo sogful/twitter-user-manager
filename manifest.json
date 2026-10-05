@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitter user manager",
-  "version": "2.2094",
+  "version": "2.2095",
   "description": "sort and get additional info for accounts!",
   "author": "cv",
   "homepage_url": "https://coolsite.cv",
@@ -60,6 +60,7 @@
         "src/js/ui/overlaycategories.js",
         "src/js/ui/overlaycanvas.js",
         "src/js/ui/overlaydrag.js",
+        "src/js/vendor/jsonc.min.js",
         "src/js/ui/overlaymodals.js",
         "src/js/context.js",
         "src/js/page/badges.js",

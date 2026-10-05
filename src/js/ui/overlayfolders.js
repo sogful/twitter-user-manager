@@ -14,6 +14,10 @@
     if (type === "blue" || type === "verified") return false;
     if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
     if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
+    if (type === "translator") {
+      const translatortype = String(member.translatortype || "").toLowerCase();
+      return translatortype ? translatortype === "badged" : badges.includes(type);
+    }
     return badges.includes(type);
   }
   function normalizedsort(f) {return SORTMODES.includes(f.sort) ? f.sort : "new"}
@@ -50,7 +54,7 @@
     if (!button) return;
     const buttonrect = button.getBoundingClientRect();
     const menu = els.folderfilters;
-    menu.style.width = Math.max(0, Math.min(rect.width / 2, window.innerWidth - 16)) + "px";
+    menu.style.width = Math.max(0, Math.min(foldernode.offsetWidth / 2, window.innerWidth - 16)) + "px";
     const width = menu.offsetWidth, height = menu.offsetHeight;
     const stickleft = rect.right + width > window.innerWidth - 8;
     const left = stickleft ? Math.max(8, rect.left - width) : rect.right;
