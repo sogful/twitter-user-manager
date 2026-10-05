@@ -109,7 +109,7 @@
   }
 
   function makeaccountbadge(handle, user, profile = false) {
-    const content = accountbadgecontent(user, !profile);
+    const content = accountbadgecontent(user);
     if (!content || !content.html) return null;
     const badge = document.createElement("span");
     badge.className = profile ? "tumpageaccountbadge tumpageprofileaccountbadge" : "tumpageaccountbadge";

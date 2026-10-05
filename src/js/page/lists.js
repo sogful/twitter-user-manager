@@ -113,14 +113,27 @@
     clearTimeout(pending.timer);
     pending.resolve(response);
   });
-  function graphqlrequest(endpoint, variables) {
+  function graphqlrequest(endpoint, variables, operation) {
     const id = "graphql-" + Date.now().toString(36) + "-" + (++graphqlrequestid);
     return new Promise(resolve => {
-      const timer = setTimeout(() => {
+      let timer = 0;
+      const finish = response => {
+        clearTimeout(timer);
         graphqlrequests.delete(id);
-        resolve({ok: false, status: 0, data: null});
-      }, 15000);
-      graphqlrequests.set(id, {resolve, timer});
+        if (operation && operation.cancelrequest === cancel) operation.cancelrequest = null;
+        resolve(response);
+      };
+      const cancel = () => {
+        if (!graphqlrequests.has(id)) return;
+        clearTimeout(timer);
+        graphqlrequests.delete(id);
+        if (operation && operation.cancelrequest === cancel) operation.cancelrequest = null;
+        resolve({ok: false, status: 0, data: null, cancelled: true});
+        window.postMessage({__tumgraphqlcancel: 1, id}, location.origin);
+      };
+      timer = setTimeout(() => finish({ok: false, status: 0, data: null}), 15000);
+      graphqlrequests.set(id, {resolve: finish, timer});
+      if (operation) operation.cancelrequest = cancel;
       window.postMessage({
         __tumgraphqlrequest: 1,
         id,
@@ -133,12 +146,12 @@
     });
   }
   const UBSN = {qid: "Gb-d6r0vxPOADdG62OEBpQ", features: '{"hidden_profile_subscriptions_enabled":true,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":false,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"subscriptions_feature_can_gift_premium":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}', toggles: '{"withPayments":false,"withAuxiliaryUserLabels":true}'};
-  async function resolveuserid(handle) {
+  async function resolveuserid(handle, operation) {
     const cached = useridmap.get(handle.toLowerCase());
     if (cached) return cached;
     try {
       const vars = {screen_name: handle, withGrokTranslatedBio: true};
-      const page = await graphqlrequest({qid: UBSN.qid, op: "UserByScreenName", feat: UBSN.features, toggles: UBSN.toggles}, vars);
+      const page = await graphqlrequest({qid: UBSN.qid, op: "UserByScreenName", feat: UBSN.features, toggles: UBSN.toggles}, vars, operation);
       const j = page.data;
       let id = "";
       (function w(o) {if (!o || typeof o !== "object" || id) return; if (o.rest_id && o.core && o.core.screen_name) {id = o.rest_id; return} for (const k in o) if (o[k] && typeof o[k] === "object") w(o[k])})(j);
@@ -196,35 +209,48 @@
     if (!uploaded || !uploaded.mediaId) throw new Error("banner upload failed");
     await listrequest(LISTEP.editbanner, {listId: listid, mediaId: String(uploaded.mediaId)});
   }
-  async function memberids(members) {
+  async function memberids(members, operation) {
     const ids = new Set();
     let unresolved = 0;
     for (const member of members || []) {
-      const id = member && (member.userid || (member.handle && await resolveuserid(member.handle)));
+      if (operation && operation.cancelled) break;
+      const id = member && (member.userid || (member.handle && await resolveuserid(member.handle, operation)));
       if (id) ids.add(String(id)); else unresolved++;
     }
     return {ids, unresolved};
   }
-  async function remotelistids(listid) {
+  async function remotelistids(listid, operation) {
     const ids = new Set();
     let cursor = null;
+    const cursors = new Set();
     for (let pagecount = 0; pagecount < 100; pagecount++) {
-      const page = await eppage(EP.list, {id: listid}, cursor);
+      if (operation.cancelled) throw new Error("cancelled");
+      const page = await eppage(EP.list, {id: listid}, cursor, operation);
+      if (operation.cancelled) throw new Error("cancelled");
       if (!page.ok) throw new Error("list members unavailable");
+      const previoussize = ids.size;
       for (const user of page.users) if (user && user.userid) ids.add(String(user.userid));
-      if (!page.cursor || page.cursor === cursor) break;
+      if (page.users.length < 100 || ids.size === previoussize || !page.cursor || page.cursor === cursor || cursors.has(page.cursor)) break;
+      cursors.add(page.cursor);
       cursor = page.cursor;
     }
     return ids;
   }
 
-  let listuploading = false;
+  let listuploading = false, listsync = null;
   let uploadbar = null, uploadbartimer = 0;
   function ensureuploadbar() {
     if (uploadbar && document.documentElement.contains(uploadbar)) return uploadbar;
     uploadbar = document.createElement("div");
     uploadbar.className = "tumbatchbar tumlistuploadbar";
-    uploadbar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span></div>';
+    uploadbar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span><button type="button" class="tumbatchcancel" hidden>' + T("import.stop") + '</button></div>';
+    uploadbar.querySelector(".tumbatchcancel").addEventListener("click", event => {
+      if (!listsync || listsync.cancelled) return;
+      listsync.cancelled = true;
+      event.currentTarget.disabled = true;
+      event.currentTarget.textContent = T("toast.twlist.syncstopping");
+      if (listsync.cancelrequest) listsync.cancelrequest();
+    });
     try {tum.theme.paint(uploadbar)} catch {}
     document.documentElement.appendChild(uploadbar);
     return uploadbar;
@@ -233,17 +259,24 @@
     clearTimeout(uploadbartimer);
     if (uploadbar) {uploadbar.remove(); uploadbar = null}
   }
-  function renderuploadbar(added, total, note) {
+  function renderuploadbar(added, total, note, cancellable = false) {
     clearTimeout(uploadbartimer);
     uploadbartimer = 0;
     const b = ensureuploadbar();
     b.querySelector(".tumbatchfill").style.width = (total ? Math.min(100, Math.round(added / total * 100)) : 0) + "%";
     b.querySelector(".tumbatchlabel").textContent = note || T("toast.twlist.progress", added, total);
+    const cancelbutton = b.querySelector(".tumbatchcancel");
+    cancelbutton.hidden = !cancellable;
+    if (cancellable && (!listsync || !listsync.cancelled)) {
+      cancelbutton.disabled = false;
+      cancelbutton.textContent = T("import.stop");
+    }
   }
   function finishuploadbar(note) {
     const b = ensureuploadbar();
     b.querySelector(".tumbatchfill").style.width = "100%";
     b.querySelector(".tumbatchlabel").textContent = note;
+    b.querySelector(".tumbatchcancel").hidden = true;
     clearTimeout(uploadbartimer);
     uploadbartimer = setTimeout(removeuploadbar, 2600);
   }
@@ -317,30 +350,51 @@
     const listid = folderlistid(folder);
     if (!listid) throw new Error("missing list id");
     if (listuploading) throw new Error("busy");
+    const operation = {cancelled: false, cancelrequest: null};
+    listsync = operation;
     listuploading = true;
     try {
-      const wanted = await memberids(folder.members || []);
-      renderuploadbar(0, Math.max(1, wanted.ids.size), T("toast.twlist.syncprogress", 0, wanted.ids.size));
-      const remote = await remotelistids(listid);
+      renderuploadbar(0, 0, T("toast.twlist.syncchecking"), true);
+      const wanted = await memberids(folder.members || [], operation);
+      if (operation.cancelled) throw new Error("cancelled");
+      const remote = await remotelistids(listid, operation);
       const add = [...wanted.ids].filter(id => !remote.has(id));
       const remove = wanted.unresolved ? [] : [...remote].filter(id => !wanted.ids.has(id));
       const changes = [...add.map(id => ({id, operation: LISTEP.addmember})), ...remove.map(id => ({id, operation: LISTEP.removemember}))];
+      renderuploadbar(0, changes.length, T("toast.twlist.syncprogress", 0, changes.length), true);
+      if (!changes.length) {
+        finishuploadbar(T("toast.twlist.synced", 0, 0));
+        return {added: 0, removed: 0, unresolved: wanted.unresolved};
+      }
       let done = 0, added = 0, removed = 0;
       for (const change of changes) {
+        if (operation.cancelled) break;
         await listrequest(change.operation, {listId: listid, userId: change.id});
         done++;
         if (change.operation === LISTEP.addmember) added++; else removed++;
         renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
         if (changes.length > 1) await sleep(1500);
       }
+      if (operation.cancelled) {
+        finishuploadbar(T("toast.twlist.syncstopped", done));
+        return {added, removed, unresolved: wanted.unresolved, cancelled: true};
+      }
+      renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
       await refreshcurrentlist(listid);
       finishuploadbar(T("toast.twlist.synced", added, removed));
       return {added, removed, unresolved: wanted.unresolved};
     } catch (error) {
+      if (operation.cancelled) {
+        finishuploadbar(T("toast.twlist.syncstopped", 0));
+        return {added: 0, removed: 0, cancelled: true};
+      }
       finishuploadbar(T("toast.twlist.syncfailed"));
       error.batchshown = true;
       throw error;
-    } finally {listuploading = false}
+    } finally {
+      if (listsync === operation) listsync = null;
+      listuploading = false;
+    }
   }
 
   async function setlistprivacy(folder, isprivate) {
@@ -471,9 +525,9 @@
     })(j);
     return {users, cursor};
   }
-  async function eppage(ep, ctx, cursor) {
+  async function eppage(ep, ctx, cursor, operation) {
     const vars = ep.vars(ctx, cursor);
-    const response = await graphqlrequest(ep, vars);
+    const response = await graphqlrequest(ep, vars, operation);
     const j = response.data;
     const parsed = j ? parsepage(j) : {users: [], cursor: null};
     const ok = response.ok && j && !(j.errors && j.errors.length && parsed.users.length === 0);

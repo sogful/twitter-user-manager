@@ -389,8 +389,11 @@
   "toast.twlist.progress": "Adding %s of %s users to the Twitter list",
   "toast.twlist.published": "Twitter list is public",
   "toast.twlist.syncfailed": "Couldn't sync the Twitter list",
+  "toast.twlist.syncchecking": "Checking the Twitter list",
+  "toast.twlist.syncstopped": "Twitter list sync stopped after %s changes",
   "toast.twlist.synced": "Twitter list synced: %s added, %s removed",
   "toast.twlist.syncprogress": "Syncing Twitter list: %s of %s users",
+  "toast.twlist.syncstopping": "Stopping",
   "toast.twlist.unpublished": "Twitter list is private",
   "toast.twlist.visibilityrestored": "Twitter list visibility restored",
 

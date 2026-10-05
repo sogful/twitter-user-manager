@@ -489,11 +489,20 @@
     });
   });
 
+  const graphqlcontrollers = new Map();
+  window.addEventListener("message", event => {
+    const request = event.data;
+    if (event.source !== window || !request || request.__tumgraphqlcancel !== 1 || !request.id) return;
+    const controller = graphqlcontrollers.get(request.id);
+    if (controller) controller.abort();
+  });
   window.addEventListener("message", async event => {
     const request = event.data;
     if (event.source !== window || !request || request.__tumgraphqlrequest !== 1) return;
     if (!request.id || !request.operation || !request.qid || !request.variables || typeof request.variables !== "object") return;
     let response = null, data = null, failure = "";
+    const controller = new AbortController();
+    graphqlcontrollers.set(request.id, controller);
     try {
       const qid = qids[request.operation] || request.qid;
       const path = "/i/api/graphql/" + qid + "/" + request.operation;
@@ -503,10 +512,12 @@
       const ct0 = (document.cookie.match(/ct0=([^;]+)/) || [])[1] || "";
       response = await origfetch(url, {
         credentials: "include",
-        headers: await graphqlheaders(ct0, "GET", path)
+        headers: await graphqlheaders(ct0, "GET", path),
+        signal: controller.signal
       });
       try {data = await response.json()} catch {}
     } catch (error) {failure = error && error.message || "request failed"}
+    graphqlcontrollers.delete(request.id);
     window.postMessage({
       __tumgraphqlresponse: 1,
       id: request.id,
