@@ -190,7 +190,8 @@ img {-webkit-user-drag: none; user-drag: none}
   position: absolute;
   background: var(--tumcategorybg,rgba(255,255,255,0.05));
   border: 2px solid var(--tumcategoryborder,rgba(231,233,234,0.35));
-  border-radius: 16px; pointer-events: auto
+  border-radius: 16px; pointer-events: auto;
+  box-sizing: border-box
 }
 .tumcategory.tumselected {border-color: white; box-shadow: 0 0 0 1px white}
 .tumcategorytitle {
@@ -200,25 +201,35 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: 20px; font-weight: 700;
   line-height: 24px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
-  cursor: text; pointer-events: auto
+  cursor: grab; pointer-events: auto
 }
 .tumcategorytitle.tumediting {
   overflow: visible; text-overflow: clip;
-  user-select: text; -webkit-user-select: text
+  user-select: text; -webkit-user-select: text;
+  cursor: text
 }
-.tumcatresize {position: absolute; pointer-events: auto}
-.tumcatresizer {
-  top: 8px; bottom: 8px; right: -4px;
-  width: 8px; cursor: ew-resize
+.tumcategorydragging .tumcategorytitle {cursor: grabbing}
+.tumcatresize {position: absolute; z-index: 2; pointer-events: auto}
+.tumcatresizew, .tumcatresizee {
+  top: 16px; bottom: 16px; width: 10px;
+  cursor: ew-resize
 }
-.tumcatresizeb {
-  left: 8px; right: 8px; bottom: -4px;
-  height: 8px; cursor: ns-resize
+.tumcatresizew {left: 0}
+.tumcatresizee {right: 0}
+.tumcatresizen, .tumcatresizes {
+  left: 16px; right: 16px; height: 10px;
+  cursor: ns-resize
 }
-.tumcatresizebr {
-  right: -5px; bottom: -5px;
-  width: 16px; height: 16px; cursor: nwse-resize
+.tumcatresizen {top: 0}
+.tumcatresizes {bottom: 0}
+.tumcatresizenw, .tumcatresizene, .tumcatresizesw, .tumcatresizese {
+  width: 14px; height: 14px; z-index: 3
 }
+.tumcatresizenw {top: 0; left: 0; cursor: nwse-resize}
+.tumcatresizese {right: 0; bottom: 0; cursor: nwse-resize}
+.tumcatresizene {top: 0; right: 0; cursor: nesw-resize}
+.tumcatresizesw {bottom: 0; left: 0; cursor: nesw-resize}
+.tumcatresize:hover {background: rgba(255,255,255,0.2); border-radius: 4px}
 
 /*//////////////////////////////////////////////////////////////////////*/
 
@@ -229,7 +240,7 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 14px; overflow: hidden;
   background: var(--tumpanel,#131313);
   pointer-events: auto;
-  contain: layout paint;
+  contain: layout paint; box-sizing: border-box;
   --tumcolor: #1d9bf0
 }
 
@@ -245,9 +256,6 @@ img {-webkit-user-drag: none; user-drag: none}
   0%, 100% {outline-color: transparent}
   50% {outline-color: #1d9bf0}
 }
-.tumfolder.tumcollapsed {height: auto}
-.tumfolder.tumcollapsed .tumfoldertools, .tumfolder.tumcollapsed .tumfolderlist {display: none}
-
 .tumfolderhead {
   background: var(--tumcolor);
   height: 40px; padding: 5px;
@@ -319,26 +327,48 @@ img {-webkit-user-drag: none; user-drag: none}
   line-height: 1.05; flex-shrink: 0;
   text-align: center; width: 100%
 }
-.tumfoldercollapse, .tumfolderremove, .tumfolderexport {
+.tumfolderremove, .tumfolderexport {
   width: 20px; height: 20px;
   border-radius: 50%; background: var(--tumheaderbtnbg,rgba(0,0,0,0.25));
   display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
   cursor: pointer
 }
-.tumfoldercollapse svg, .tumfolderexport svg {
+.tumfolderexport svg {
   width: 12px; height: 12px;
   stroke: var(--tumheaderfg,white); fill: none;
   stroke-width: 2.2; stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform .1s linear
 }
-.tumcollapsed .tumfoldercollapse svg {transform: rotate(-90deg)}
 .tumfolderremove svg {
   width: 10px; height: 10px;
   stroke: var(--tumheaderfg,white); fill: none;
   stroke-width: 2.5
 }
+
+.tumfolderresize {position: absolute; z-index: 6; pointer-events: auto}
+.tumfolderresizew, .tumfolderresizee {
+  top: 12px; bottom: 12px; width: 8px;
+  cursor: ew-resize
+}
+.tumfolderresizew {left: 0}
+.tumfolderresizee {right: 0}
+.tumfolderresizen, .tumfolderresizes {
+  left: 12px; right: 12px; height: 8px;
+  cursor: ns-resize
+}
+.tumfolderresizen {top: 0}
+.tumfolderresizes {bottom: 0}
+.tumfolderresizenw, .tumfolderresizese, .tumfolderresizene, .tumfolderresizesw {
+  width: 14px; height: 14px; z-index: 7
+}
+.tumfolderresizenw {top: 0; left: 0; cursor: nwse-resize}
+.tumfolderresizese {right: 0; bottom: 0; cursor: nwse-resize}
+.tumfolderresizene {top: 0; right: 0; cursor: nesw-resize}
+.tumfolderresizesw {bottom: 0; left: 0; cursor: nesw-resize}
+.tumfolderresize:hover {background: rgba(255,255,255,0.18)}
+.tumfolderresizing {user-select: none}
 
 .tumfoldertools {
   display: flex; gap: 6px;

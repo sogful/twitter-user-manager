@@ -31,7 +31,7 @@
   }
   function focusfolder(f) {
     if (!f) return;
-    centeron((f.x || 0) + 100, (f.y || 0) + (f.collapsed ? 20 : 144));
+    centeron((f.x || 0) + 100 * (f.scalex || 1), (f.y || 0) + 144 * (f.scaley || 1));
     const node = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
     flashfolder(node);
   }
@@ -64,7 +64,7 @@
     const cv = els.minimapcanvas, ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
 
-    const rects = folders.map(f => ({r: {left: f.x || 0, top: f.y || 0, w: 200, h: f.collapsed ? 40 : 288}, col: f.color || "#1d9bf0"}));
+    const rects = folders.map(f => ({r: {left: f.x || 0, top: f.y || 0, w: 200 * (f.scalex || 1), h: 288 * (f.scaley || 1)}, col: f.color || "#1d9bf0"}));
     let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
     for (const {r} of rects) {minx = Math.min(minx, r.left); miny = Math.min(miny, r.top); maxx = Math.max(maxx, r.left + r.w); maxy = Math.max(maxy, r.top + r.h)}
     for (const u of loose) {
@@ -98,7 +98,7 @@
       if (y < ccy - vh / 2) counts.up += amount;
       else if (y > ccy + vh / 2) counts.down += amount;
     };
-    for (const f of folders) addcount((f.x || 0) + 100, (f.y || 0) + (f.collapsed ? 20 : 144), (f.members || []).length);
+    for (const f of folders) addcount((f.x || 0) + 100 * (f.scalex || 1), (f.y || 0) + 144 * (f.scaley || 1), (f.members || []).length);
     for (const u of loose) addcount(u.x || 0, u.y || 0, 1);
     ctx.fillStyle = tum.theme.palette().text;
     ctx.font = "700 10px Chirp, sans-serif";
@@ -148,58 +148,6 @@
     });
   }
 
-  function resolveoverlap(active) {
-    if (!active || !active.classList.contains("tumfolder") || !els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return;
-    const folder = tum.folders.get(active.dataset.id);
-    if (!folder) return;
-    const current = rectof(active);
-    const others = [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(node => node !== active).map(rectof);
-    const category = folder.cat && tum.categories.get(folder.cat);
-    const bounds = category ? {
-      left: category.x + CATBORDER,
-      top: category.y + CATBORDER,
-      right: category.x + category.w - CATBORDER,
-      bottom: category.y + category.h - CATBORDER
-    } : null;
-    const legal = (left, top) => {
-      if (bounds && (left < bounds.left || top < bounds.top || left + current.w > bounds.right || top + current.h > bounds.bottom)) return false;
-      return !others.some(other => left < other.left + other.w && left + current.w > other.left && top < other.top + other.h && top + current.h > other.top);
-    };
-    const candidates = [{left: current.left, top: current.top}];
-    if (bounds) {
-      candidates.push(
-        {left: bounds.left, top: bounds.top},
-        {left: bounds.right - current.w, top: bounds.top},
-        {left: bounds.left, top: bounds.bottom - current.h},
-        {left: bounds.right - current.w, top: bounds.bottom - current.h}
-      );
-    }
-    for (const other of others) {
-      candidates.push(
-        {left: other.left - current.w, top: current.top}, {left: other.left + other.w, top: current.top},
-        {left: current.left, top: other.top - current.h}, {left: current.left, top: other.top + other.h},
-        {left: other.left - current.w, top: other.top - current.h}, {left: other.left + other.w, top: other.top - current.h},
-        {left: other.left - current.w, top: other.top + other.h}, {left: other.left + other.w, top: other.top + other.h}
-      );
-    }
-    let best = null, distance = Infinity;
-    const seen = new Set();
-    for (const candidate of candidates) {
-      const key = candidate.left + ":" + candidate.top;
-      if (seen.has(key) || !legal(candidate.left, candidate.top)) continue;
-      seen.add(key);
-      const nextdistance = Math.hypot(candidate.left - current.left, candidate.top - current.top);
-      if (nextdistance < distance) {best = candidate; distance = nextdistance}
-    }
-    if (!best) {
-      tum.folders.update(folder.id, {collapsed: true}, true);
-      active.classList.add("tumcollapsed");
-      toast(T("toast.folder.expand.nospace"));
-      return;
-    }
-    if (best.left !== current.left || best.top !== current.top) tum.folders.move(folder.id, best.left, best.top);
-  }
-
   function nooverlapadjustbox(left, top, w, h, exclude) {
     if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {left, top};
     const GAP = 0;
@@ -224,40 +172,49 @@
     const others = [...els.freeform.querySelectorAll(".tumcategory")]
       .filter(node => node !== exclude)
       .map(rectof);
-    let l = left, t = top;
-    for (let pass = 0; pass < 10; pass++) {
-      let hit = false;
-      for (const o of others) {
-        const ox = Math.min(l + w, o.left + o.w) - Math.max(l, o.left);
-        const oy = Math.min(t + h, o.top + o.h) - Math.max(t, o.top);
-        if (ox <= 0 || oy <= 0) continue;
-        hit = true;
-        if (ox < oy) l += (l + w / 2 >= o.left + o.w / 2 ? 1 : -1) * ox;
-        else t += (t + h / 2 >= o.top + o.h / 2 ? 1 : -1) * oy;
-      }
-      if (!hit) break;
+    const gap = 1;
+    const xs = new Set([left]), ys = new Set([top]);
+    for (const other of others) {
+      xs.add(other.left - w - gap);
+      xs.add(other.left + other.w + gap);
+      ys.add(other.top - h - gap);
+      ys.add(other.top + other.h + gap);
     }
-    return {left: l, top: t};
+    let best = null, distance = Infinity;
+    for (const x of xs) for (const y of ys) {
+      if (others.some(other => x < other.left + other.w && x + w > other.left && y < other.top + other.h && y + h > other.top)) continue;
+      const nextdistance = (x - left) ** 2 + (y - top) ** 2;
+      if (nextdistance < distance) {best = {left: x, top: y}; distance = nextdistance}
+    }
+    const current = exclude ? rectof(exclude) : null;
+    return best || {left: current ? current.left : left, top: current ? current.top : top};
   }
-  function nooverlapcategorysize(left, top, w, h, exclude, minw, minh, right, bottom) {
-    if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {w, h};
+  function nooverlapcategorysize(x, y, w, h, oldx, oldy, oldw, oldh, exclude, minw, minh, west, north, horizontal, vertical) {
+    if (!els.freeform || !(tum.settings && tum.settings.get("nooverlap"))) return {x, y, w, h};
     const others = [...els.freeform.querySelectorAll(".tumcategory")]
       .filter(node => node !== exclude)
       .map(rectof);
-    let nextw = w, nexth = h;
-    for (let pass = 0; pass < 2; pass++) for (const o of others) {
-      const overlapsx = left < o.left + o.w && left + nextw > o.left;
-      const overlapsy = top < o.top + o.h && top + nexth > o.top;
-      if (right && overlapsy && o.left >= left) {
-        const limit = o.left - left;
-        if (limit >= minw && limit < nextw) nextw = limit;
-      }
-      if (bottom && overlapsx && o.top >= top) {
-        const limit = o.top - top;
-        if (limit >= minh && limit < nexth) nexth = limit;
-      }
+    const gap = 1;
+    const widths = new Set(horizontal ? [w] : [oldw]);
+    const heights = new Set(vertical ? [h] : [oldh]);
+    if (horizontal && w >= oldw) widths.add(oldw);
+    if (vertical && h >= oldh) heights.add(oldh);
+    const oldright = oldx + oldw, oldbottom = oldy + oldh;
+    for (const other of others) {
+      if (horizontal) widths.add(west ? oldright - other.left - other.w - gap : other.left - oldx - gap);
+      if (vertical) heights.add(north ? oldbottom - other.top - other.h - gap : other.top - oldy - gap);
     }
-    return {w: nextw, h: nexth};
+    const validwidths = [...widths].filter(value => Number.isFinite(value) && value >= minw && value <= w);
+    const validheights = [...heights].filter(value => Number.isFinite(value) && value >= minh && value <= h);
+    let best = null, distance = Infinity;
+    for (const nextw of validwidths) for (const nexth of validheights) {
+      const nextx = west ? oldright - nextw : oldx;
+      const nexty = north ? oldbottom - nexth : oldy;
+      if (others.some(other => nextx < other.left + other.w && nextx + nextw > other.left && nexty < other.top + other.h && nexty + nexth > other.top)) continue;
+      const nextdistance = (nextw - w) ** 2 + (nexth - h) ** 2;
+      if (nextdistance < distance) {best = {x: nextx, y: nexty, w: nextw, h: nexth}; distance = nextdistance}
+    }
+    return best || {x: oldx, y: oldy, w: oldw, h: oldh};
   }
   function nooverlapadjust(node, left, top) {
     if (!node) return {left, top};
@@ -388,7 +345,7 @@
   Object.assign(O, {
     state, pan, ICONS, el, escapehtml, emojihtml, linkify, iconhtml, avatarurl, miniavatarurl, fullavatarurl, badgeshtml,
     render, showbackdrop, hidebackdrop, closeoverlay, toast, notifyfolderadd, openprofile, clearuserhover, clearselection, selecteditems, startselectiondrag, historybegin, historyend, historyundo, historyredo, applypan, fitall,
-    toggledcollapse, categoryhover, categorydrop, newcategory, renamecategory, resolveoverlap, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot, focusfolder,
+    categoryhover, categorydrop, newcategory, renamecategory, nooverlapadjust, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjusthandle, findfreespot, focusfolder,
     zoom: () => zoom, startcamerapan,
     keepopen: () => keepopen
   });
@@ -409,6 +366,6 @@
     foldericonhtml: f => iconhtml(f.icon) || ICONS[f.action] || ICONS.folder
   };
   
-    Object.assign(scope, {contentbbox, centeron, fitall, jumpto, focusfolder, togglejumplist, buildjumprows, scheduleminimap, drawminimap, onminimapclick, attachminimapdrag, resolveoverlap, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjust, nooverlapadjusthandle, onkeydown, openandflash, flashfolder, toast, notifyfolderadd});
+    Object.assign(scope, {contentbbox, centeron, fitall, jumpto, focusfolder, togglejumplist, buildjumprows, scheduleminimap, drawminimap, onminimapclick, attachminimapdrag, nooverlapadjustbox, nooverlapcategorybox, nooverlapcategorysize, nooverlapadjust, nooverlapadjusthandle, onkeydown, openandflash, flashfolder, toast, notifyfolderadd});
   }
 })();

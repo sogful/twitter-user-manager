@@ -125,7 +125,6 @@
     const allmembers = Array.isArray(f.members) ? f.members : [];
     const members = sortedmembers(f);
     const node = el("div", "tumfolder");
-    if (f.collapsed) node.classList.add("tumcollapsed");
     if (f.description) node.classList.add("tumfolderhasdesc");
     node.style.setProperty("--tumcolor", f.color);
     const fg = readablefg(f.color);
@@ -133,6 +132,8 @@
     node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
     node.style.left = (f.x || 0) + "px";
     node.style.top = (f.y || 0) + "px";
+    node.style.width = (200 * (f.scalex || 1)) + "px";
+    node.style.height = (288 * (f.scaley || 1)) + "px";
     node.dataset.id = f.id;
     node.innerHTML = `
       <div class="tumfolderhead">
@@ -161,12 +162,18 @@
         <button type="button" class="tumfoldersort" aria-label="${T("folder.filter.label")}" aria-haspopup="true" aria-expanded="false">${T(SORTLABEL[normalizedsort(f)] || SORTLABEL.added)}</button>
       </div>
       <div class="tumfolderlist"></div>
+      <div class="tumfolderresize tumfolderresizew" data-edge="w"></div>
+      <div class="tumfolderresize tumfolderresizee" data-edge="e"></div>
+      <div class="tumfolderresize tumfolderresizen" data-edge="n"></div>
+      <div class="tumfolderresize tumfolderresizes" data-edge="s"></div>
+      <div class="tumfolderresize tumfolderresizenw" data-edge="nw"></div>
+      <div class="tumfolderresize tumfolderresizene" data-edge="ne"></div>
+      <div class="tumfolderresize tumfolderresizesw" data-edge="sw"></div>
+      <div class="tumfolderresize tumfolderresizese" data-edge="se"></div>
     `;
     node._tumremove = node.querySelector(".tumfolderremove");
     const list = node.querySelector(".tumfolderlist");
-    if (f.collapsed) {
-      list.replaceChildren();
-    } else if (!members.length) {
+    if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", allmembers.length ? T("folder.filter.empty") : T("folder.empty")));
     } else {
       const src = {type: "folder", id: f.id};
@@ -204,6 +211,7 @@
       };
       renderrows();
     }
+    O.attachfolderresize(node, f);
     O.attachfolderdrag(node, f);
     node._tumremove.addEventListener("click", e => {
       e.stopPropagation();
@@ -532,18 +540,8 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  function toggledcollapse(id) {
-    const f = tum.folders.get(id);
-    if (!f) return;
-    const now = !f.collapsed;
-    tum.folders.update(id, {collapsed: now}, true);
-    render();
-    const node = els.freeform.querySelector('.tumfolder[data-id="' + id + '"]');
-    if (!now && node) resolveoverlap(node);
-  }
-
   /*//////////////////////////////////////////////////////////////////////*/
 
-    Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, navigatepath, openprofile, wireavatar, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover, toggledcollapse});
+    Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, navigatepath, openprofile, wireavatar, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover});
   }
 })();

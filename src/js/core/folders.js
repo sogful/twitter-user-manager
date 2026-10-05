@@ -27,6 +27,10 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   const uid = () => "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  function folderscale(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+    return Math.min(2, Math.max(0.5, Math.round(value * 4) / 4));
+  }
 
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {tum.storage.set(list)}
@@ -42,9 +46,10 @@
       icon: (partial.icon || "").slice(0, 64),
       sort: partial.sort || "added",
       badgefilters: Array.isArray(partial.badgefilters) ? [...new Set(partial.badgefilters.filter(type => badgefiltertypes.has(type)))] : [],
-      collapsed: partial.collapsed !== undefined ? partial.collapsed : !!(window.tum.settings && tum.settings.get("startcollapsed")),
       cat: partial.cat || null,
       description: (partial.description || "").slice(0, 200),
+      scalex: folderscale(partial.scalex),
+      scaley: folderscale(partial.scaley),
       twitterlist: (() => {
         const list = partial.twitterlist;
         const id = typeof list === "string" ? list : list && list.id;

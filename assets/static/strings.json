@@ -161,7 +161,6 @@
   "log.asset.missing": "Missing image asset?! %s",
   "log.module.failed": "Module %s failed?!",
 
-  "menu.collapse": "Collapse",
   "menu.customnote": "Custom note",
   "menu.delete": "Delete",
   "menu.edit": "Edit",
@@ -347,8 +346,6 @@
   "settings.section.extras": "Extras",
   "settings.section.onpage": "On the page",
   "settings.section.overlay": "Overlay",
-  "settings.startcollapsed.desc": "New folders begin minimized to just their title bar.",
-  "settings.startcollapsed.title": "Start folders collapsed",
   "settings.tab": "User Manager",
 
   "suggest.banner": "You can sort your %s tab into folders from here!",
@@ -367,7 +364,6 @@
   "toast.exported.folder": "Exported folder %s",
   "toast.exported.folders": "Exported %s folders",
   "toast.folder.merged": "Merged %s members into \"%s\"",
-  "toast.folder.expand.nospace": "Not enough room to expand this folder.",
   "toast.import.failed": "Import failed, not valid JSON",
   "toast.imported.all": "Imported %s folders, %s loose users",
   "toast.imported.folder": "Imported folder %s (%s users)",

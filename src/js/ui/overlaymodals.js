@@ -108,8 +108,9 @@
       id: folder.id, name: folder.name, action: folder.action, color: folder.color,
       x: folder.x, y: folder.y,
       description: folder.description || "", icon: exporticon(folder.icon), sort: folder.sort,
+      scalex: folder.scalex || 1, scaley: folder.scaley || 1,
       badgefilters: [...new Set((Array.isArray(folder.badgefilters) ? folder.badgefilters : []).filter(type => /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|protected|affiliated|translator|translatormod)$/.test(type)))],
-      collapsed: !!folder.collapsed, cat: folder.cat || null,
+      cat: folder.cat || null,
       twitterlist: folder.twitterlist || null,
       members: (folder.members || []).map(exportmember)
     };
@@ -196,9 +197,11 @@
       if (!category) return importposition(item, index);
       const slot = categoryslots.get(item.cat) || 0;
       categoryslots.set(item.cat, slot + 1);
-      const columns = Math.max(1, Math.floor((category.w - 4) / 200));
-      const x = category.x + 2 + (slot % columns) * 200;
-      const y = category.y + 2 + Math.floor(slot / columns) * (loose ? 62 : 288);
+      const width = loose ? 150 : 200 * (item.scalex || 1);
+      const height = loose ? 62 : 288 * (item.scaley || 1);
+      const columns = Math.max(1, Math.floor((category.w - 4) / width));
+      const x = category.x + 2 + (slot % columns) * width;
+      const y = category.y + 2 + Math.floor(slot / columns) * height;
       return loose ? {x: x + 75, y: y + 29} : {x, y};
     };
     const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, autolayout(folder, index, false), {cat: categorymap.get(folder.cat) || null}));

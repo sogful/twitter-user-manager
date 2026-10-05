@@ -10,6 +10,93 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
+  function attachfolderresize(node, f) {
+    const scales = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+    for (const handle of node.querySelectorAll(".tumfolderresize")) {
+      handle.addEventListener("pointerdown", e => {
+        if (state.drag || state.gesture || e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const edge = handle.dataset.edge || "";
+        const west = edge.includes("w"), east = edge.includes("e");
+        const north = edge.includes("n"), south = edge.includes("s");
+        const startx = e.clientX, starty = e.clientY;
+        const oldx = f.x || 0, oldy = f.y || 0;
+        const oldscalex = f.scalex || 1, oldscaley = f.scaley || 1;
+        const oldwidth = 200 * oldscalex, oldheight = 288 * oldscaley;
+        const right = oldx + oldwidth, bottom = oldy + oldheight;
+        state.gesture = {kind: "folderresize", pointerid: e.pointerId};
+        let sizing = false;
+        let placed = {x: oldx, y: oldy, scalex: oldscalex, scaley: oldscaley};
+
+        const sizeit = ev => {
+          const dx = (ev.clientX - startx) / O.zoom(), dy = (ev.clientY - starty) / O.zoom();
+          const targetx = west || east ? Math.min(2, Math.max(0.5, Math.round(((oldwidth + (west ? -dx : dx)) / 200) * 4) / 4)) : oldscalex;
+          const targety = north || south ? Math.min(2, Math.max(0.5, Math.round(((oldheight + (north ? -dy : dy)) / 288) * 4) / 4)) : oldscaley;
+          const xscales = west || east ? scales : [oldscalex];
+          const yscales = north || south ? scales : [oldscaley];
+          const nooverlap = tum.settings && tum.settings.get("nooverlap");
+          const others = nooverlap ? [...O.els.freeform.querySelectorAll(".tumfolder, .tumloosechip")]
+            .filter(other => other !== node).map(O.scope.rectof) : [];
+          let best = null, bestdistance = Infinity;
+          for (const scalex of xscales) for (const scaley of yscales) {
+            const width = 200 * scalex, height = 288 * scaley;
+            const x = west ? right - width : oldx;
+            const y = north ? bottom - height : oldy;
+            let overlap = 0;
+            for (const other of others) {
+              const overlapx = Math.max(0, Math.min(x + width, other.left + other.w) - Math.max(x, other.left));
+              const overlapy = Math.max(0, Math.min(y + height, other.top + other.h) - Math.max(y, other.top));
+              overlap += overlapx * overlapy;
+            }
+            const distance = Math.abs(scalex - targetx) * 200 + Math.abs(scaley - targety) * 288;
+            if (nooverlap ? overlap === 0 && distance < bestdistance : distance < bestdistance) {
+              best = {x, y, scalex, scaley, width, height};
+              bestdistance = distance;
+            }
+          }
+          if (!best) return placed;
+          placed = {x: best.x, y: best.y, scalex: best.scalex, scaley: best.scaley};
+          node.style.left = best.x + "px";
+          node.style.top = best.y + "px";
+          node.style.width = best.width + "px";
+          node.style.height = best.height + "px";
+          return placed;
+        };
+        const move = ev => {
+          if (!state.gesture || ev.pointerId !== state.gesture.pointerid) return;
+          sizing = true;
+          node.classList.add("tumfolderresizing");
+          O.clearuserhover();
+          sizeit(ev);
+        };
+        const up = ev => {
+          if (!state.gesture) return;
+          if (ev.type === "pointerup" && (ev.button !== 0 || ev.pointerId !== state.gesture.pointerid)) return;
+          if (ev.type === "pointercancel" && ev.pointerId !== state.gesture.pointerid) return;
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", up);
+          document.removeEventListener("pointercancel", up);
+          state.gesture = null;
+          node.classList.remove("tumfolderresizing");
+          if (ev.type === "pointercancel") {
+            node.style.left = oldx + "px";
+            node.style.top = oldy + "px";
+            node.style.width = oldwidth + "px";
+            node.style.height = oldheight + "px";
+            return;
+          }
+          if (!sizing) return;
+          const final = sizeit(ev);
+          tum.folders.update(f.id, {x: final.x, y: final.y, scalex: final.scalex, scaley: final.scaley});
+        };
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+        document.addEventListener("pointercancel", up);
+      });
+    }
+  }
+
   function attachfolderdrag(node, f) {
     const head = node.querySelector(".tumfolderhead");
     let tracking = null;
@@ -62,6 +149,7 @@
       const up = ev => {
         if (!tracking) return;
         if (ev.type === "pointerup" && (ev.button !== 0 || ev.pointerId !== tracking.pointerid)) return;
+        if (ev.type === "mouseup" && ev.button !== 0) return;
         if (ev.type === "pointercancel" && ev.pointerId !== tracking.pointerid) return;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
@@ -93,8 +181,6 @@
           node.style.top = Math.round(a.top) + "px";
 
           tum.folders.update(f.id, {x: Math.round(a.left), y: Math.round(a.top), cat: c.cat}, true);
-        } else {
-          O.toggledcollapse(f.id);
         }
         tracking = null;
       };
@@ -563,6 +649,6 @@
     render();
   }
 
-  Object.assign(O, {attachfolderdrag, attachmemberdrag, begindrag, updatedrag, enddrag, canceldrag, mergefolders, restorehidden, removefromsource, schedulerestoreall});
+  Object.assign(O, {attachfolderresize, attachfolderdrag, attachmemberdrag, begindrag, updatedrag, enddrag, canceldrag, mergefolders, restorehidden, removefromsource, schedulerestoreall});
 
 })();

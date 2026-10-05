@@ -16,11 +16,9 @@
     node.style.top = (c.y || 0) + "px";
     node.style.width = (c.w || 480) + "px";
     node.style.height = (c.h || 360) + "px";
-    node.innerHTML =
-      `<div class="tumcategorytitle">${escapehtml(c.name || T("confirm.category.default"))}</div>` +
-      `<div class="tumcatresize tumcatresizer"></div>` +
-      `<div class="tumcatresize tumcatresizeb"></div>` +
-      `<div class="tumcatresize tumcatresizebr"></div>`;
+    const handles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"]
+      .map(edge => `<div class="tumcatresize tumcatresize${edge}" data-edge="${edge}"></div>`).join("");
+    node.innerHTML = `<div class="tumcategorytitle">${escapehtml(c.name || T("confirm.category.default"))}</div>${handles}`;
     attachcategorydrag(node, c);
     attachcategoryresize(node, c);
     return node;
@@ -35,6 +33,7 @@
       if (e.target.closest(".tumcategorytitle.tumediting")) return;
       if (e.target.closest(".tumfolder, .tumloosechip, .tumcatresize")) return;
       const ontitle = !!e.target.closest(".tumcategorytitle");
+      if (!ontitle) return;
       e.preventDefault();
       state.gesture = {kind: "category", pointerid: e.pointerId};
       const startx = e.clientX, starty = e.clientY;
@@ -52,6 +51,7 @@
           dragging = true;
           clearuserhover();
           root.classList.add("tumfolderdragging");
+          node.classList.add("tumcategorydragging");
         }
         placed = nooverlapcategorybox(ox + dx, oy + dy, c.w || 480, c.h || 360, node);
         const actualx = placed.left - ox, actualy = placed.top - oy;
@@ -60,14 +60,22 @@
         for (const m of members) {m.n.style.left = (m.left + actualx) + "px"; m.n.style.top = (m.top + actualy) + "px"}
       };
       const up = ev => {
-        if (!state.gesture || (ev.type === "pointerup" || ev.type === "pointercancel") && ev.pointerId !== state.gesture.pointerid) return;
+        if (!state.gesture) return;
+        if (ev.type === "pointerup" && (ev.button !== 0 || ev.pointerId !== state.gesture.pointerid)) return;
+        if (ev.type === "pointercancel" && ev.pointerId !== state.gesture.pointerid) return;
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         document.removeEventListener("pointercancel", up);
         root.classList.remove("tumfolderdragging");
+        node.classList.remove("tumcategorydragging");
         state.gesture = null;
 
-        if (ev.type === "pointercancel") return;
+        if (ev.type === "pointercancel") {
+          node.style.left = ox + "px";
+          node.style.top = oy + "px";
+          for (const m of members) {m.n.style.left = m.left + "px"; m.n.style.top = m.top + "px"}
+          return;
+        }
         if (!dragging) {if (ontitle) startcategoryrename(node, c); return}
         placed = nooverlapcategorybox(
           ox + (ev.clientX - startx) / zoom,
@@ -95,43 +103,43 @@
 
   function attachcategoryresize(node, c) {
     for (const handle of node.querySelectorAll(".tumcatresize")) {
-      const right = handle.classList.contains("tumcatresizer") || handle.classList.contains("tumcatresizebr");
-      const bottom = handle.classList.contains("tumcatresizeb") || handle.classList.contains("tumcatresizebr");
       handle.addEventListener("pointerdown", e => {
         if (state.drag || state.gesture) return;
         if (e.button !== 0) return;
-        
         e.preventDefault();
         e.stopPropagation();
-        state.gesture = {kind: "resize", pointerid: e.pointerId};
-
+        const edge = handle.dataset.edge || "";
+        const west = edge.includes("w"), east = edge.includes("e");
+        const north = edge.includes("n"), south = edge.includes("s");
         const startx = e.clientX, starty = e.clientY;
-        const ow = c.w || 480, oh = c.h || 360;
+        const oldx = c.x || 0, oldy = c.y || 0;
+        const oldw = c.w || 480, oldh = c.h || 360;
+        state.gesture = {kind: "categoryresize", pointerid: e.pointerId};
         let sizing = false;
-
-        const SNAP = 26;
-        const snapdim = (v, folder) => {
-          const cell = folder, base = 2 * CATBORDER;
+        let placed = {x: oldx, y: oldy, w: oldw, h: oldh};
+        const snapdim = (v, cell) => {
+          const base = 2 * CATBORDER;
           const n = Math.round((v - base) / cell);
           if (n < 1) return v;
           const snapped = base + n * cell;
-          return Math.abs(snapped - v) <= SNAP ? snapped : v;
+          return Math.abs(snapped - v) <= 26 ? snapped : v;
         };
-
         const ext = categorycontentextent(c);
-        const minw = Math.max(160, ext.right - c.x + CATBORDER);
-        const minh = Math.max(120, ext.bottom - c.y + CATBORDER);
+        const minw = Math.max(160, east ? ext.right - oldx + CATBORDER : west ? oldx + oldw - ext.left + CATBORDER : 160);
+        const minh = Math.max(120, south ? ext.bottom - oldy + CATBORDER : north ? oldy + oldh - ext.top + CATBORDER : 120);
         const sizeit = ev => {
-          let w = right ? ow + (ev.clientX - startx) / zoom : ow;
-          let h = bottom ? oh + (ev.clientY - starty) / zoom : oh;
-          if (right) w = Math.max(minw, snapdim(w, 200));
-          if (bottom) h = Math.max(minh, snapdim(h, 288));
-          const limited = nooverlapcategorysize(c.x || 0, c.y || 0, w, h, node, minw, minh, right, bottom);
-          w = limited.w;
-          h = limited.h;
-          node.style.width = w + "px";
-          node.style.height = h + "px";
-          return {w, h};
+          let w = oldw + (west ? -(ev.clientX - startx) / zoom : east ? (ev.clientX - startx) / zoom : 0);
+          let h = oldh + (north ? -(ev.clientY - starty) / zoom : south ? (ev.clientY - starty) / zoom : 0);
+          if (west || east) w = Math.max(minw, snapdim(Math.max(minw, w), 200));
+          if (north || south) h = Math.max(minh, snapdim(Math.max(minh, h), 288));
+          const x = west ? oldx + oldw - w : oldx;
+          const y = north ? oldy + oldh - h : oldy;
+          placed = nooverlapcategorysize(x, y, w, h, oldx, oldy, oldw, oldh, node, minw, minh, west, north, west || east, north || south);
+          node.style.left = placed.x + "px";
+          node.style.top = placed.y + "px";
+          node.style.width = placed.w + "px";
+          node.style.height = placed.h + "px";
+          return placed;
         };
         const move = ev => {
           if (!state.gesture || ev.pointerId !== state.gesture.pointerid) return;
@@ -139,15 +147,23 @@
           sizeit(ev);
         };
         const up = ev => {
-          if (!state.gesture || (ev.type === "pointerup" || ev.type === "pointercancel") && ev.pointerId !== state.gesture.pointerid) return;
+          if (!state.gesture) return;
+          if (ev.type === "pointerup" && (ev.button !== 0 || ev.pointerId !== state.gesture.pointerid)) return;
+          if (ev.type === "pointercancel" && ev.pointerId !== state.gesture.pointerid) return;
           document.removeEventListener("pointermove", move);
           document.removeEventListener("pointerup", up);
           document.removeEventListener("pointercancel", up);
           state.gesture = null;
-          if (ev.type === "pointercancel") return;
+          if (ev.type === "pointercancel") {
+            node.style.left = oldx + "px";
+            node.style.top = oldy + "px";
+            node.style.width = oldw + "px";
+            node.style.height = oldh + "px";
+            return;
+          }
           if (!sizing) return;
-          const s = sizeit(ev);
-          tum.categories.update(c.id, {w: s.w, h: s.h}, true);
+          placed = sizeit(ev);
+          tum.categories.update(c.id, {x: placed.x, y: placed.y, w: placed.w, h: placed.h});
         };
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
@@ -196,20 +212,23 @@
     scope.CATBORDER = 2;
 
   function categorycontentextent(c) {
+    let left = c.x + c.w - CATBORDER, top = c.y + c.h - CATBORDER;
     let right = c.x + CATBORDER, bottom = c.y + CATBORDER;
     for (const f of tum.folders.list()) if (f.cat === c.id) {
-      const n = els.freeform.querySelector('.tumfolder[data-id="' + f.id + '"]');
-      const w = n ? n.offsetWidth : 200, h = n ? n.offsetHeight : 288;
+      const w = 200 * (f.scalex || 1), h = 288 * (f.scaley || 1);
+      left = Math.min(left, f.x || 0);
+      top = Math.min(top, f.y || 0);
       right = Math.max(right, (f.x || 0) + w);
       bottom = Math.max(bottom, (f.y || 0) + h);
     }
     for (const u of tum.unsorted.list()) if (u.cat === c.id) {
-      const n = els.freeform.querySelector('.tumloosechip[data-handle="' + u.handle + '"]');
-      const w = n ? n.offsetWidth : 150, h = n ? n.offsetHeight : 58;
+      const w = 150, h = 58;
+      left = Math.min(left, (u.x || 0) - w / 2);
+      top = Math.min(top, (u.y || 0) - h / 2);
       right = Math.max(right, (u.x || 0) + w / 2);
       bottom = Math.max(bottom, (u.y || 0) + h / 2);
     }
-    return {right, bottom};
+    return {left, top, right, bottom};
   }
   const catclamp = (c, cx, cy, w, h) => ({x: clamp(cx, c.x + CATBORDER + w / 2, c.x + c.w - CATBORDER - w / 2), y: clamp(cy, c.y + CATBORDER + h / 2, c.y + c.h - CATBORDER - h / 2), cat: c.id});
   const catunder = (cx, cy, skip) => {
@@ -253,7 +272,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function rectof(n) {
-    const w = n.offsetWidth, h = n.offsetHeight;
+    const w = parseFloat(n.style.width) || n.offsetWidth, h = parseFloat(n.style.height) || n.offsetHeight;
     let left = parseFloat(n.style.left) || 0, top = parseFloat(n.style.top) || 0;
     if (n.classList.contains("tumloosechip")) {left -= w / 2; top -= h / 2}
     return {left, top, w, h};

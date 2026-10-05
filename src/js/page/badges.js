@@ -13,6 +13,7 @@
   let membermap = new Map();
   let accountmap = new Map();
   const capturedaccountmap = new Map();
+  const nativecheckoriginals = new WeakMap();
 
   /*//////////////////////////////////////////////////////////////////////*/
 
@@ -111,10 +112,40 @@
     if (!namebox) return;
     const badges = Array.isArray(user && user.badges) ? user.badges : [];
     const affiliate = accountaffiliate(user, badges) && accountblue(user, badges);
+    const bluecontent = user && user.verificationkind === "blue" && !affiliate ? accountbadgecontent(user, false, true) : null;
+    const template = bluecontent && document.createElement("template");
+    if (template) template.innerHTML = bluecontent.html;
+    const blueicon = template && template.content.querySelector(".tumbadgeblue svg");
     const containers = [namebox, namebox.parentElement].filter(Boolean);
     const icons = new Set(containers.flatMap(container => [...container.querySelectorAll("svg")]));
     for (const icon of icons) {
-      if (isverifiedicon(icon)) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
+      if (!isverifiedicon(icon)) continue;
+      let original = nativecheckoriginals.get(icon);
+      if (blueicon) {
+        if (!original) {
+          original = {
+            viewbox: icon.getAttribute("viewBox"),
+            innerhtml: icon.innerHTML,
+            label: icon.getAttribute("aria-label")
+          };
+          nativecheckoriginals.set(icon, original);
+        }
+        const viewbox = blueicon.getAttribute("viewBox");
+        const label = blueicon.getAttribute("aria-label");
+        if (viewbox && icon.getAttribute("viewBox") !== viewbox) icon.setAttribute("viewBox", viewbox);
+        if (icon.innerHTML !== blueicon.innerHTML) icon.innerHTML = blueicon.innerHTML;
+        if (label && icon.getAttribute("aria-label") !== label) icon.setAttribute("aria-label", label);
+        icon.classList.add("tumbluecheck");
+      } else if (original) {
+        if (original.viewbox == null) icon.removeAttribute("viewBox");
+        else icon.setAttribute("viewBox", original.viewbox);
+        if (icon.innerHTML !== original.innerhtml) icon.innerHTML = original.innerhtml;
+        if (original.label == null) icon.removeAttribute("aria-label");
+        else icon.setAttribute("aria-label", original.label);
+        nativecheckoriginals.delete(icon);
+        icon.classList.remove("tumbluecheck");
+      }
+      icon.classList.toggle("tumaffiliatecheck", !!affiliate);
     }
   }
 

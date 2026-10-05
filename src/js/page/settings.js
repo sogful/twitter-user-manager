@@ -10,14 +10,14 @@
   const store = tum.storage.create("tum.settings", {global: true});
 
   const DEFAULTS = {
-    keepopen: true, folderaddtoast: true, nooverlap: false, startcollapsed: false, 
+    keepopen: true, folderaddtoast: true, nooverlap: false,
     autoopen: false, pagepencils: true, avatardots: true, 
     extrainfo: true, hideposts: false, confirmactions: false, confirmdelete: false, destroyoption: false
   };
 
   const SECTIONS = [
     {title: "settings.section.overlay", items: [
-      {key: "keepopen"}, {key: "folderaddtoast"}, {key: "nooverlap"}, {key: "startcollapsed"}, {key: "autoopen"}
+      {key: "keepopen"}, {key: "folderaddtoast"}, {key: "nooverlap"}, {key: "autoopen"}
     ]},
     {title: "settings.section.onpage", items: [
       {key: "pagepencils"}, {key: "avatardots"}, {key: "extrainfo"}

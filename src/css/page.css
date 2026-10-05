@@ -40,6 +40,14 @@
 .tumpageprofileaccountbadge .tumbadge {width: 20px; height: 20px; flex: 0 0 20px}
 .tumpageprofilestickybadge {height: 20px; vertical-align: middle}
 .tumpageprofilestickybadge .tumbadge {width: 20px; height: 20px; flex: 0 0 20px}
+.tumpageprofileaccountbadge:not(.tumpageprofilestickybadge) .tumbadgetranslator svg {
+  width: 17px; height: 17px;
+  align-self: center; transform: translateY(-2px)
+}
+.tumpageprofilestickybadge .tumbadgetranslator svg {
+  width: 17px; height: 17px;
+  align-self: center
+}
 .tumaffiliatecheck {
   color: #7183df !important;
   fill: #7183df !important
