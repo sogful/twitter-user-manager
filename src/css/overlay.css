@@ -244,6 +244,16 @@ img {-webkit-user-drag: none; user-drag: none}
   contain: layout paint; box-sizing: border-box;
   --tumcolor: #1d9bf0; --tumfolderuiscale: 1
 }
+.tumfolder::after {
+  content: ""; position: absolute;
+  top: var(--tumfolderheaderheight,calc(40px * var(--tumfolderuiscale,1)));
+  left: 0; right: 0; bottom: 0;
+  border: 1px solid var(--tumtext,#e7e9ea);
+  border-top: 0; border-radius: 0 0 calc(14px * var(--tumfolderuiscale,1)) calc(14px * var(--tumfolderuiscale,1));
+  box-sizing: border-box; opacity: 0;
+  pointer-events: none; transition: opacity .12s ease
+}
+.tumfolder:hover:not(.tumdragactive):not(.tumfolderresizing)::after {opacity: .22}
 
 .tumfolder.tumdragactive {
   z-index: 8; transform: translateZ(0);
@@ -259,7 +269,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfolderhead {
   background: var(--tumcolor);
-  height: calc(40px * var(--tumfolderuiscale,1)); padding: calc(5px * var(--tumfolderuiscale,1));
+  height: var(--tumfolderheaderheight,calc(40px * var(--tumfolderuiscale,1))); padding: calc(5px * var(--tumfolderuiscale,1));
   display: flex; align-items: center;
   justify-content: space-between; gap: calc(8px * var(--tumfolderuiscale,1));
   cursor: grab; flex-shrink: 0; box-sizing: border-box
@@ -289,19 +299,6 @@ img {-webkit-user-drag: none; user-drag: none}
   font-size: calc(10px * var(--tumfolderuiscale,1)); line-height: calc(11px * var(--tumfolderuiscale,1));
   overflow: hidden; max-width: 100%; white-space: nowrap
 }
-.tumfolderauto {
-  display: flex; align-items: center; gap: calc(4px * var(--tumfolderuiscale,1));
-  color: var(--tumheaderfg, white); opacity: .85;
-  font-size: calc(11px * var(--tumfolderuiscale,1)); font-weight: 400;
-  white-space: nowrap; flex-shrink: 0
-}
-
-.tumfolderautoicon svg {
-  width: calc(11px * var(--tumfolderuiscale,1)); height: calc(11px * var(--tumfolderuiscale,1));
-  fill: none; stroke: var(--tumheaderfg, white);
-  stroke-width: 2.2; stroke-linecap: round;
-  stroke-linejoin: round; display: block
-}
 .tumfolderactionicon svg {
   width: calc(15px * var(--tumfolderuiscale,1)); height: calc(15px * var(--tumfolderuiscale,1));
   fill: none; stroke: var(--tumheaderfg, white);
@@ -328,7 +325,7 @@ img {-webkit-user-drag: none; user-drag: none}
   line-height: 1.05; flex-shrink: 0;
   text-align: center; width: 100%
 }
-.tumfolderremove, .tumfolderexport {
+.tumfolderexport {
   width: calc(20px * var(--tumfolderuiscale,1)); height: calc(20px * var(--tumfolderuiscale,1));
   border-radius: 50%; background: var(--tumheaderbtnbg,rgba(0,0,0,0.25));
   display: flex; align-items: center;
@@ -342,10 +339,17 @@ img {-webkit-user-drag: none; user-drag: none}
   stroke-linejoin: round;
   transition: transform .1s linear
 }
-.tumfolderremove svg {
-  width: calc(10px * var(--tumfolderuiscale,1)); height: calc(10px * var(--tumfolderuiscale,1));
-  stroke: var(--tumheaderfg,white); fill: none;
-  stroke-width: 2.5
+.tumfolderaction {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; width: calc(17px * var(--tumfolderuiscale,1));
+  height: calc(17px * var(--tumfolderuiscale,1));
+  color: var(--tumheaderfg,white)
+}
+.tumfolderaction svg {
+  width: 100%; height: 100%;
+  fill: none; stroke: currentColor;
+  stroke-width: 2.1; stroke-linecap: round;
+  stroke-linejoin: round; display: block
 }
 
 .tumfolderresize {position: absolute; z-index: 6; pointer-events: auto}
@@ -537,7 +541,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumdragging .tumuserhover, .tumfolderdragging .tumuserhover {display: none}
 .tumfolderempty {
-  color: var(--tummuted,#71767b); font-size: 12px;
+  color: var(--tummuted,#71767b); font-size: calc(12px * var(--tumfolderuiscale,1));
   text-align: center; padding: 16px 8px
 }
 .tumfoldermore {
@@ -627,9 +631,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumbadgeaffiliate {color: #7183df}
 .tumbadgelock {color: var(--tumfg,var(--tumtext,#e7e9ea))}
 .tumbadgetranslator {color: #1d9bf0}
-.tumbadgetranslatorregular {
-  opacity: 0.7
-}
+.tumbadgetranslatorregular {color: #71767b; opacity: 1}
 .tumbadgemod {color: #ffd400}
 .tumaffbadge {
   display: inline-flex; align-items: center;
@@ -687,10 +689,11 @@ img {-webkit-user-drag: none; user-drag: none}
   .tumfolderhead {padding: 3px; gap: 4px}
   .tumfoldertitle, .tumfoldertoprow {gap: 3px}
   .tumfoldericoncol {width: 12px}
-  .tumfolderdesc, .tumfolderauto {display: none}
+  .tumfolderdesc {display: block}
   .tumfolderheadbtns {gap: 2px}
-  .tumfolderremove, .tumfolderexport {width: 16px; height: 16px}
-  .tumfolderremove svg, .tumfolderexport svg {width: 9px; height: 9px}
+  .tumfolderaction {width: 14px; height: 14px}
+  .tumfolderexport {width: 16px; height: 16px}
+  .tumfolderexport svg {width: 9px; height: 9px}
   .tumfoldertools {gap: 3px; padding: 3px}
   .tumfoldersearch {font-size: 10px; padding: 3px 0 3px 6px}
   .tumfolderclear {width: 14px; height: 14px; margin-right: 1px}
@@ -698,6 +701,7 @@ img {-webkit-user-drag: none; user-drag: none}
   .tumfoldersort {width: 36px; height: 20px; font-size: 9px}
   .tumfoldermembername {font-size: 10px}
   .tumfoldermemberhandle {font-size: 9px}
+  .tumfolderempty {font-size: calc(10px * var(--tumfolderuiscale,1)); padding: 10px 5px}
 }
 
 @container tumfolder (max-height: 200px) {
@@ -712,6 +716,7 @@ img {-webkit-user-drag: none; user-drag: none}
   .tumfoldermemberhandle {font-size: 9px}
   .tumfoldermemberremove {width: 12px; height: 12px}
   .tumfoldermemberremove svg {width: 8px; height: 8px}
+  .tumfolderempty {font-size: calc(10px * var(--tumfolderuiscale,1)); padding: 8px 5px}
 }
 
 /*//////////////////////////////////////////////////////////////////////*/

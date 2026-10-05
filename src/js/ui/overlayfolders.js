@@ -132,7 +132,9 @@
     node.style.setProperty("--tumheaderbtnbg", fg === "#000" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)");
     const scalex = Math.min(2, Math.max(0.5, Number(f.scalex) || 1));
     const scaley = Math.min(2, Math.max(0.5, Number(f.scaley) || 1));
-    node.style.setProperty("--tumfolderuiscale", Math.max(0.75, Math.min(1.25, Math.sqrt(scalex * scaley))).toFixed(3));
+    const uiscale = Math.max(0.75, Math.min(1.25, Math.sqrt(scalex * scaley)));
+    node.style.setProperty("--tumfolderuiscale", uiscale.toFixed(3));
+    node.style.setProperty("--tumfolderheaderheight", `calc(${scaley * 288 <= 200 ? 36 : 40}px * var(--tumfolderuiscale,1))`);
     node.style.left = (f.x || 0) + "px";
     node.style.top = (f.y || 0) + "px";
     node.style.width = (200 * scalex) + "px";
@@ -148,13 +150,12 @@
           <div class="tumfoldertitlelines">
             <div class="tumfoldertoprow">
               <span class="tumfoldername"><span class="tummqinner">${escapehtml(f.name)}</span></span>
-              ${f.action ? `<span class="tumfolderauto"><span class="tumfolderautoicon">${ICONS[f.action]}</span>${T("action.label." + f.action)}</span>` : ""}
             </div>
             ${f.description ? `<div class="tumfolderdesc"><span class="tummqinner">${escapehtml(f.description)}</span></div>` : ""}
           </div>
         </div>
         <div class="tumfolderheadbtns">
-          <div class="tumfolderremove">${ICONS.close}</div>
+          ${f.action ? `<span class="tumfolderaction" aria-label="${escapehtml(T("action.label." + f.action))}">${ICONS[f.action]}</span>` : ""}
         </div>
       </div>
       <div class="tumfoldertools">
@@ -174,7 +175,6 @@
       <div class="tumfolderresize tumfolderresizesw" data-edge="sw"></div>
       <div class="tumfolderresize tumfolderresizese" data-edge="se"></div>
     `;
-    node._tumremove = node.querySelector(".tumfolderremove");
     const list = node.querySelector(".tumfolderlist");
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", allmembers.length ? T("folder.filter.empty") : T("folder.empty")));
@@ -216,10 +216,6 @@
     }
     O.attachfolderresize(node, f);
     O.attachfolderdrag(node, f);
-    node._tumremove.addEventListener("click", e => {
-      e.stopPropagation();
-      O.confirmfolderdelete(f);
-    });
     const sortbutton = node.querySelector(".tumfoldersort");
     sortbutton.addEventListener("pointerdown", e => e.stopPropagation());
     sortbutton.addEventListener("click", e => {

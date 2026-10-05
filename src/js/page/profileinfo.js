@@ -155,6 +155,7 @@
 
   function applytranslatorregular(handle, u) {
     const existing = document.querySelector(".tumtranslatorregularbadge");
+    if (existing) existing.removeAttribute("title");
     if (!u || u.translatorType !== "regular") {if (existing) existing.remove(); return}
     const header = document.querySelector('[data-testid="UserName"]');
     const line = header && header.querySelector('div[dir="ltr"]');
@@ -168,13 +169,14 @@
     badge.dataset.handle = handle.toLowerCase();
     badge.setAttribute("role", "img");
     badge.setAttribute("aria-label", T("badge.translator"));
-    badge.title = T("badge.translator");
     const svg = document.createElementNS(SVGNS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
+    const group = document.createElementNS(SVGNS, "g");
     const path = document.createElementNS(SVGNS, "path");
     path.setAttribute("d", TRANSLATORPATH);
-    svg.appendChild(path);
+    group.appendChild(path);
+    svg.appendChild(group);
     badge.appendChild(svg);
     line.appendChild(badge);
   }

@@ -108,6 +108,15 @@
     return hasnativecheckinside(namebox) || hasnativecheckinside(namebox && namebox.parentElement);
   }
 
+  function hasnativetranslator(namebox) {
+    if (!namebox) return false;
+    const containers = [namebox, namebox.parentElement].filter(Boolean);
+    return containers.some(container => [...container.querySelectorAll("svg")]
+      .filter(icon => !icon.closest(".tumpageaccountbadge, .tumtranslatorregularbadge"))
+      .some(icon => /translator/i.test(icon.getAttribute("aria-label") || "")
+        || [...icon.querySelectorAll("path")].some(path => /^M12 1\.75C6\.34/.test(path.getAttribute("d") || ""))));
+  }
+
   function markaffiliatecheck(namebox, user) {
     if (!namebox) return;
     const badges = Array.isArray(user && user.badges) ? user.badges : [];
@@ -166,8 +175,8 @@
     return user.verificationkind === "blue" || user.blueverified === true || verifiedtype === "blue" || badges.includes("blue");
   }
 
-  function makeaccountbadge(handle, user, profile = false, includecheck = true, sticky = false) {
-    const content = accountbadgecontent(user, true, includecheck);
+  function makeaccountbadge(handle, user, profile = false, includecheck = true, sticky = false, includetranslator = true) {
+    const content = accountbadgecontent(user, includetranslator, includecheck);
     if (!content || !content.html) return null;
     const badge = document.createElement("span");
     badge.className = profile
@@ -177,8 +186,6 @@
     badge.dataset.signature = content.signature;
     badge.setAttribute("aria-label", T("badge.accountstatus"));
     badge.innerHTML = content.html;
-    const labels = [...badge.querySelectorAll("svg[aria-label]")].map(icon => icon.getAttribute("aria-label")).filter(Boolean);
-    badge.title = labels.join(" · ");
     return badge;
   }
 
@@ -186,7 +193,6 @@
     const badge = document.createElement("span");
     badge.className = "tumpagereasonbadge";
     badge.dataset.handle = handle;
-    badge.title = T("badge.note", entry.reason.slice(0, 80));
     badge.innerHTML = PENCIL;
     badge.addEventListener("click", e => {
       e.preventDefault();
@@ -202,11 +208,12 @@
       const handle = handlefromnamebox(namebox);
       const existing = namebox.querySelector(".tumpagereasonbadge");
       const accountbadge = namebox.querySelector(".tumpageaccountbadge");
+      if (accountbadge) accountbadge.removeAttribute("title");
       const entry = handle ? reasonmap.get(handle.toLowerCase()) : null;
       const account = handle ? accountmap.get(handle.toLowerCase()) : null;
       markaffiliatecheck(namebox, account);
       if (account || !accountbadge) {
-        const nextbadge = handle ? makeaccountbadge(handle, account, false, !hasnativecheck(namebox)) : null;
+        const nextbadge = handle ? makeaccountbadge(handle, account, false, !hasnativecheck(namebox), false, !hasnativetranslator(namebox)) : null;
         if (accountbadge && nextbadge && accountbadge.dataset.signature === nextbadge.dataset.signature) {
           nextbadge.remove();
         } else if (accountbadge) accountbadge.remove();
@@ -223,7 +230,7 @@
       }
       if (existing) {
         existing.dataset.handle = handle;
-        existing.title = T("badge.note", entry.reason.slice(0, 80));
+        existing.removeAttribute("title");
         continue;
       }
       const namelink = namebox.querySelector('a[role="link"][href^="/"]');
@@ -250,7 +257,7 @@
     }
     if (existing) {
       existing.dataset.handle = handle;
-      existing.title = T("badge.note", entry.reason.slice(0, 80));
+      existing.removeAttribute("title");
       return;
     }
     const badge = makebadge(handle, entry);
@@ -297,7 +304,8 @@
       const selector = target.sticky ? ".tumpageprofilestickybadge" : ".tumpageprofileaccountbadge:not(.tumpageprofilestickybadge)";
       const existingbadges = [...target.box.querySelectorAll(selector)];
       const existing = existingbadges[0];
-      const nextbadge = makeaccountbadge(handle, user, true, !hasnativecheck(target.box), target.sticky);
+      for (const badge of existingbadges) badge.removeAttribute("title");
+      const nextbadge = makeaccountbadge(handle, user, true, !hasnativecheck(target.box), target.sticky, !hasnativetranslator(target.box));
       if (!user && existing) continue;
       if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {
         nextbadge.remove();
@@ -321,7 +329,7 @@
     return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#000" : "white";
   }
   function filldot(dot, entry, pagebg) {
-    dot.title = T("badge.filedin", entry.name);
+    dot.removeAttribute("title");
     dot.style.background = entry.color;
     dot.style.borderColor = pagebg;
     const fg = dotcontrast(entry.color);

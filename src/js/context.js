@@ -7,6 +7,7 @@
 
   let ctxel = null;
   let ctxpanels = [];
+  let contextversion = 0;
 
   function ensurectx() {
     if (ctxel) return ctxel;
@@ -15,7 +16,8 @@
     return ctxel;
   }
   function ctxopen() {return !!(ctxel && ctxel.classList.contains("tumshow"))}
-  function closectx() {
+  function closectx(invalidate = true) {
+    if (invalidate) contextversion++;
     if (ctxel) ctxel.classList.remove("tumshow");
     for (const panel of ctxpanels) panel.remove();
     ctxpanels = [];
@@ -58,7 +60,7 @@
     return panel;
   }
   function openctx(x, y, items) {
-    closectx();
+    closectx(false);
     const menu = ensurectx();
     const entries = items.filter(item => item.type !== "panel");
     const panels = items.filter(item => item.type === "panel");
@@ -162,11 +164,25 @@
       ]
     };
   }
-  function twitterlistpanel(folder) {
+  function deletetwitterlist(folder) {
+    O.openconfirm({
+      title: T("confirm.twlist.delete.title", folder.name),
+      body: T("confirm.twlist.delete.body"),
+      oklabel: T("confirm.twlist.delete.ok"),
+      onok: async () => {
+        try {
+          await tum.lists.deletelist(folder);
+          tum.folders.update(folder.id, {twitterlist: null});
+          toast(T("toast.twlist.deleted"));
+        } catch (error) {
+          toast(error && error.message === "busy" ? T("toast.twlist.busy") : T("toast.twlist.deletefailed"));
+        }
+      }
+    });
+  }
+  function twitterlistpanel(folder, isprivate) {
     const id = twitterlistid(folder);
     if (!id) return null;
-    const list = typeof folder.twitterlist === "object" ? folder.twitterlist : {};
-    const isprivate = list.private !== false;
     const setprivacy = async () => {
       try {
         await tum.lists.setlistprivacy(folder, !isprivate);
@@ -199,7 +215,8 @@
       path: "/i/lists/" + encodeURIComponent(id),
       items: [
         {label: T("menu.synctwitter"), icon: ICONS.refresh, onclick: sync},
-        {label: T(isprivate ? "menu.publishtwitter" : "menu.unpublishtwitter"), icon: ICONS.upload, onclick: setprivacy}
+        {label: T(isprivate ? "menu.publishtwitter" : "menu.unpublishtwitter"), icon: ICONS.upload, onclick: setprivacy},
+        {label: T("menu.deletetwitterlist"), icon: ICONS.trash, danger: true, onclick: () => deletetwitterlist(folder)}
       ]
     };
   }
@@ -251,7 +268,7 @@
     ];
   }
 
-  function oncontextmenu(event) {
+  async function oncontextmenu(event) {
     if (!O.root.classList.contains("tumactive") || state.drag || O.root.classList.contains("tumfolderdragging")) return;
     if (event.target.closest("input, textarea, .tumcontextmenu, .tumctxpanel")) return;
     if (event.target.closest(".tummodalcard, .tumreasoncard, .tumconfirmcard, .tumiconpicker")) return;
@@ -262,6 +279,7 @@
     const foldernode = event.target.closest(".tumfolder");
     const categorynode = event.target.closest(".tumcategory");
     event.preventDefault();
+    const version = ++contextversion;
     let items;
     const selection = typeof O.selecteditems === "function" ? O.selecteditems() : [];
     const selectednode = chip || foldernode || categorynode;
@@ -281,8 +299,29 @@
     } else if (foldernode) {
       const folder = tum.folders.get(foldernode.dataset.id);
       if (!folder) {closectx(); return}
+      const listid = twitterlistid(folder);
+      let listknown = !listid;
+      let listprivate = true;
+      if (listid) {
+        try {
+          const current = await tum.lists.getlist(listid);
+          if (version !== contextversion || !O.root.classList.contains("tumactive") || !foldernode.isConnected) return;
+          if (!current.exists) {
+            tum.folders.update(folder.id, {twitterlist: null});
+            listknown = true;
+          } else {
+            listprivate = current.private;
+            const stored = typeof folder.twitterlist === "object" ? folder.twitterlist : {};
+            if (stored.id !== listid || stored.private !== listprivate) {
+              tum.folders.update(folder.id, {twitterlist: {id: listid, private: listprivate}});
+            }
+            listknown = true;
+          }
+        } catch {}
+      }
+      if (version !== contextversion || !O.root.classList.contains("tumactive")) return;
       const share = sharedpanel(folder);
-      const list = twitterlistpanel(folder);
+      const list = listknown && listid ? twitterlistpanel(folder, listprivate) : null;
       items = [
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => O.openeditmodal(folder)},
         {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(folder.members || [])},
@@ -290,7 +329,7 @@
         {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportfolder(folder)},
         {label: T("menu.merge"), icon: ICONS.folder, onclick: () => O.openmergepicker(folder)},
         ...(folder.action && !share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
-        ...(!list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
+        ...(listknown && !list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmfolderdelete(folder)},
         ...(share ? [share] : []),
         ...(list ? [list] : [])
@@ -315,6 +354,7 @@
         {label: T("menu.import"), icon: ICONS.upload, onclick: () => O.importdata()}
       ];
     }
+    if (version !== contextversion) return;
     openctx(event.clientX, event.clientY, items);
   }
 

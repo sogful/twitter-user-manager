@@ -11,6 +11,7 @@
 
   const EP = {
     list: {qid: "8rYmkvWQe9jRRZdy_-vkGA", op: "ListMembers", feat: FEATURES, vars: (x, c) => ({listId: x.id, count: 100, cursor: c || undefined})},
+    listinfo: {qid: "Tzkkg-NaBi_y1aAUUb6_eQ", op: "ListByRestId", feat: '{"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":true,"rweb_tipjar_consumption_enabled":true,"verified_phone_label_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true}', vars: x => ({listId: x.id})},
     followers: {qid: "mrqxgX8JzwlL6pvYiC5CPA", op: "Followers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
     following: {qid: "uwmIAx89XrXNuGY-Y7WFLg", op: "Following", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
     verified_followers: {qid: "ck_SV_kTAlbD2WZiOFNbzw", op: "BlueVerifiedFollowers", feat: FEATURES, vars: (x, c) => ({userId: x.userid, count: 100, includePromotedContent: false, withGrokTranslatedBio: true, cursor: c || undefined})},
@@ -72,6 +73,18 @@
     editbanner: {
       qid: "CChy7omMr21Rx5xgqzTDeA",
       op: "EditListBanner",
+      features: {
+        profile_label_improvements_pcf_label_in_post_enabled: true,
+        responsive_web_profile_redirect_enabled: true,
+        rweb_tipjar_consumption_enabled: true,
+        verified_phone_label_enabled: true,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        responsive_web_graphql_timeline_navigation_enabled: true
+      }
+    },
+    delete: {
+      qid: "UnN9Th1BDbeLjpgjGSpL3Q",
+      op: "DeleteList",
       features: {
         profile_label_improvements_pcf_label_in_post_enabled: true,
         responsive_web_profile_redirect_enabled: true,
@@ -175,6 +188,17 @@
         features: endpoint.features
       }, location.origin);
     });
+  }
+  async function getlist(id) {
+    const result = await graphqlrequest(EP.listinfo, {listId: String(id)});
+    if (!result || !result.ok) throw new Error("network");
+    const list = result.data && result.data.data && result.data.data.list;
+    if (!list) return {exists: false};
+    const name = String(list.name || "").trim();
+    const mode = String(list.mode || "").toLowerCase();
+    if (!name && !mode) return {exists: false};
+    if (!name || (mode !== "public" && mode !== "private")) throw new Error("unknown list state");
+    return {exists: true, private: mode === "private", name};
   }
   function createdlistid(data) {
     const direct = data && data.data && (data.data.list || (data.data.list_create && data.data.list_create.list));
@@ -317,12 +341,12 @@
       });
       listid = createdlistid(created);
       if (!listid) throw new Error("missing list id");
-      if (oncreated) oncreated({id: listid, total: members.length});
       let bannerfailed = false;
       try {
         renderuploadbar(0, members.length, T("toast.twlist.banner"));
         await uploadlistbanner(listid);
       } catch {bannerfailed = true}
+      if (oncreated) oncreated({id: listid, total: members.length});
       const {ids} = await memberids(members);
       let added = 0;
       let skipped = members.length - ids.size;
@@ -395,6 +419,15 @@
       if (listsync === operation) listsync = null;
       listuploading = false;
     }
+  }
+
+  async function deletelist(folder) {
+    const listid = folderlistid(folder);
+    if (!listid) throw new Error("missing list id");
+    if (listuploading) throw new Error("busy");
+    listuploading = true;
+    try {await listrequest(LISTEP.delete, {listId: listid})}
+    finally {listuploading = false}
   }
 
   async function setlistprivacy(folder, isprivate) {
@@ -913,7 +946,7 @@
 
   window.tum.graphql = graphqlrequest;
   window.tum.lists = {
-    uploadfolder, syncfolder, setlistprivacy, refreshcurrentlist, folderlistid,
+    uploadfolder, syncfolder, setlistprivacy, refreshcurrentlist, folderlistid, getlist, deletelist,
     init() {
       window.addEventListener("popstate", schedule);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});

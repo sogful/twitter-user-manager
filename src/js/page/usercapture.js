@@ -411,7 +411,8 @@
     ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q",
     ListRemoveMember: "B5tMzrMYuFHJex_4EXFTSw",
     UpdateList: "CToNDwmbHSq5tqV0ExBFeg",
-    EditListBanner: "CChy7omMr21Rx5xgqzTDeA"
+    EditListBanner: "CChy7omMr21Rx5xgqzTDeA",
+    DeleteList: "UnN9Th1BDbeLjpgjGSpL3Q"
   };
 
   function listheaders(ct0, type) {

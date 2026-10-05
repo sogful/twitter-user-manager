@@ -31,6 +31,7 @@
         const oldwidth = Number.isFinite(stylewidth) && stylewidth > 0 ? stylewidth : 200 * oldscalex;
         const oldheight = Number.isFinite(styleheight) && styleheight > 0 ? styleheight : 288 * oldscaley;
         const olduiscale = node.style.getPropertyValue("--tumfolderuiscale");
+        const oldheaderheight = node.style.getPropertyValue("--tumfolderheaderheight");
         const right = oldx + oldwidth, bottom = oldy + oldheight;
         state.gesture = {kind: "folderresize", pointerid: e.pointerId};
         let sizing = false;
@@ -38,6 +39,7 @@
         const setuiscale = (scalex, scaley) => {
           const value = Math.max(0.75, Math.min(1.25, Math.sqrt(scalex * scaley)));
           node.style.setProperty("--tumfolderuiscale", value.toFixed(3));
+          node.style.setProperty("--tumfolderheaderheight", `calc(${scaley * 288 <= 200 ? 36 : 40}px * var(--tumfolderuiscale,1))`);
         };
 
         const sizeit = ev => {
@@ -99,6 +101,8 @@
             node.style.height = oldheight + "px";
             if (olduiscale) node.style.setProperty("--tumfolderuiscale", olduiscale);
             else node.style.removeProperty("--tumfolderuiscale");
+            if (oldheaderheight) node.style.setProperty("--tumfolderheaderheight", oldheaderheight);
+            else node.style.removeProperty("--tumfolderheaderheight");
             return;
           }
           if (!sizing) return;
@@ -119,7 +123,7 @@
       if (state.drag || state.gesture || tracking) return;
       if (e.button === 1) {O.startcamerapan(e); return}
       if (e.button !== undefined && e.button !== 0) return;
-      if (e.target.closest(".tumfolderremove")) return;
+      if (e.target.closest(".tumfolderaction")) return;
       if (O.startselectiondrag && O.startselectiondrag(node, e)) return;
       const rect = node.getBoundingClientRect();
       const z = O.zoom();
