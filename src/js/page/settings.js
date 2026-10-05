@@ -203,7 +203,6 @@
     const since = Number(reason.verified_since_msec);
     if (/government|multilateral organization/.test(verifiedtype + " " + reasontext)) return "government";
     if (/business/.test(verifiedtype) || /official organization on x/.test(reasontext)) return "business";
-    if (/\baffiliate of\b/.test(reasontext)) return "affiliate";
     if (Number.isFinite(since) && since > 0) return since >= legacyverifiedcutoff ? "blue" : "legacy";
     if (profileblueverified(result)) return "blue";
     if (verified && !blue) return "legacy";
@@ -224,13 +223,62 @@
     }
     return null;
   }
+  function affiliationurl(value, depth = 0) {
+    if (typeof value === "string") return value.trim();
+    if (!value || typeof value !== "object" || depth > 4) return "";
+    for (const key of ["url", "href", "image_url", "imageUrl"]) {
+      const found = affiliationurl(value[key], depth + 1);
+      if (found) return found;
+    }
+    return "";
+  }
+  function affiliationhandlefromurl(value) {
+    try {
+      const url = new URL(value, "https://x.com");
+      if (!/(^|\.)x\.com$|(^|\.)twitter\.com$/i.test(url.hostname)) return null;
+      const match = /^\/([A-Za-z0-9_]+)\/?$/.exec(url.pathname);
+      return match && !/^(i|home|explore|search|notifications|messages|settings)$/i.test(match[1]) ? match[1] : null;
+    } catch {return null}
+  }
+  function affiliationdata(value, owner, requirehandle = false) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const label = value.label && typeof value.label === "object" ? value.label : value;
+    const linkeduser = affiliationuser(label) || affiliationuser(value);
+    const core = linkeduser && linkeduser.core || {}, legacy = linkeduser && linkeduser.legacy || {};
+    const rawurl = affiliationurl(label.url) || affiliationurl(label.href);
+    const handlevalue = label.handle || label.screen_name || label.username || core.screen_name || legacy.screen_name
+      || linkeduser && (linkeduser.screen_name || linkeduser.username) || affiliationhandlefromurl(rawurl);
+    const handle = typeof handlevalue === "string" ? handlevalue.trim().replace(/^@/, "") : null;
+    const badgeurl = affiliationurl(label.badge) || affiliationurl(label.badge_url) || affiliationurl(label.avatar_url);
+    if (!badgeurl || requirehandle && !handle || !handle && !rawurl) return null;
+    if (handle && owner && handle.toLowerCase() === owner) return null;
+    return {value, label, handle, rawurl, linkeduser};
+  }
+  function profilehighlight(result) {
+    const containers = profilecontainers(result);
+    const owner = String(result.core && result.core.screen_name || result.legacy && result.legacy.screen_name || "").toLowerCase();
+    for (const item of containers) {
+      for (const key of ["affiliates_highlighted_label", "affiliation_label", "profile_affiliates_highlighted_label"]) {
+        const candidate = item[key];
+        if (affiliationdata(candidate, owner)) return candidate;
+      }
+    }
+    for (const item of containers) {
+      const candidate = item.highlightedLabel;
+      if (affiliationdata(candidate, owner, true)) return candidate;
+    }
+    return null;
+  }
+  function profileaffiliate(result) {
+    const verifiedtype = profilecontainers(result).map(item => item.verified_type || item.verification && item.verification.verified_type).filter(Boolean).join(" ").toLowerCase();
+    return !!profilehighlight(result) || /^affiliate$/.test(verifiedtype);
+  }
   function profilebadges(result) {
     const badges = [];
     const containers = profilecontainers(result);
     const verificationkind = profileverificationkind(result);
     if (verificationkind === "government") badges.push("verifiedgovernment");
     else if (verificationkind === "business") badges.push("verifiedbusiness");
-    else if (verificationkind === "affiliate") badges.push("verifiedaffiliate");
     else if (verificationkind === "blue") badges.push("blue");
     else if (verificationkind === "legacy") {
       if (profileblueverified(result)) badges.push("blue");
@@ -241,17 +289,15 @@
     if (translatortype === "regular" || translatortype === "badged") badges.push("translator");
     else if (translatortype === "moderator") badges.push("translatormod");
 
-    const highlight = containers.map(item => item.affiliates_highlighted_label || item.affiliation_label || item.profile_affiliates_highlighted_label).find(Boolean);
-    const label = highlight && (highlight.label || highlight);
-    if (label && typeof label === "object") {
-      const rawurl = label.url && (typeof label.url === "string" ? label.url : label.url.url);
-      const match = /x\.com\/([A-Za-z0-9_]+)/i.exec(String(rawurl || "")) || /^\/?([A-Za-z0-9_]+)\/?$/.exec(String(rawurl || ""));
-      const linkeduser = affiliationuser(label) || affiliationuser(highlight);
-      const core = linkeduser && linkeduser.core || {}, legacy = linkeduser && linkeduser.legacy || {};
-      const handle = label.handle || label.screen_name || label.username || core.screen_name || legacy.screen_name || linkeduser && (linkeduser.screen_name || linkeduser.username) || match && match[1];
-      const avatar = linkeduser && linkeduser.avatar;
-      const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge && label.badge.url || null;
-      const avatarurl = typeof avatarvalue === "string" ? avatarvalue : avatarvalue && (avatarvalue.url || avatarvalue.image_url) || null;
+    const highlight = profilehighlight(result);
+    if (profileaffiliate(result)) badges.push("verifiedaffiliate");
+    const parsedhighlight = highlight && affiliationdata(highlight, String(result.core && result.core.screen_name || result.legacy && result.legacy.screen_name || "").toLowerCase());
+    if (parsedhighlight && parsedhighlight.handle) {
+      const label = parsedhighlight.label;
+      const handle = parsedhighlight.handle;
+      const avatar = parsedhighlight.linkeduser && parsedhighlight.linkeduser.avatar;
+      const avatarvalue = label.avatar_url || avatar && (avatar.image_url || avatar.url) || label.badge || null;
+      const avatarurl = affiliationurl(avatarvalue) || null;
       if (handle && /^[A-Za-z0-9_]+$/.test(handle)) badges.push({type: "affiliation", handle, avatarurl});
     }
     return badges.length ? badges : null;
@@ -278,6 +324,7 @@
       verifiedtype: result.verification && result.verification.verified_type || result.verified_type || null,
       verificationkind,
       blueverified,
+      affiliateverified: profileaffiliate(result),
       protected: !!(result.privacy && result.privacy.protected || legacy.protected),
       unfindable: false
     };
@@ -337,6 +384,7 @@
     const checkmarkbadges = ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"];
     const existingBadges = existing.flatMap(member => Array.isArray(member.badges) ? member.badges : [])
       .filter(badge => !(freshcheckmark && checkmarkbadges.includes(badge))
+        && !(user.affiliateverified === false && badge && typeof badge === "object" && badge.type === "affiliation")
         && !(typeof user.translatortype === "string" && ["translator", "translatormod"].includes(badge)));
     for (const badge of [...existingBadges, ...newbadges]) {
       const key = badge && typeof badge === "object" ? "affiliation" : String(badge);

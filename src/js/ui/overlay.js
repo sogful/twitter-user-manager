@@ -130,14 +130,22 @@
     const values = new Set((Array.isArray(badges) ? badges : []).map(presetvalue).filter(Boolean));
     const affiliation = (Array.isArray(badges) ? badges : [])
       .find(badge => badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || ""));
+    const storedaffiliate = values.delete("verifiedaffiliate");
+    const verifiedtype = String(user && user.verifiedtype || "").toLowerCase();
+    let affiliate = user && typeof user.affiliateverified === "boolean" ? user.affiliateverified
+      : !!(user && (user.verificationkind === "affiliate" || verifiedtype === "affiliate")) || !!affiliation
+        || storedaffiliate && !(user && typeof user.verificationkind === "string");
     if (user) {
       if (user.protected) values.add("protected");
-      const checkmarktypes = ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"];
-      const kindbadge = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"}[user.verificationkind];
+      const checkmarktypes = ["blue", "verified", "verifiedbusiness", "verifiedgovernment"];
+      const kindbadge = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment"}[user.verificationkind];
+      if (typeof user.affiliateverified !== "boolean") affiliate = affiliate || user.verificationkind === "affiliate";
       if (typeof user.verificationkind === "string") {
-        for (const type of checkmarktypes) values.delete(type);
-        if (kindbadge) values.add(kindbadge);
-        if (user.verificationkind === "legacy" && user.blueverified === true) values.add("blue");
+        if (user.verificationkind !== "affiliate") {
+          for (const type of checkmarktypes) values.delete(type);
+          if (kindbadge) values.add(kindbadge);
+          if (user.verificationkind === "legacy" && user.blueverified === true) values.add("blue");
+        } else if (user.blueverified === true) values.add("blue");
       } else {
         const verifiedtype = String(user.verifiedtype || "").toLowerCase();
         values.delete("blue");
@@ -146,10 +154,17 @@
         else if (/business/.test(verifiedtype)) values.add("verifiedbusiness");
       }
     }
+    let affiliatetint = null;
+    if (affiliate) {
+      affiliatetint = ["verified", "blue"].find(type => values.has(type));
+      if (!affiliatetint) {
+        values.add("verified");
+        affiliatetint = "verified";
+      }
+    }
     const icons = {
       blue: '<svg viewBox="0 0 24 24" aria-label="Twitter Blue account" role="img"><path d="M16.5 3H2v18h15a5.5 5.5 0 0 0 4.1-9.1v-.4q.9-1.3.9-3c0-3-2.5-5.5-5.5-5.5m-.8 6q.7 0 1.3-.4-.5.8-1.1 1.2v.3c0 3-2.3 6.3-6.4 6.3q-2 0-3.5-1h.5q1.6 0 2.8-1-1.6 0-2-1.5h1c-1-.2-1.9-1.1-1.9-2.2q.5.3 1 .3a2 2 0 0 1-.6-3 7 7 0 0 0 4.6 2.3v-.5c0-1.2 1-2.2 2.2-2.2q1 0 1.7.7l1.4-.5q-.3.8-1 1.2"/></svg>',
       verified: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>',
-      verifiedaffiliate: '<svg viewBox="0 0 22 22" aria-label="Verified affiliate account" role="img"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>',
       verifiedbusiness: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><defs><linearGradient id="tumverifieda" gradientUnits="userSpaceOnUse" x1="4.411" x2="18.083" y1="2.495" y2="21.508"><stop offset="0" stop-color="#f4e72a"/><stop offset=".539" stop-color="#cd8105"/><stop offset=".68" stop-color="#cb7b00"/><stop offset="1" stop-color="#f4ec26"/></linearGradient><linearGradient id="tumverifiedb" gradientUnits="userSpaceOnUse" x1="5.355" x2="16.361" y1="3.395" y2="19.133"><stop offset="0" stop-color="#f9e87f"/><stop offset=".406" stop-color="#e2b719"/><stop offset=".989" stop-color="#e2b719"/></linearGradient></defs><path d="M13.324 3.848L11 1.6 8.676 3.848l-3.201-.453-.559 3.184L2.06 8.095 3.48 11l-1.42 2.904 2.856 1.516.559 3.184 3.201-.452L11 20.4l2.324-2.248 3.201.452.559-3.184 2.856-1.516L18.52 11l1.42-2.905-2.856-1.516-.559-3.184zm-7.09 7.575l3.428 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifieda)"/><path d="M13.101 4.533L11 2.5 8.899 4.533l-2.895-.41-.505 2.88-2.583 1.37L4.2 11l-1.284 2.627 2.583 1.37.505 2.88 2.895-.41L11 19.5l2.101-2.033 2.895.41.505-2.88 2.583-1.37L17.8 11l1.284-2.627-2.583-1.37-.505-2.88zm-6.868 6.89l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z" fill="url(#tumverifiedb)"/><path d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" fill="#000"/></svg>',
       verifiedgovernment: '<svg viewBox="0 0 22 22" aria-label="Verified account" role="img"><path fill-rule="evenodd" d="M12.05 2.056c-.568-.608-1.532-.608-2.1 0l-1.393 1.49c-.284.303-.685.47-1.1.455L5.42 3.932c-.832-.028-1.514.654-1.486 1.486l.069 2.039c.014.415-.152.816-.456 1.1l-1.49 1.392c-.608.568-.608 1.533 0 2.101l1.49 1.393c.304.284.47.684.456 1.1l-.07 2.038c-.027.832.655 1.514 1.487 1.486l2.038-.069c.415-.014.816.152 1.1.455l1.392 1.49c.569.609 1.533.609 2.102 0l1.393-1.49c.283-.303.684-.47 1.099-.455l2.038.069c.832.028 1.515-.654 1.486-1.486L18 14.542c-.015-.415.152-.815.455-1.099l1.49-1.393c.608-.568.608-1.533 0-2.101l-1.49-1.393c-.303-.283-.47-.684-.455-1.1l.068-2.038c.029-.832-.654-1.514-1.486-1.486l-2.038.07c-.415.013-.816-.153-1.1-.456zm-5.817 9.367l3.429 3.428 5.683-6.206-1.347-1.247-4.4 4.795-2.072-2.072z"/></svg>',
       translator: '<svg viewBox="0 0 24 24" aria-label="Translator account" role="img"><path d="M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z"/></svg>',
@@ -157,11 +172,16 @@
       protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><path fill-rule="evenodd" d="M12 1.5c2.761 0 5 2.239 5 5v.745c.22.06.431.138.638.235 1.045.495 1.887 1.337 2.381 2.382.267.563.378 1.165.43 1.849.052.673.051 1.505.051 2.539 0 1.034 0 1.866-.05 2.54-.053.683-.164 1.285-.43 1.848-.495 1.045-1.337 1.887-2.382 2.381-.563.267-1.165.378-1.849.43-.673.052-1.505.051-2.539.051h-2.5c-1.034 0-1.866 0-2.54-.05-.683-.053-1.285-.164-1.848-.43-1.045-.495-1.887-1.337-2.382-2.382-.266-.563-.377-1.165-.43-1.849-.05-.673-.05-1.505-.05-2.539 0-1.034 0-1.866.05-2.54.053-.683.164-1.285.43-1.848.495-1.045 1.337-1.887 2.382-2.382.207-.097.419-.174.638-.235V6.5c0-2.761 2.239-5 5-5zM9.5 15h5v-2h-5v2zM12 3.5c-1.657 0-3 1.343-3 3v.515C9.508 7 10.088 7 10.75 7h2.5l1.405.006c.119.002.234.006.345.009V6.5c0-1.657-1.343-3-3-3z"/></svg>'
     };
     for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
-    const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", verifiedaffiliate: "tumbadgeaffiliate", translatormod: "tumbadgemod", protected: "tumbadgelock"};
+    const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
     const standard = [...values].map(value => {
       const classes = ["tumbadge", badgeclass[value] || "tumbadge" + value];
+      if (value === affiliatetint) classes.push("tumbadgeaffiliate");
       if (value === "translator" && user && user.translatortype === "regular") classes.push("tumbadgetranslatorregular");
-      return `<span class="${classes.join(" ")}">${icons[value]}</span>`;
+      const iconvalue = value === affiliatetint && value === "blue" ? "verified" : value;
+      const icon = value === affiliatetint
+        ? icons[iconvalue].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(tum.strings.t("badge.verifiedaffiliate"))}"`)
+        : icons[iconvalue];
+      return `<span class="${classes.join(" ")}">${icon}</span>`;
     }).join("");
     const linked = affiliation ? `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(affiliation.handle)}" aria-label="@${escapehtml(affiliation.handle)}"><img src="${escapehtml(miniavatarurl(affiliation.avatarurl))}" alt=""></button>` : "";
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";

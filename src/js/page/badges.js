@@ -31,7 +31,7 @@
         if (!membermap.has(m.handle.toLowerCase())) membermap.set(m.handle.toLowerCase(), {id: f.id, name: f.name, color: f.color, icon: f.icon, action: f.action});
       }
     }
-    for (const [handle, user] of capturedaccountmap) if (!accountmap.has(handle)) accountmap.set(handle, user);
+    for (const [handle, user] of capturedaccountmap) accountmap.set(handle, user);
   }
 
   function handlefromnamebox(namebox) {
@@ -52,26 +52,54 @@
     const badges = Array.isArray(user.badges) ? user.badges : [];
     const kindmap = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"};
     const badgeset = new Set(badges.filter(value => typeof value === "string"));
+    const affiliate = accountaffiliate(user, badges);
     if (typeof user.verificationkind === "string") {
-      for (const type of ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"]) badgeset.delete(type);
-      if (kindmap[user.verificationkind]) badgeset.add(kindmap[user.verificationkind]);
-      if (user.verificationkind === "legacy" && user.blueverified === true) badgeset.add("blue");
+      if (user.verificationkind === "affiliate") {
+        if (user.blueverified === true) badgeset.add("blue");
+      } else {
+        for (const type of ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"]) badgeset.delete(type);
+        if (kindmap[user.verificationkind]) badgeset.add(kindmap[user.verificationkind]);
+        if (user.verificationkind === "legacy" && user.blueverified === true) badgeset.add("blue");
+      }
     } else {
       const verifiedtype = String(user.verifiedtype || "").toLowerCase();
       if (/government/.test(verifiedtype)) badgeset.add("verifiedgovernment");
       else if (/business/.test(verifiedtype)) badgeset.add("verifiedbusiness");
       badgeset.delete("blue"); badgeset.delete("verified");
     }
+    if (affiliate) badgeset.add("verifiedaffiliate");
     const translator = String(user.translatortype || "").toLowerCase();
     if (includetranslator && (translator === "regular" || translator === "badged")) badgeset.add("translator");
     else if (includetranslator && translator === "moderator") badgeset.add("translatormod");
-    const visible = [...badgeset].filter(type => ["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"].includes(type)
+    const visible = [...badgeset].filter(type => !affiliate && ["blue", "verified", "verifiedbusiness", "verifiedgovernment"].includes(type)
       || includetranslator && ["translator", "translatormod"].includes(type));
     if (!visible.length) return null;
     return {
       html: tum._ov.scope.badgeshtml(visible, user),
       signature: JSON.stringify({kind: user.verificationkind, verifiedtype: user.verifiedtype, translator, visible: visible.slice().sort()})
     };
+  }
+
+  function markaffiliatecheck(namebox, user) {
+    if (!namebox) return;
+    const badges = Array.isArray(user && user.badges) ? user.badges : [];
+    const affiliate = accountaffiliate(user, badges);
+    for (const icon of namebox.querySelectorAll("svg")) {
+      if (icon.closest(".tumpageaccountbadge")) continue;
+      const label = String(icon.getAttribute("aria-label") || "").toLowerCase();
+      const testid = String(icon.getAttribute("data-testid") || "").toLowerCase();
+      const checkmark = [...icon.querySelectorAll("path")].some(path => /^M20\.396 11c/.test(path.getAttribute("d") || ""));
+      if (/verified account|checkmark/.test(label) || testid === "icon-verified" || checkmark) icon.classList.toggle("tumaffiliatecheck", !!affiliate);
+    }
+  }
+
+  function accountaffiliate(user, badges) {
+    if (!user) return false;
+    if (typeof user.affiliateverified === "boolean") return user.affiliateverified;
+    const verifiedtype = String(user.verifiedtype || "").toLowerCase();
+    if (user.verificationkind === "affiliate" || verifiedtype === "affiliate"
+      || badges.some(value => value && typeof value === "object" && value.type === "affiliation")) return true;
+    return badges.includes("verifiedaffiliate") && typeof user.verificationkind !== "string";
   }
 
   function makeaccountbadge(handle, user, profile = false) {
@@ -110,6 +138,7 @@
       const accountbadge = namebox.querySelector(".tumpageaccountbadge");
       const entry = handle ? reasonmap.get(handle.toLowerCase()) : null;
       const account = handle ? accountmap.get(handle.toLowerCase()) : null;
+      markaffiliatecheck(namebox, account);
       const nextbadge = handle ? makeaccountbadge(handle, account) : null;
       if (accountbadge && nextbadge && accountbadge.dataset.signature === nextbadge.dataset.signature) {
         nextbadge.remove();
@@ -168,6 +197,7 @@
     const existing = document.querySelector(".tumpageprofileaccountbadge");
     const handle = m && m[1];
     const user = handle ? accountmap.get(handle.toLowerCase()) : null;
+    markaffiliatecheck(namebox, user);
     const nextbadge = handle && nameel ? makeaccountbadge(handle, user, true) : null;
     if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {nextbadge.remove(); return}
     if (existing) existing.remove();
@@ -256,12 +286,18 @@
           verificationkind: event.data.data.verificationkind,
           verifiedtype: event.data.data.verifiedtype,
           blueverified: event.data.data.blueverified,
+          affiliateverified: event.data.data.affiliateverified,
           translatortype: event.data.data.translatortype
         };
         capturedaccountmap.delete(handle);
         capturedaccountmap.set(handle, user);
         accountmap.set(handle, user);
         if (capturedaccountmap.size > 500) capturedaccountmap.delete(capturedaccountmap.keys().next().value);
+        for (const namebox of document.querySelectorAll(NAMEBOXSEL)) {
+          if (String(handlefromnamebox(namebox) || "").toLowerCase() === handle) markaffiliatecheck(namebox, user);
+        }
+        const profilehandle = PROFILEPATH.exec(location.pathname);
+        if (profilehandle && profilehandle[1].toLowerCase() === handle) markaffiliatecheck(document.querySelector('[data-testid="UserName"]'), user);
         schedulescan();
       });
       if (tum.settings) tum.settings.onchange(schedulescan);

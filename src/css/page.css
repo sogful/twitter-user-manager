@@ -21,12 +21,17 @@
 .tumpageaccountbadge .tumbadgeverified {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgeblue {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgegov {color: #829aab}
-.tumpageaccountbadge .tumbadgeaffiliate {color: #8b7cf6}
+.tumpageaccountbadge .tumbadgeaffiliate {color: #7183df}
 .tumpageaccountbadge .tumbadgetranslator {color: #1d9bf0}
 .tumpageaccountbadge .tumbadgetranslatorregular {opacity: 0.7}
 .tumpageaccountbadge .tumbadgemod {color: #ffd400}
 .tumpageprofileaccountbadge {width: 16px; height: 16px; vertical-align: -0.2em}
 .tumpageprofileaccountbadge .tumbadge {width: 16px; height: 16px}
+.tumaffiliatecheck {
+  color: #7183df !important;
+  fill: #7183df !important
+}
+.tumaffiliatecheck path {fill: currentColor !important}
 
 .tumpagefolderdot {
   position: absolute; bottom: -2px; right: -2px;

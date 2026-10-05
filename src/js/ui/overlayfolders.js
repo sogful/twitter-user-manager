@@ -8,6 +8,12 @@
     const kindtype = {blue: "blue", legacy: "verified", business: "verifiedbusiness", government: "verifiedgovernment", affiliate: "verifiedaffiliate"}[member.verificationkind];
     if (type === "protected") return !!member.protected || badges.includes("protected");
     if (type === "affiliated") return badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation");
+    if (type === "verifiedaffiliate") {
+      if (typeof member.affiliateverified === "boolean") return member.affiliateverified;
+      if (kindtype === type || verifiedtype === "affiliate"
+        || badges.some(badge => badge && typeof badge === "object" && badge.type === "affiliation")) return true;
+      return badges.includes(type) && typeof member.verificationkind !== "string";
+    }
     if (["blue", "verified", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate"].includes(type) && typeof member.verificationkind === "string") {
       return kindtype === type || type === "blue" && member.verificationkind === "legacy" && badgeflag(member.blueverified);
     }
