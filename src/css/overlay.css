@@ -1206,6 +1206,10 @@ img {-webkit-user-drag: none; user-drag: none}
   border-radius: 12px;
   pointer-events: auto
 }
+.tumctxpanel.tumdisabled {
+  opacity: .4;
+  pointer-events: none
+}
 .tumctxpanel::before {
   content: "";
   position: absolute; top: 18px; left: -18px;
