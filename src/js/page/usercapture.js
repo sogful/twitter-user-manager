@@ -380,13 +380,19 @@
     return bytesbase64([random, ...transaction.keybytes, ...timebytes, ...bytes.slice(0, 16), 3].map(value => value ^ random));
   }
   const LISTMUTATIONS = {
-    CreateList: "UQRa0jJ9doxGEIQRea1Y0w",
-    ListAddMember: "zyA-tgY7gWLLGqg0hKS-2Q",
-    ListRemoveMember: "B5tMzrMYuFHJex_4EXFTSw",
-    UpdateList: "CToNDwmbHSq5tqV0ExBFeg",
-    EditListBanner: "CChy7omMr21Rx5xgqzTDeA",
+    CreateList: "zdGzorOEOslDL4XEbe2INw",
+    ListAddMember: "-Kf1YVC1rNKkPvPFk7YXZw",
+    ListRemoveMember: "_2o1-wSMWGFSi5HUscn1Hw",
+    UpdateList: "oe5s3-_kb6-t8iFv4hLH3A",
+    EditListBanner: "PSBi0stSrf3-hDy3G_O_0Q",
     DeleteList: "UnN9Th1BDbeLjpgjGSpL3Q"
   };
+  function isdefaultbannerdecode(error) {
+    const path = error && Array.isArray(error.path) ? error.path : [];
+    return !!error && error.name === "BadRequestError"
+      && /com\.twitter\.strato\.serialization\.DecodeException/.test(String(error.message || ""))
+      && path[0] === "list" && path.includes("default_banner_media_results");
+  }
 
   function listheaders(ct0, type) {
     const headers = {
@@ -586,17 +592,34 @@
           method: "POST",
           credentials: "include",
           headers: await graphqlheaders(ct0, "POST", path, "application/json"),
-          body: JSON.stringify({variables: request.variables, features: request.features || {}, queryId: qids[request.operation] || queryId})
+          body: JSON.stringify({variables: request.variables, features: request.features || {}, fieldToggles: request.fieldToggles || {}, queryId: qids[request.operation] || queryId})
         });
         try {data = await response.json()} catch {}
       }
     } catch (error) {failure = error && error.message || "request failed"}
-    const error = data && data.errors && data.errors[0] && data.errors[0].message;
+    const errors = data && Array.isArray(data.errors) ? data.errors : [];
+    const error = errors[0] && errors[0].message;
+    const errorinfo = errors[0];
+    const createdlist = request.operation === "CreateList" && data && data.data && data.data.list;
+    const hascreatedlistid = createdlist && (createdlist.id_str || createdlist.id);
+    const updatedlist = request.operation === "EditListBanner" && data && data.data && data.data.list;
+    const hasupdatedbanner = updatedlist && (updatedlist.custom_banner_media || updatedlist.custom_banner_media_results);
+    const listresult = data && data.data && data.data.list;
+    const haslistresult = !!listresult && typeof listresult === "object" && !Array.isArray(listresult);
+    const stratoresult = errors.length > 0 && errors.every(isdefaultbannerdecode) && haslistresult
+      && ["ListAddMember", "ListRemoveMember", "UpdateList"].includes(request.operation);
+    const partialsuccess = hascreatedlistid || hasupdatedbanner || stratoresult;
+    const rateerror = response && (response.status === 429 || response.status === 420)
+      || /rate.?limit|too many requests|try again later/i.test(String(error || failure || ""));
     window.postMessage({
       __tumlistresponse: 1,
       id: request.id,
-      ok: banner ? !!(data && data.mediaId) : !!(response && response.ok && data && data.data),
-      status: response ? response.status : 0,
+      ok: banner ? !!(data && data.mediaId) : !!(response && response.ok && data && data.data && (!(data.errors && data.errors.length) || partialsuccess)),
+      status: rateerror && response && response.status < 400 ? 429 : response ? response.status : 0,
+      ratelimited: !!rateerror,
+      ratelimitreset: ratelimitreset(response),
+      errorkind: errorinfo && (errorinfo.name || (errorinfo.extensions && errorinfo.extensions.name) || ""),
+      errorpath: errorinfo && Array.isArray(errorinfo.path) ? errorinfo.path : [],
       data,
       error: error || failure || (!response ? "network" : "request failed")
     }, location.origin);

@@ -22,77 +22,69 @@
   };
   const LISTEP = {
     create: {
-      qid: "UQRa0jJ9doxGEIQRea1Y0w",
+      qid: "zdGzorOEOslDL4XEbe2INw",
       op: "CreateList",
       features: {
         profile_label_improvements_pcf_label_in_post_enabled: true,
-        responsive_web_profile_redirect_enabled: false,
+        responsive_web_profile_redirect_enabled: true,
         rweb_tipjar_consumption_enabled: false,
         verified_phone_label_enabled: false,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      },
+      fieldToggles: {withPayments: false, withDmBlocks: false, withAuxiliaryUserLabels: true}
     },
     addmember: {
-      qid: "zyA-tgY7gWLLGqg0hKS-2Q",
+      qid: "-Kf1YVC1rNKkPvPFk7YXZw",
       op: "ListAddMember",
       features: {
-        payments_enabled: false,
-        rweb_xchat_enabled: false,
         profile_label_improvements_pcf_label_in_post_enabled: true,
-        rweb_tipjar_consumption_enabled: true,
+        responsive_web_profile_redirect_enabled: true,
+        rweb_tipjar_consumption_enabled: false,
         verified_phone_label_enabled: false,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      },
+      fieldToggles: {withPayments: false, withDmBlocks: false, withAuxiliaryUserLabels: true}
     },
     removemember: {
-      qid: "B5tMzrMYuFHJex_4EXFTSw",
+      qid: "_2o1-wSMWGFSi5HUscn1Hw",
       op: "ListRemoveMember",
       features: {
         profile_label_improvements_pcf_label_in_post_enabled: true,
         responsive_web_profile_redirect_enabled: true,
-        rweb_tipjar_consumption_enabled: true,
-        verified_phone_label_enabled: true,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        rweb_tipjar_consumption_enabled: false,
+        verified_phone_label_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      },
+      fieldToggles: {withPayments: false, withDmBlocks: false, withAuxiliaryUserLabels: true}
     },
     update: {
-      qid: "CToNDwmbHSq5tqV0ExBFeg",
+      qid: "oe5s3-_kb6-t8iFv4hLH3A",
       op: "UpdateList",
       features: {
         profile_label_improvements_pcf_label_in_post_enabled: true,
         responsive_web_profile_redirect_enabled: true,
-        rweb_tipjar_consumption_enabled: true,
-        verified_phone_label_enabled: true,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        rweb_tipjar_consumption_enabled: false,
+        verified_phone_label_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      },
+      fieldToggles: {withPayments: false, withDmBlocks: false, withAuxiliaryUserLabels: true}
     },
     editbanner: {
-      qid: "CChy7omMr21Rx5xgqzTDeA",
+      qid: "PSBi0stSrf3-hDy3G_O_0Q",
       op: "EditListBanner",
       features: {
         profile_label_improvements_pcf_label_in_post_enabled: true,
         responsive_web_profile_redirect_enabled: true,
-        rweb_tipjar_consumption_enabled: true,
-        verified_phone_label_enabled: true,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
+        rweb_tipjar_consumption_enabled: false,
+        verified_phone_label_enabled: false,
         responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      },
+      fieldToggles: {withPayments: false, withDmBlocks: false, withAuxiliaryUserLabels: true}
     },
     delete: {
       qid: "UnN9Th1BDbeLjpgjGSpL3Q",
       op: "DeleteList",
-      features: {
-        profile_label_improvements_pcf_label_in_post_enabled: true,
-        responsive_web_profile_redirect_enabled: true,
-        rweb_tipjar_consumption_enabled: true,
-        verified_phone_label_enabled: true,
-        responsive_web_graphql_skip_user_profile_image_extensions_enabled: true,
-        responsive_web_graphql_timeline_navigation_enabled: true
-      }
+      features: {}
     },
     uploadbanner: {op: "UploadListBanner"}
   };
@@ -119,6 +111,10 @@
     else {
       const error = new Error(response.error || "request failed");
       error.status = response.status || 0;
+      error.ratelimited = response.ratelimited === true;
+      error.ratelimitreset = response.ratelimitreset || 0;
+      error.kind = response.errorkind || "";
+      error.path = response.errorpath || [];
       pending.reject(error);
     }
   });
@@ -190,11 +186,43 @@
         id,
         operation: endpoint.op,
         variables,
-        features: endpoint.features
+        features: endpoint.features,
+        fieldToggles: endpoint.fieldToggles
       }, location.origin);
     });
   }
-  function isratelimited(error) {return !!error && (error.status === 429 || error.status === 420)}
+  function isratelimited(error) {return !!error && (error.status === 429 || error.status === 420 || error.ratelimited === true)}
+  function islistpermissionerror(error) {return !!error && (error.kind === "AuthorizationError" || /aren't allowed to add members|not allowed to add members/i.test(String(error.message || "")))}
+  function formatlistwait(milliseconds) {
+    const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  }
+  async function waitforlistratelimit(error, operation, attempt, onwait) {
+    const reset = Number(error.ratelimitreset) || 0;
+    const fallback = Date.now() + Math.min(15 * 60 * 1000, 60000 * 2 ** Math.min(attempt - 1, 4));
+    const until = reset > Date.now() ? reset + 2000 : fallback;
+    while (!operation.cancelled) {
+      const remaining = until - Date.now();
+      if (remaining <= 0) return true;
+      if (onwait) onwait(formatlistwait(remaining));
+      await sleep(Math.min(1000, remaining));
+    }
+    return false;
+  }
+  async function retrylistrequest(endpoint, variables, operation, onwait) {
+    let attempt = 0;
+    while (!operation.cancelled) {
+      try {
+        await listrequest(endpoint, variables);
+        return true;
+      } catch (error) {
+        if (!isratelimited(error)) throw error;
+        attempt++;
+        if (!await waitforlistratelimit(error, operation, attempt, onwait)) return false;
+      }
+    }
+    return false;
+  }
   async function getlist(id) {
     const result = await graphqlrequest(EP.listinfo, {listId: String(id)});
     if (!result || !result.ok) throw new Error("network");
@@ -226,16 +254,30 @@
     const id = typeof list === "string" ? list : list && list.id;
     return /^\d+$/.test(String(id || "")) ? String(id) : "";
   }
-  async function bannerdata() {
-    const response = await fetch(chrome.runtime.getURL("assets/images/listbanner.png"));
+  async function bannerdata(color) {
+    const response = await fetch(chrome.runtime.getURL("assets/images/listbannercolor.png"));
     if (!response.ok) throw new Error("banner unavailable");
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    let text = "";
-    for (let start = 0; start < bytes.length; start += 0x8000) text += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
-    return btoa(text);
+    const image = await createImageBitmap(await response.blob());
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d", {willReadFrequently: true});
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const match = /^#([0-9a-f]{6})$/i.exec(String(color || ""));
+    const target = match ? [0, 2, 4].map(index => parseInt(match[1].slice(index, index + 2), 16)) : [29, 161, 242];
+    const shifts = [target[0] - 29, target[1] - 161, target[2] - 242];
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      pixels.data[index] += shifts[0];
+      pixels.data[index + 1] += shifts[1];
+      pixels.data[index + 2] += shifts[2];
+    }
+    context.putImageData(pixels, 0, 0);
+    image.close();
+    return canvas.toDataURL("image/png").split(",")[1];
   }
-  async function uploadlistbanner(listid) {
-    const uploaded = await listrequest(LISTEP.uploadbanner, {data: await bannerdata()});
+  async function uploadlistbanner(listid, color) {
+    const uploaded = await listrequest(LISTEP.uploadbanner, {data: await bannerdata(color)});
     if (!uploaded || !uploaded.mediaId) throw new Error("banner upload failed");
     await listrequest(LISTEP.editbanner, {listId: listid, mediaId: String(uploaded.mediaId)});
   }
@@ -257,7 +299,12 @@
       if (operation.cancelled) throw new Error("cancelled");
       const page = await eppage(EP.list, {id: listid}, cursor, operation);
       if (operation.cancelled) throw new Error("cancelled");
-      if (!page.ok) throw new Error("list members unavailable");
+      if (!page.ok) {
+        const error = new Error("list members unavailable");
+        error.status = page.status || 0;
+        error.ratelimitreset = page.rateLimitReset || 0;
+        throw error;
+      }
       const previoussize = ids.size;
       for (const user of page.users) if (user && user.userid) ids.add(String(user.userid));
       if (page.users.length < 100 || ids.size === previoussize || !page.cursor || page.cursor === cursor || cursors.has(page.cursor)) break;
@@ -266,20 +313,63 @@
     }
     return ids;
   }
+  async function retryremotelistids(listid, operation, onwait) {
+    let attempt = 0;
+    while (!operation.cancelled) {
+      try {return await remotelistids(listid, operation)}
+      catch (error) {
+        if (!isratelimited(error)) throw error;
+        attempt++;
+        if (!await waitforlistratelimit(error, operation, attempt, onwait)) return null;
+      }
+    }
+    return null;
+  }
 
-  let listuploading = false, listsync = null;
+  let listuploading = false, listoperation = null;
   let uploadbar = null, uploadbartimer = 0;
+  function wireuploadbardrag(bar) {
+    const handle = bar.querySelector(".tumbatchdrag");
+    handle.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = bar.getBoundingClientRect();
+      const startx = event.clientX - rect.left, starty = event.clientY - rect.top;
+      bar.style.left = rect.left + "px";
+      bar.style.top = rect.top + "px";
+      bar.style.right = "auto";
+      bar.style.bottom = "auto";
+      const move = moveevent => {
+        if (moveevent.pointerId !== event.pointerId) return;
+        bar.style.left = Math.max(0, Math.min(window.innerWidth - rect.width, moveevent.clientX - startx)) + "px";
+        bar.style.top = Math.max(0, Math.min(window.innerHeight - rect.height, moveevent.clientY - starty)) + "px";
+      };
+      const end = endevent => {
+        if (endevent.pointerId !== event.pointerId) return;
+        document.removeEventListener("pointermove", move, true);
+        document.removeEventListener("pointerup", end, true);
+        document.removeEventListener("pointercancel", end, true);
+      };
+      document.addEventListener("pointermove", move, true);
+      document.addEventListener("pointerup", end, true);
+      document.addEventListener("pointercancel", end, true);
+    });
+  }
   function ensureuploadbar() {
     if (uploadbar && document.documentElement.contains(uploadbar)) return uploadbar;
     uploadbar = document.createElement("div");
     uploadbar.className = "tumbatchbar tumlistuploadbar";
-    uploadbar.innerHTML = '<div class="tumbatchfill"></div><div class="tumbatchrow"><span class="tumbatchlabel"></span><button type="button" class="tumbatchcancel" hidden>' + T("import.stop") + '</button></div>';
+    uploadbar.innerHTML = '<div class="tumbatchfill"></div><span class="tumbatchdrag"></span><div class="tumbatchrow"><span class="tumbatchlabel"></span><button type="button" class="tumbatchcancel" hidden>' + T("import.stop") + '</button></div>';
+    uploadbar.querySelector(".tumbatchdrag").setAttribute("aria-label", T("settings.repopulate.drag"));
+    wireuploadbardrag(uploadbar);
     uploadbar.querySelector(".tumbatchcancel").addEventListener("click", event => {
-      if (!listsync || listsync.cancelled) return;
-      listsync.cancelled = true;
+      if (!listoperation || listoperation.cancelled) return;
+      listoperation.cancelled = true;
       event.currentTarget.disabled = true;
       event.currentTarget.textContent = T("toast.twlist.syncstopping");
-      if (listsync.cancelrequest) listsync.cancelrequest();
+      if (listoperation.verifyoperation) listoperation.verifyoperation.cancelled = true;
+      if (listoperation.cancelrequest) listoperation.cancelrequest();
     });
     try {tum.theme.paint(uploadbar)} catch {}
     document.documentElement.appendChild(uploadbar);
@@ -289,7 +379,7 @@
     clearTimeout(uploadbartimer);
     if (uploadbar) {uploadbar.remove(); uploadbar = null}
   }
-  function renderuploadbar(added, total, note, cancellable = false) {
+  function renderuploadbar(added, total, note, cancellable = !!listoperation) {
     clearTimeout(uploadbartimer);
     uploadbartimer = 0;
     const b = ensureuploadbar();
@@ -297,9 +387,12 @@
     b.querySelector(".tumbatchlabel").textContent = note || T("toast.twlist.progress", added, total);
     const cancelbutton = b.querySelector(".tumbatchcancel");
     cancelbutton.hidden = !cancellable;
-    if (cancellable && (!listsync || !listsync.cancelled)) {
+    if (cancellable && listoperation && !listoperation.cancelled) {
       cancelbutton.disabled = false;
       cancelbutton.textContent = T("import.stop");
+    } else if (listoperation && listoperation.cancelled) {
+      cancelbutton.disabled = true;
+      cancelbutton.textContent = T("toast.twlist.syncstopping");
     }
   }
   function finishuploadbar(note) {
@@ -335,10 +428,13 @@
     const onstart = callbacks && typeof callbacks.onstart === "function" ? callbacks.onstart : null;
     const oncreated = callbacks && typeof callbacks.oncreated === "function" ? callbacks.oncreated : null;
     const onprogress = typeof callbacks === "function" ? callbacks : (callbacks && typeof callbacks.onprogress === "function" ? callbacks.onprogress : null);
+    const operation = {cancelled: false, cancelrequest: null, verifyoperation: null};
     let listid = "";
+    let requested = 0, unresolved = 0, verifiedcount = null, verifyfailed = false, bannerfailed = false, permissiondenied = false;
     listuploading = true;
+    listoperation = operation;
     try {
-      renderuploadbar(0, members.length);
+      renderuploadbar(0, members.length, null, false);
       if (onstart) onstart({total: members.length});
       const created = await listrequest(LISTEP.create, {
         isPrivate: true,
@@ -347,35 +443,84 @@
       });
       listid = createdlistid(created);
       if (!listid) throw new Error("missing list id");
-      let bannerfailed = false;
       try {
         renderuploadbar(0, members.length, T("toast.twlist.banner"));
-        await uploadlistbanner(listid);
+        await uploadlistbanner(listid, folder.color);
       } catch {bannerfailed = true}
       if (oncreated) oncreated({id: listid, total: members.length});
-      const {ids} = await memberids(members);
-      let added = 0, ratelimited = false;
-      let skipped = members.length - ids.size;
+      renderuploadbar(0, members.length, null, true);
+      const resolved = await memberids(members, operation);
+      const ids = resolved.ids;
+      unresolved = resolved.unresolved;
       for (const id of ids) {
+        if (operation.cancelled) break;
         try {
-          await listrequest(LISTEP.addmember, {listId: listid, userId: id});
-          added++;
+          const sent = await retrylistrequest(LISTEP.addmember, {listId: listid, userId: id}, operation, wait => {
+            renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
+          });
+          if (!sent) break;
+          requested++;
         } catch (error) {
-          if (isratelimited(error)) {ratelimited = true; break}
-          skipped++;
+          if (isratelimited(error)) throw error;
+          if (islistpermissionerror(error)) {permissiondenied = true; break}
         }
-        renderuploadbar(added, ids.size);
-        if (onprogress) onprogress({added, total: ids.size, skipped});
+        renderuploadbar(requested, ids.size);
+        if (onprogress) onprogress({added: requested, total: ids.size, skipped: unresolved});
       }
-      const result = {id: listid, added, skipped, bannerfailed, ratelimited};
+      renderuploadbar(requested, ids.size, T("toast.twlist.verifying"), true);
+      const verifyoperation = {cancelled: false, cancelrequest: null};
+      operation.verifyoperation = verifyoperation;
+      let remote = null;
+      try {
+        remote = await retryremotelistids(listid, verifyoperation, wait => {
+          renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
+        });
+      } catch {verifyfailed = true}
+      if (remote && !operation.cancelled && !permissiondenied) {
+        let missing = [...ids].filter(id => !remote.has(id));
+        for (const delay of [1000, 2500]) {
+          if (!missing.length || operation.cancelled) break;
+          await sleep(delay);
+          try {remote = await retryremotelistids(listid, verifyoperation)} catch {verifyfailed = true; remote = null}
+          missing = remote ? [...ids].filter(id => !remote.has(id)) : [];
+        }
+        if (missing.length && remote) {
+          for (const id of missing) {
+            if (operation.cancelled || !remote) break;
+            const sent = await retrylistrequest(LISTEP.addmember, {listId: listid, userId: id}, operation, wait => {
+              renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
+            });
+            if (!sent) break;
+            requested++;
+            renderuploadbar(requested, ids.size);
+          }
+          if (missing.length && !operation.cancelled) {
+            try {remote = await retryremotelistids(listid, verifyoperation)} catch {verifyfailed = true; remote = null}
+          }
+        }
+      }
+      operation.verifyoperation = null;
+      if (remote) verifiedcount = [...ids].filter(id => remote.has(id)).length;
+      const result = {id: listid, added: verifiedcount, requested, skipped: verifiedcount == null ? unresolved : unresolved + ids.size - verifiedcount, bannerfailed, cancelled: operation.cancelled, verifyfailed, permissiondenied};
       await refreshcurrentlist(listid);
-      finishuploadbar(T(ratelimited ? "toast.twlist.ratelimited" : bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", ratelimited ? added : folder.name || T("folder.unnamed"), ratelimited ? ids.size : added));
+      if (operation.cancelled) finishuploadbar(T(verifiedcount == null ? "toast.twlist.uploadstoppedunknown" : "toast.twlist.uploadstopped", verifiedcount));
+      else if (permissiondenied) finishuploadbar(T("toast.twlist.adddenied"));
+      else if (verifyfailed || verifiedcount == null) finishuploadbar(T("toast.twlist.verifyfailed"));
+      else if (verifiedcount < ids.size || unresolved) finishuploadbar(T("toast.twlist.partial", verifiedcount, ids.size + unresolved));
+      else finishuploadbar(T(bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", folder.name || T("folder.unnamed"), verifiedcount));
       return result;
     } catch (error) {
+      if (operation.cancelled) {
+        finishuploadbar(T(verifiedcount == null ? "toast.twlist.uploadstoppedunknown" : "toast.twlist.uploadstopped", verifiedcount));
+        return {id: listid, added: verifiedcount, requested, cancelled: true};
+      }
       finishuploadbar(T("toast.twlist.failed"));
       error.batchshown = true;
       throw error;
-    } finally {listuploading = false}
+    } finally {
+      if (listoperation === operation) listoperation = null;
+      listuploading = false;
+    }
   }
 
   async function syncfolder(folder) {
@@ -383,14 +528,17 @@
     if (!listid) throw new Error("missing list id");
     if (listuploading) throw new Error("busy");
     const operation = {cancelled: false, cancelrequest: null};
-    listsync = operation;
+    listoperation = operation;
     listuploading = true;
     let done = 0, added = 0, removed = 0, totalchanges = 0;
     try {
       renderuploadbar(0, 0, T("toast.twlist.syncchecking"), true);
       const wanted = await memberids(folder.members || [], operation);
       if (operation.cancelled) throw new Error("cancelled");
-      const remote = await remotelistids(listid, operation);
+      const remote = await retryremotelistids(listid, operation, wait => {
+        renderuploadbar(0, 0, T("toast.twlist.ratelimitedwait", wait), true);
+      });
+      if (!remote) throw new Error("cancelled");
       const add = [...wanted.ids].filter(id => !remote.has(id));
       const remove = wanted.unresolved ? [] : [...remote].filter(id => !wanted.ids.has(id));
       const changes = [...add.map(id => ({id, operation: LISTEP.addmember})), ...remove.map(id => ({id, operation: LISTEP.removemember}))];
@@ -402,7 +550,10 @@
       }
       for (const change of changes) {
         if (operation.cancelled) break;
-        await listrequest(change.operation, {listId: listid, userId: change.id});
+        const sent = await retrylistrequest(change.operation, {listId: listid, userId: change.id}, operation, wait => {
+          renderuploadbar(done, changes.length, T("toast.twlist.ratelimitedwait", wait), true);
+        });
+        if (!sent) break;
         done++;
         if (change.operation === LISTEP.addmember) added++; else removed++;
         renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
@@ -420,8 +571,8 @@
         finishuploadbar(T("toast.twlist.syncstopped", 0));
         return {added: 0, removed: 0, cancelled: true};
       }
-      if (isratelimited(error)) {
-        finishuploadbar(T("toast.twlist.syncratelimited", done, totalchanges));
+      if (islistpermissionerror(error)) {
+        finishuploadbar(T("toast.twlist.syncdenied"));
         error.batchshown = true;
         throw error;
       }
@@ -429,7 +580,7 @@
       error.batchshown = true;
       throw error;
     } finally {
-      if (listsync === operation) listsync = null;
+      if (listoperation === operation) listoperation = null;
       listuploading = false;
     }
   }
