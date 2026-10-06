@@ -49,6 +49,7 @@
     {value: "protected", labelkey: "folder.filter.badge.protected"},
     {value: "affiliated", labelkey: "folder.filter.badge.affiliated"},
     {value: "translator", labelkey: "folder.filter.badge.translator"},
+    {value: "translatorunbadged", labelkey: "folder.filter.badge.translatorunbadged"},
     {value: "translatormod", labelkey: "folder.filter.badge.translatormod"}
   ];
 

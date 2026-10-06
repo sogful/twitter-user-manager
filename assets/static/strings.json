@@ -93,6 +93,7 @@
   "folder.filter.badge.blue": "Twitter Blue checkmark",
   "folder.filter.badge.protected": "Protected",
   "folder.filter.badge.translator": "Translator",
+  "folder.filter.badge.translatorunbadged": "Unbadged translator",
   "folder.filter.badge.translatormod": "Translator mod",
   "folder.filter.badge.verified": "Legacy verified",
   "folder.filter.badge.verifiedaffiliate": "Verified affiliate",

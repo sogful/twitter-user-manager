@@ -14,6 +14,7 @@
     if (type === "blue" || type === "verified") return false;
     if (type === "verifiedbusiness") return badges.includes(type) || /business/.test(verifiedtype);
     if (type === "verifiedgovernment") return badges.includes(type) || /government/.test(verifiedtype);
+    if (type === "translatorunbadged") return String(member.translatortype || "").toLowerCase() === "regular";
     if (type === "translator") {
       const translatortype = String(member.translatortype || "").toLowerCase();
       return translatortype ? translatortype === "badged" : badges.includes(type);
@@ -79,7 +80,7 @@
     const selectedsort = normalizedsort(folder);
     const selectedbadges = new Set(Array.isArray(folder.badgefilters) ? folder.badgefilters : []);
     const sortrows = sortoptions.map(option => `<button type="button" class="tumfolderfilteroption tumfoldersortoption" data-sort="${option.value}" aria-pressed="${selectedsort === option.value}"><span class="tumfolderchoicebox">${ICONS.check}</span><span>${T(option.labelkey)}</span></button>`).join("");
-    const badgerows = badgefilteroptions.map(option => `<button type="button" class="tumfolderfilteroption tumfolderbadgeoption" data-badge="${option.value}" aria-label="${T(option.labelkey)}" aria-pressed="${selectedbadges.has(option.value)}"><span class="tumfolderchoicebox">${ICONS.check}</span><span class="tumfolderbadgeicon" aria-hidden="true">${option.value === "affiliated" ? `<img src="${DEFAULT_AVATAR}" alt="">` : badgeshtml([option.value])}</span></button>`).join("");
+    const badgerows = badgefilteroptions.map(option => `<button type="button" class="tumfolderfilteroption tumfolderbadgeoption" data-badge="${option.value}" aria-label="${T(option.labelkey)}" aria-pressed="${selectedbadges.has(option.value)}"><span class="tumfolderchoicebox">${ICONS.check}</span><span class="tumfolderbadgeicon" aria-hidden="true">${option.value === "affiliated" ? `<img src="${DEFAULT_AVATAR}" alt="">` : option.value === "translatorunbadged" ? badgeshtml(["translator"], {translatortype: "regular"}) : badgeshtml([option.value])}</span></button>`).join("");
     menu.innerHTML = `<div class="tumfolderfiltercolumn"><div class="tumfolderfilteroptions" role="group" aria-label="${T("folder.filter.sortgroup")}">${sortrows}</div></div><div class="tumfolderfiltercolumn"><div class="tumfolderfilteroptions tumfolderfilterbadges" role="group" aria-label="${T("folder.filter.badgegroup")}">${badgerows}</div></div>`;
     menu.hidden = false;
     button.setAttribute("aria-expanded", "true");
