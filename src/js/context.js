@@ -148,19 +148,22 @@
   function twitterlistid(folder) {
     try {return tum.lists.folderlistid(folder)} catch {return ""}
   }
-  function sharedpanel(folder) {
-    const href = O.shareurl(folder);
+  function sharedpanel(item, type = "folder") {
+    const href = O.shareurl(item);
     if (!href) return null;
-    const published = folder.sharedpublished !== false;
+    const published = item.sharedpublished !== false;
+    const sync = () => type === "category" ? O.sharecategory(item, true) : O.sharefolder(item, true);
+    const unshare = () => type === "category" ? O.unsharecategory(item) : O.unsharefolder(item);
+    const share = () => type === "category" ? O.sharecategory(item) : O.sharefolder(item);
     return {
       type: "panel",
       label: T("menu.sharedlist"),
       href,
       items: published ? [
-        {label: T("menu.syncshare"), icon: ICONS.refresh, onclick: () => O.sharefolder(folder, true)},
-        {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: () => O.unsharefolder(folder)}
+        {label: T("menu.syncshare"), icon: ICONS.refresh, onclick: sync},
+        {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: unshare}
       ] : [
-        {label: T("menu.republish"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}
+        {label: T("menu.republish"), icon: ICONS.upload, onclick: share}
       ]
     };
   }
@@ -236,13 +239,28 @@
     }
     return members;
   }
-  function publishselected(folders) {
+  function publishselected(entries) {
     O.openconfirm({
-      title: T("confirm.selection.publish.title", folders.length),
+      title: T("confirm.selection.publish.title", entries.length),
       body: T("confirm.selection.publish.body"),
       oklabel: T("confirm.selection.publish.ok"),
       positive: true,
-      onok: async () => {for (const folder of folders) await O.sharefolder(folder)}
+      onok: async () => {
+        const tabs = entries.map(() => {
+          const tab = window.open("about:blank", "_blank");
+          if (tab) tab.opener = null;
+          return tab;
+        });
+        for (let index = 0; index < entries.length; index++) {
+          const entry = entries[index];
+          const url = entry.type === "category"
+            ? await O.sharecategory(entry.data, false, false)
+            : await O.sharefolder(entry.data, false, false);
+          if (url && tabs[index]) tabs[index].location.replace(url);
+          else if (url) window.open(url, "_blank", "noopener,noreferrer");
+          else if (tabs[index]) tabs[index].close();
+        }
+      }
     });
   }
   function deleteselection(items) {
@@ -260,10 +278,10 @@
     });
   }
   function selectionmenu(items) {
-    const actionable = items.filter(item => item.type === "folder" && item.data.action);
+    const entries = items.filter(item => item.type === "folder" || item.type === "category");
     return [
-      ...(actionable.length ? [{label: T("menu.publishselected"), icon: ICONS.upload, onclick: () => publishselected(actionable)}] : []),
-      {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(selectionmembers(items))},
+      ...(entries.length ? [{label: T("menu.publishselected"), icon: ICONS.upload, onclick: () => publishselected(entries)}] : []),
+      ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(selectionmembers(items))}] : []),
       {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => deleteselection(items)}
     ];
   }
@@ -290,16 +308,17 @@
       const info = resolveuser(chip || memberrow);
       if (!info) {closectx(); return}
       items = [
-        ...(isunfindable(info.m) ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}]),
-        {label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata([info.m])},
+        ...(!tum.sharepage && isunfindable(info.m) ? [{label: T("menu.replace"), icon: ICONS.profile, onclick: () => replaceuser(info)}] : []),
+        ...(!tum.sharepage && !isunfindable(info.m) ? [{label: T("menu.openprofile"), icon: ICONS.profile, onclick: () => O.openprofile(info.source, info.m)}] : []),
+        ...(!tum.sharepage ? [{label: T("menu.openavatar"), icon: ICONS.profile, onclick: () => openavatar(info.m)}] : []),
+        ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata([info.m])}] : []),
         {label: info.m.reason ? T("menu.editnote") : T("menu.customnote"), icon: ICONS.pencil, onclick: () => {O.openreasonview(info.source, info.m); O.setreasonmode("edit")}},
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => {O.removefromsource(info.source, info.m.handle); state.open = true; render()}}
       ];
     } else if (foldernode) {
       const folder = tum.folders.get(foldernode.dataset.id);
       if (!folder) {closectx(); return}
-      const listid = twitterlistid(folder);
+      const listid = tum.sharepage ? "" : twitterlistid(folder);
       let listknown = !listid;
       let listprivate = true;
       if (listid) {
@@ -324,12 +343,12 @@
       const list = listknown && listid ? twitterlistpanel(folder, listprivate) : null;
       items = [
         {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => O.openeditmodal(folder)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(folder.members || [])},
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: folder.id})},
+        ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(folder.members || [])}] : []),
+        ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: folder.id})}] : []),
         {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportfolder(folder)},
         {label: T("menu.merge"), icon: ICONS.folder, onclick: () => O.openmergepicker(folder)},
-        ...(folder.action && !share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
-        ...(listknown && !list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
+        ...(!share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
+        ...(!tum.sharepage && listknown && !list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmfolderdelete(folder)},
         ...(share ? [share] : []),
         ...(list ? [list] : [])
@@ -338,17 +357,20 @@
       const id = categorynode.dataset.id;
       const category = tum.categories.get(id);
       if (!category) {closectx(); return}
+      const share = sharedpanel(category, "category");
       items = [
         {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(id)},
-        {label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(category))},
+        ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(category))}] : []),
         {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportcategoryfile(category)},
+        ...(!share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharecategory(category)}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmcategorydelete(category)},
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})},
+        ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}] : []),
+        ...(share ? [share] : []),
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal({cat: id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}
       ];
     } else {
       items = [
-        {label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})},
+        ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}] : []),
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal()},
         {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(event.clientX, event.clientY)},
         {label: T("menu.import"), icon: ICONS.upload, onclick: () => O.importdata()}

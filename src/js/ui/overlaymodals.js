@@ -91,12 +91,12 @@
   }
   function exportmember(member) {
     const out = {};
-    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "unfindable"]) {
+    for (const key of ["handle", "displayname", "reason", "sourceurl", "userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "unfindable"]) {
       if (member[key] !== undefined && member[key] !== null && member[key] !== "") out[key] = key === "createdat" ? compactdate(member[key]) : member[key];
     }
     if (member.avatarurl) out.avatarurl = compactavatar(member.avatarurl);
     const badges = (Array.isArray(member.badges) ? member.badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatorunbadged|translatormod|protected)$/.test(badge)) return [badge];
       if (badge && badge.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(badge.handle || "")) return [{type: "affiliation", handle: badge.handle, avatarurl: compactavatar(badge.avatarurl) || null}];
       return [];
     });
@@ -307,31 +307,84 @@
   const hasshare = f => validshareid(f.sharedid) && validsharekey(f.sharedkey);
   const shareurl = f => hasshare(f) ? "https://list.coolsite.cv/" + f.sharedid : "";
 
-  async function sharefolder(f, sync = false) {
-    const managed = hasshare(f);
-    const id = managed ? f.sharedid : "";
+  function sharefolderdata(folder) {
+    return Object.assign(exportfolderdata(folder), {x: folder.x, y: folder.y});
+  }
+  function sharecategorydata(category) {
+    return {
+      name: category.name, x: category.x, y: category.y, w: category.w, h: category.h,
+      folders: tum.folders.list().filter(folder => folder.cat === category.id).map(sharefolderdata),
+      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(exportloosemember)
+    };
+  }
+  async function shareentry(item, type, sync = false, open = true) {
+    const managed = hasshare(item);
+    const id = managed ? item.sharedid : "";
+    const tab = open ? window.open("about:blank", "_blank") : null;
+    if (tab) tab.opener = null;
     const headers = {"content-type": "application/json"};
-    if (managed) headers["x-list-key"] = f.sharedkey;
+    if (managed) headers["x-list-key"] = item.sharedkey;
+    const payload = type === "category"
+      ? {type, category: sharecategorydata(item)}
+      : {type, folder: sharefolderdata(item)};
     let response, data;
     try {
-      response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers, body: JSON.stringify({folder: exportfolderdata(f)})});
+      response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers, body: JSON.stringify(payload)});
       data = await response.json();
-    } catch {toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
-    if (!response.ok || !data || !data.url) {toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
-    tum.folders.update(f.id, {sharedid: data.id, sharedkey: data.key || f.sharedkey, sharedpublished: true});
+    } catch {if (tab) tab.close(); toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
+    if (!response.ok || !data || !data.url) {if (tab) tab.close(); toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
+    const patch = {sharedid: data.id, sharedkey: data.key || item.sharedkey, sharedpublished: true};
+    if (type === "category") tum.categories.update(item.id, patch);
+    else tum.folders.update(item.id, patch);
     if (sync) toast(T("toast.share.synced"));
-    else window.open(data.url, "_blank", "noopener,noreferrer");
+    else if (open && tab) tab.location.replace(data.url);
+    else if (open) window.open(data.url, "_blank", "noopener,noreferrer");
+    return data.url;
   }
 
-  async function unsharefolder(f) {
-    if (!hasshare(f)) return;
+  function sharefolder(folder, sync = false, open = true) {return shareentry(folder, "folder", sync, open)}
+  function sharecategory(category, sync = false, open = true) {return shareentry(category, "category", sync, open)}
+
+  async function unshareentry(item, type) {
+    if (!hasshare(item)) return;
     let response;
-    try {
-      response = await fetch(shareendpoint + "/" + f.sharedid, {method: "DELETE", headers: {"x-list-key": f.sharedkey}});
-    } catch {toast(T("toast.share.unpublishfailed")); return}
+    try {response = await fetch(shareendpoint + "/" + item.sharedid, {method: "DELETE", headers: {"x-list-key": item.sharedkey}})}
+    catch {toast(T("toast.share.unpublishfailed")); return}
     if (!response.ok) {toast(T("toast.share.unpublishfailed")); return}
-    tum.folders.update(f.id, {sharedpublished: false});
+    if (type === "category") tum.categories.update(item.id, {sharedpublished: false});
+    else tum.folders.update(item.id, {sharedpublished: false});
     toast(T("toast.share.unpublished"));
+  }
+  function unsharefolder(folder) {return unshareentry(folder, "folder")}
+  function unsharecategory(category) {return unshareentry(category, "category")}
+
+  async function importsharedentry(data) {
+    await tum.storage.accountready;
+    await Promise.all([tum.folders.whenready(), tum.categories.whenready(), tum.unsorted.whenready()]);
+    const zoom = O.zoom();
+    const center = {x: (window.innerWidth / 2 - O.pan.x) / zoom, y: (window.innerHeight / 2 - O.pan.y) / zoom};
+    if (data && data.type === "category" && data.category) {
+      const source = data.category;
+      const category = tum.categories.create({name: source.name, w: source.w, h: source.h, x: center.x - source.w / 2, y: center.y - source.h / 2});
+      const dx = category.x - (source.x || 0), dy = category.y - (source.y || 0);
+      const folders = (data.folders || []).map(folder => {
+        const copy = Object.assign({}, folder, {cat: category.id, x: (folder.x || 0) + dx, y: (folder.y || 0) + dy});
+        delete copy.id; delete copy.sharedid; delete copy.sharedkey; delete copy.sharedpublished; delete copy.twitterlist;
+        copy.icon = importicon(copy.icon);
+        return copy;
+      });
+      tum.folders.import(folders, false);
+      tum.unsorted.import((data.unsorted || []).map(member => Object.assign({}, member, {cat: category.id})), false);
+      return {type: "category", id: category.id};
+    }
+    const source = data && data.folder || data;
+    if (!source || !Array.isArray(source.members)) throw new Error("shared folder unavailable");
+    const folder = Object.assign({}, source, {x: center.x - 130, y: center.y - 100, cat: null});
+    delete folder.id; delete folder.sharedid; delete folder.sharedkey; delete folder.sharedpublished; delete folder.twitterlist;
+    folder.icon = importicon(folder.icon);
+    const added = tum.folders.import([folder], false)[0];
+    if (!added) throw new Error("shared folder unavailable");
+    return {type: "folder", id: added.id};
   }
   function importintofolder(folder) {
     pickjson(data => {
@@ -380,14 +433,14 @@
         onclick: () => tum.folders.remove(created.id)
       });
     };
-    if (f.action && members.length) {
+    if (f.action && members.length && !tum.sharepage) {
       const cap = actionlabel(f.action);
       openconfirm({
         title: T("confirm.import.title", f.action),
         body: T("confirm.import.body", f.action, f.action, members.length),
         oklabel: T("action.confirm.ok", cap),
         positive: f.action === "follow",
-        onok: () => {doimport(); tum.actions.enqueue(f.action, members.map(m => m.handle))}
+        onok: () => {doimport(); if (tum.actions) tum.actions.enqueue(f.action, members.map(m => m.handle))}
       });
     } else doimport();
   }
@@ -411,6 +464,7 @@
   }
   
   function applyeditaction(action, prevaction, members) {
+    if (tum.sharepage) return false;
     if (!action || action === prevaction) return false;
     const cap = actionlabel(action);
     if (members.length > 3) {
@@ -540,7 +594,7 @@
         const {user, source} = state.pendingcreate;
         removefromsource(source, user.handle);
         tum.folders.addmember(folder.id, user);
-        const actionhappened = !!(source.type !== "folder" && folder.action && !user.skipaction);
+        const actionhappened = !!(!tum.sharepage && source.type !== "folder" && folder.action && !user.skipaction && tum.actions);
         if (actionhappened) tum.actions.run(folder.action, user);
         O.notifyfolderadd(folder, user, actionhappened, () => {
           tum.folders.removemember(folder.id, user.handle);
@@ -625,7 +679,7 @@
         tum.unsorted.setreason(user.handle, text, src);
       } else {
         tum.unsorted.add(Object.assign({}, user, {reason: text, sourceurl: src, placed: false}));
-        if (!user.skipaction) tum.actions.run(reasonaction, user);
+        if (!tum.sharepage && !user.skipaction && tum.actions) tum.actions.run(reasonaction, user);
       }
     } else if (state.reasontarget) {
       const {source, handle} = state.reasontarget;
@@ -805,7 +859,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, exportcategoryfile, sharefolder, unsharefolder, openconfirm,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, exportcategoryfile, sharefolder, unsharefolder, sharecategory, unsharecategory, importsharedentry, openconfirm,
     shareurl, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     openmergepicker, closemergepicker,

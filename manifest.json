@@ -70,12 +70,36 @@
         "src/js/main.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://list.coolsite.cv/*"],
+      "js": [
+        "src/js/core/storage.js",
+        "src/js/core/strings.js",
+        "src/js/core/theme.js",
+        "src/js/ui/iconpicker.js",
+        "src/js/core/folders.js",
+        "src/js/core/unsorted.js",
+        "src/js/core/categories.js",
+        "src/js/ui/overlay.js",
+        "src/js/ui/overlayselection.js",
+        "src/js/ui/overlayfolders.js",
+        "src/js/ui/overlaycategories.js",
+        "src/js/ui/overlaycanvas.js",
+        "src/js/ui/overlaydrag.js",
+        "src/js/vendor/jsonc.min.js",
+        "src/js/ui/overlaymodals.js",
+        "src/js/context.js",
+        "src/js/page/sharebridge.js",
+        "src/js/main.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["src/css/overlay.css", "src/css/page.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/static/strings.json", "assets/svgs/*/*.svg", "assets/images/*.png", "desktopdestroyer/*"],
-      "matches": ["https://x.com/*", "https://twitter.com/*"]
+      "matches": ["https://x.com/*", "https://twitter.com/*", "https://list.coolsite.cv/*"]
     }
   ]
 }

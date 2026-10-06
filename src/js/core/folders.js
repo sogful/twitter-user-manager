@@ -5,7 +5,7 @@
   const T = (...a) => tum.strings.t(...a);
 
   const ACTIONS = ["follow", "mute", "block"];
-  const badgefiltertypes = new Set(["verified", "blue", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate", "protected", "affiliated", "translator", "translatormod"]);
+  const badgefiltertypes = new Set(["verified", "blue", "verifiedbusiness", "verifiedgovernment", "verifiedaffiliate", "protected", "affiliated", "translator", "translatorunbadged", "translatormod"]);
   // how colorful!
   const COLORS = [
     // twitter classics
@@ -122,7 +122,7 @@
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
   function cleanbadges(badges) {
     const cleaned = (Array.isArray(badges) ? badges : []).flatMap(badge => {
-      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(badge)) return [badge];
+      if (typeof badge === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatorunbadged|translatormod|protected)$/.test(badge)) return [badge];
       if (typeof badge === "string" && /<svg\b/i.test(badge)) {
         const label = badge.toLowerCase();
         if (/icon-verified|verified account/.test(label)) return [/lineargradient/.test(label) ? "verifiedbusiness" : /#829aab/.test(label) ? "verifiedgovernment" : "verified"];
@@ -150,7 +150,7 @@
       reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
       badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "protected", "unfindable", "pending"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "protected", "unfindable", "pending"]) {
       const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
       if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }

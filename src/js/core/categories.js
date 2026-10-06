@@ -11,6 +11,7 @@
   const listeners = new Set();
   let resolveready;
   const ready = new Promise(res => {resolveready = res});
+  let loadready = ready;
 
   const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
@@ -25,16 +26,22 @@
       x: partial && typeof partial.x === "number" ? partial.x : 120,
       y: partial && typeof partial.y === "number" ? partial.y : 120,
       w: partial && typeof partial.w === "number" ? partial.w : 480,
-      h: partial && typeof partial.h === "number" ? partial.h : 360
+      h: partial && typeof partial.h === "number" ? partial.h : 360,
+      sharedid: partial && /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(partial.sharedid || "") ? partial.sharedid : "",
+      sharedkey: partial && /^[0-9a-f]{32}$/i.test(partial.sharedkey || "") ? partial.sharedkey : "",
+      sharedpublished: !partial || partial.sharedpublished !== false
     };
   }
 
   async function load() {
     const version = ++loadversion;
+    let resolveLoad;
+    loadready = new Promise(resolve => {resolveLoad = resolve});
     const v = await store.get();
-    if (version !== loadversion) return;
+    if (version !== loadversion) {resolveLoad(); return}
     list = Array.isArray(v) ? v : [];
     resolveready();
+    resolveLoad();
     emit();
   }
   load();
@@ -43,6 +50,7 @@
 
   window.tum.categories = {
     ready,
+    whenready: () => loadready,
     list: () => list.slice(),
     get: id => list.find(c => c.id === id),
     create(partial) {

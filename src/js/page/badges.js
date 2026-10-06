@@ -53,7 +53,7 @@
   }
   function cleanaccountbadges(values) {
     const badges = (Array.isArray(values) ? values : []).filter(value =>
-      typeof value === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(value)
+      typeof value === "string" && /^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatorunbadged|translatormod|protected)$/.test(value)
       || value && typeof value === "object" && value.type === "affiliation" && /^[A-Za-z0-9_]+$/.test(value.handle || ""));
     const seen = new Set();
     return badges.filter(badge => {

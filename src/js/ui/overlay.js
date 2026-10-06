@@ -119,7 +119,7 @@
   function badgeshtml(badges, user) {
     function presetvalue(badge) {
       if (typeof badge !== "string") return null;
-      if (/^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatormod|protected)$/.test(badge)) return badge;
+      if (/^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatorunbadged|translatormod|protected)$/.test(badge)) return badge;
       if (!/<svg\b/i.test(badge)) return null;
       const label = badge.toLowerCase();
       if (/icon-verified|verified account/.test(label)) return /lineargradient/.test(label) ? "verifiedbusiness" : /#829aab/.test(label) ? "verifiedgovernment" : "verified";
@@ -164,8 +164,9 @@
       translatormod: '<svg viewBox="0 0 24 24" aria-label="Translator account" role="img"><g><path d="M12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-.25 10.48L10.5 17.5l-2-1.5v-3.5L7.5 9 5.03 7.59c1.42-2.24 3.89-3.75 6.72-3.84L11 6l-2 .5L8.5 9l5 1.5-1.75 1.73zM17 14v-3l-1.5-3 2.88-1.23c1.17 1.42 1.87 3.24 1.87 5.23 0 1.3-.3 2.52-.83 3.61L17 14z"/></g></svg>',
       protected: '<svg viewBox="0 0 24 24" aria-label="Protected account" role="img"><path fill-rule="evenodd" d="M12 1.5c2.761 0 5 2.239 5 5v.745c.22.06.431.138.638.235 1.045.495 1.887 1.337 2.381 2.382.267.563.378 1.165.43 1.849.052.673.051 1.505.051 2.539 0 1.034 0 1.866-.05 2.54-.053.683-.164 1.285-.43 1.848-.495 1.045-1.337 1.887-2.382 2.381-.563.267-1.165.378-1.849.43-.673.052-1.505.051-2.539.051h-2.5c-1.034 0-1.866 0-2.54-.05-.683-.053-1.285-.164-1.848-.43-1.045-.495-1.887-1.337-2.382-2.382-.266-.563-.377-1.165-.43-1.849-.05-.673-.05-1.505-.05-2.539 0-1.034 0-1.866.05-2.54.053-.683.164-1.285.43-1.848.495-1.045 1.337-1.887 2.382-2.382.207-.097.419-.174.638-.235V6.5c0-2.761 2.239-5 5-5zM9.5 15h5v-2h-5v2zM12 3.5c-1.657 0-3 1.343-3 3v.515C9.508 7 10.088 7 10.75 7h2.5l1.405.006c.119.002.234.006.345.009V6.5c0-1.657-1.343-3-3-3z"/></svg>'
     };
+    icons.translatorunbadged = icons.translator;
     for (const type of Object.keys(icons)) icons[type] = icons[type].replace(/aria-label="[^"]*"/, `aria-label="${escapehtml(T("badge." + type))}"`);
-    const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatormod: "tumbadgemod", protected: "tumbadgelock"};
+    const badgeclass = {blue: "tumbadgeblue", verifiedgovernment: "tumbadgegov", translatorunbadged: "tumbadgetranslatorregular", translatormod: "tumbadgemod", protected: "tumbadgelock"};
     const standard = [...values].map(value => {
       const classes = ["tumbadge", badgeclass[value] || "tumbadge" + value];
       if (value === affiliatetint) classes.push("tumbadgeaffiliate");

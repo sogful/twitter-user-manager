@@ -437,6 +437,7 @@
   }
 
   function actionbtnunderpoint(x, y) {
+    if (tum.sharepage) return null;
     if (!state.drag || state.drag.kind !== "user") return null;
     const target = hitrects().actions.find(item => rectcontains(item.rect, x, y));
     return target ? target.node.dataset.act : null;
@@ -463,7 +464,7 @@
     if (source.type === "page" && !user.userid) user.pending = true;
     removefromsource(source, user.handle);
     tum.folders.addmember(folder.id, user);
-    const actionhappened = !!(doaction && source.type !== "folder" && folder.action && !user.skipaction);
+    const actionhappened = !!(!tum.sharepage && doaction && source.type !== "folder" && folder.action && !user.skipaction && tum.actions);
     if (actionhappened) tum.actions.run(folder.action, user, {confirmed});
     O.notifyfolderadd(folder, user, actionhappened, () => {
       tum.folders.removemember(folder.id, user.handle);
@@ -572,7 +573,7 @@
       closeoverlay();
       return;
     } else if (act) {
-      if (!user.skipaction) tum.actions.run(act, user);
+      if (!tum.sharepage && !user.skipaction && tum.actions) tum.actions.run(act, user);
       render();
       closeoverlay();
       return;
@@ -584,7 +585,7 @@
     } else if (target && target.zone === "body") {
       const folder = tum.folders.get(target.id);
       if (folder) {
-        const actionable = !!folder.action && source.type !== "folder" && !user.skipaction;
+        const actionable = !!(!tum.sharepage && folder.action && source.type !== "folder" && !user.skipaction && tum.actions);
         const warning = actionable && folder.action === "block" ? followwarning(user) : null;
         const confirmsetting = actionable && !!(tum.settings && tum.settings.get("confirmactions"));
         if (warning || confirmsetting) {

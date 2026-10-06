@@ -192,6 +192,12 @@
     });
   }
   function isratelimited(error) {return !!error && (error.status === 429 || error.status === 420 || error.ratelimited === true)}
+  function isdailylistlimit(error) {
+    const message = String(error && error.message || "");
+    const reset = Number(error && error.ratelimitreset) || 0;
+    return /daily.{0,30}(?:limit|member|add)|(?:limit|member|add).{0,30}daily|150.{0,20}(?:member|add)/i.test(message)
+      || isratelimited(error) && reset > Date.now() + 60 * 60 * 1000;
+  }
   function islistpermissionerror(error) {return !!error && (error.kind === "AuthorizationError" || /aren't allowed to add members|not allowed to add members/i.test(String(error.message || "")))}
   function formatlistwait(milliseconds) {
     const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
@@ -216,6 +222,10 @@
         await listrequest(endpoint, variables);
         return true;
       } catch (error) {
+        if (endpoint.op === "ListAddMember" && isdailylistlimit(error)) {
+          error.dailylistlimit = true;
+          throw error;
+        }
         if (!isratelimited(error)) throw error;
         attempt++;
         if (!await waitforlistratelimit(error, operation, attempt, onwait)) return false;
@@ -286,7 +296,7 @@
     let unresolved = 0;
     for (const member of members || []) {
       if (operation && operation.cancelled) break;
-      const id = member && (member.userid || (member.handle && await resolveuserid(member.handle, operation)));
+      const id = member && (/^\d+$/.test(String(member.userid || "")) ? String(member.userid) : member.handle && await resolveuserid(member.handle, operation));
       if (id) ids.add(String(id)); else unresolved++;
     }
     return {ids, unresolved};
@@ -327,7 +337,226 @@
   }
 
   let listuploading = false, listoperation = null;
-  let uploadbar = null, uploadbartimer = 0;
+  let uploadbar = null, uploadbartimer = 0, queuedlabeltimer = 0, queueresumetimer = 0, queueresuming = false, queuedstop = null;
+  const listaddday = 24 * 60 * 60 * 1000;
+  function quotarequest(action, operation, id) {
+    return new Promise((resolve, reject) => chrome.runtime.sendMessage({
+      type: "tumlistquota", action, account: operation.accountid, id
+    }, response => {
+      const error = chrome.runtime.lastError;
+      if (error || !response || response.error) reject(new Error("quota unavailable"));
+      else resolve(response);
+    }));
+  }
+  async function reserveadd(operation) {
+    return quotarequest("reserve", operation);
+  }
+  async function addlistmember(listid, userid, operation, onwait) {
+    const reservation = await reserveadd(operation);
+    if (!reservation.allowed) return {sent: false, limited: true, resumeat: reservation.resumeat};
+    try {
+      const sent = await retrylistrequest(LISTEP.addmember, {listId: listid, userId: userid}, operation, onwait);
+      if (sent) await quotarequest("commit", operation, reservation.id);
+      else await quotarequest("release", operation, reservation.id);
+      return {sent};
+    } catch (error) {
+      if (error.dailylistlimit) {
+        await quotarequest("release", operation, reservation.id).catch(() => {});
+        return {sent: false, limited: true, resumeat: Math.max(Date.now() + listaddday, Number(error.ratelimitreset) + 2000 || 0)};
+      }
+      if (!error.status) await quotarequest("commit", operation, reservation.id).catch(() => {});
+      else await quotarequest("release", operation, reservation.id).catch(() => {});
+      throw error;
+    }
+  }
+  function queuecall(action, job, id, listid) {
+    return new Promise((resolve, reject) => chrome.runtime.sendMessage({type: "tumlistqueue", action, job, id, listid}, response => {
+      const error = chrome.runtime.lastError;
+      if (error || !response || response.error) reject(new Error("queue unavailable"));
+      else resolve(response);
+    }));
+  }
+  async function queuedjobs() {
+    const response = await queuecall("list");
+    return Array.isArray(response.jobs) ? response.jobs.filter(job => job && typeof job.id === "string" && Array.isArray(job.ids)) : [];
+  }
+  async function savequeuedjob(job) {
+    await queuecall("save", job);
+    return job;
+  }
+  async function removequeuedjob(id, refresh = true) {
+    await queuecall("remove", null, id);
+    if (queuedstop && queuedstop.id === id) {queuedstop = null; clearTimeout(queuedlabeltimer)}
+    if (refresh) schedulequeuedjobs();
+  }
+  async function removequeuedlist(listid) {
+    const jobs = await queuedjobs();
+    await queuecall("removelist", null, null, String(listid));
+    if (queuedstop && !jobs.some(job => job.id === queuedstop.id && job.listid !== String(listid))) {
+      queuedstop = null;
+      clearTimeout(queuedlabeltimer);
+      removeuploadbar();
+    }
+    schedulequeuedjobs();
+  }
+  function queuewait(milliseconds) {
+    const minutes = Math.max(0, Math.ceil(milliseconds / 60000));
+    const hours = Math.floor(minutes / 60);
+    return hours ? hours + "h " + String(minutes % 60).padStart(2, "0") + "m" : minutes + "m";
+  }
+  function quotaqueuebar(job) {
+    clearTimeout(uploadbartimer);
+    uploadbartimer = 0;
+    const bar = ensureuploadbar();
+    const total = Math.max(1, Number(job.total) || job.ids.length);
+    const completed = Math.max(0, Number(job.completed) || 0);
+    const remaining = Math.max(0, Number(job.resumeat) - Date.now());
+    bar.querySelector(".tumbatchfill").style.width = Math.min(100, Math.round(completed / total * 100)) + "%";
+    bar.querySelector(".tumbatchlabel").textContent = remaining
+      ? T("toast.twlist.quota.paused", job.ids.length, queuewait(remaining))
+      : T("toast.twlist.quota.resuming", job.ids.length);
+    const button = bar.querySelector(".tumbatchcancel");
+    button.hidden = false;
+    button.disabled = false;
+    button.textContent = T("toast.twlist.quota.stop");
+    queuedstop = {id: job.id, accountid: String(job.accountid), run: async () => {
+      await removequeuedjob(job.id, false);
+      queuedstop = null;
+      const jobs = await queuedjobs();
+      if (jobs.some(item => String(item.accountid) === String(tum.accountid))) {
+        schedulequeuedjobs();
+        return;
+      }
+      button.hidden = true;
+      bar.querySelector(".tumbatchlabel").textContent = T("toast.twlist.quota.stopped", job.ids.length);
+      clearTimeout(uploadbartimer);
+      uploadbartimer = setTimeout(removeuploadbar, 4500);
+    }};
+    clearTimeout(queuedlabeltimer);
+    if (remaining) queuedlabeltimer = setTimeout(() => quotaqueuebar(job), Math.min(60000, remaining));
+    schedulequeuedjobs();
+  }
+  function schedulequeuedjobs() {
+    clearTimeout(queueresumetimer);
+    if (queuedstop && queuedstop.accountid !== String(tum.accountid || "")) {
+      queuedstop = null;
+      clearTimeout(queuedlabeltimer);
+      if (!listuploading) removeuploadbar();
+    }
+    if (!tum.accountid) return;
+    queuedjobs().then(jobs => {
+      const accountjobs = jobs.filter(job => String(job.accountid) === String(tum.accountid));
+      if (!accountjobs.length) return;
+      const next = accountjobs.reduce((soonest, job) => Math.min(soonest, Number(job.resumeat) || 0), Infinity);
+      const active = accountjobs.find(job => job.id === (queuedstop && queuedstop.id)) || accountjobs.sort((a, b) => (a.resumeat || 0) - (b.resumeat || 0))[0];
+      if (!listuploading && active && !queuedstop) quotaqueuebar(active);
+      if (Number.isFinite(next)) queueresumetimer = setTimeout(resumequeuedjobs, Math.max(1000, Math.min(2147480000, next - Date.now())));
+    }).catch(() => {});
+  }
+  async function queueaddjob(listid, ids, values = {}) {
+    const job = {
+      id: values.id || (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      accountid: String(values.accountid || tum.accountid || "unresolved"),
+      listid: String(listid),
+      folderid: String(values.folderid || ""),
+      name: String(values.name || T("folder.unnamed")),
+      ids: [...new Set(ids.map(String))],
+      total: Math.max(Number(values.total) || 0, ids.length),
+      completed: Math.max(0, Number(values.completed) || 0),
+      resumeat: Number(values.resumeat) || Date.now() + listaddday,
+      kind: values.kind === "sync" ? "sync" : "upload"
+    };
+    await savequeuedjob(job);
+    schedulequeuedjobs();
+    return job;
+  }
+  async function resumequeuedjobs() {
+    if (!tum.accountid) return;
+    if (queueresuming || listuploading) {
+      queueresumetimer = setTimeout(resumequeuedjobs, 5000);
+      return;
+    }
+    queueresuming = true;
+    let activejob = null;
+    try {
+      const jobs = await queuedjobs();
+      const job = jobs.filter(item => String(item.accountid) === String(tum.accountid) && Number(item.resumeat) <= Date.now())
+        .sort((a, b) => Number(a.resumeat) - Number(b.resumeat))[0];
+      if (!job) return;
+      activejob = job;
+      const operation = {cancelled: false, cancelrequest: null, accountid: String(tum.accountid)};
+      listoperation = operation;
+      listuploading = true;
+      renderuploadbar(job.completed, job.total, T("toast.twlist.quota.checking"), true);
+      const info = await getlist(job.listid);
+      if (!info.exists) {
+        await removequeuedjob(job.id);
+        finishuploadbar(T("toast.twlist.quota.listgone"));
+        return;
+      }
+      const remote = await retryremotelistids(job.listid, operation, wait => {
+        renderuploadbar(job.completed, job.total, T("toast.twlist.ratelimitedwait", wait), true);
+      });
+      if (!remote || operation.cancelled) {
+        if (operation.cancelled) await removequeuedjob(job.id);
+        else {
+          job.resumeat = Date.now() + 60 * 60 * 1000;
+          await savequeuedjob(job);
+          quotaqueuebar(job);
+        }
+        return;
+      }
+      if (job.kind === "sync" && job.folderid) {
+        const folder = tum.folders.get(job.folderid);
+        if (folder) {
+          const wanted = await memberids(folder.members || [], operation);
+          job.ids = [...wanted.ids];
+          job.total = Math.max(job.total, wanted.ids.size);
+        }
+      }
+      const pending = job.ids.filter(id => !remote.has(String(id)));
+      job.ids = pending;
+      await savequeuedjob(job);
+      for (let index = 0; index < pending.length; index++) {
+        if (operation.cancelled) break;
+        const result = await addlistmember(job.listid, pending[index], operation, wait => {
+          renderuploadbar(job.completed, job.total, T("toast.twlist.ratelimitedwait", wait), true);
+        });
+        if (result.limited) {
+          job.ids = pending.slice(index);
+          job.resumeat = result.resumeat;
+          await savequeuedjob(job);
+          quotaqueuebar(job);
+          return;
+        }
+        if (!result.sent) break;
+        job.completed++;
+        job.ids = pending.slice(index + 1);
+        renderuploadbar(job.completed, job.total, T("toast.twlist.quota.progress", job.completed, job.total), true);
+        if (job.completed % 10 === 0 || index === pending.length - 1) await savequeuedjob(job);
+      }
+      if (operation.cancelled) await removequeuedjob(job.id);
+      else if (!job.ids.length) {
+        await removequeuedjob(job.id);
+        finishuploadbar(T("toast.twlist.quota.done", job.name));
+      } else {
+        job.resumeat = Date.now() + listaddday;
+        await savequeuedjob(job);
+        quotaqueuebar(job);
+      }
+    } catch {
+      if (activejob) {
+        activejob.resumeat = Date.now() + 60 * 60 * 1000;
+        await savequeuedjob(activejob).catch(() => {});
+        quotaqueuebar(activejob);
+      }
+    } finally {
+      if (listoperation) listoperation = null;
+      listuploading = false;
+      queueresuming = false;
+      schedulequeuedjobs();
+    }
+  }
   function wireuploadbardrag(bar) {
     const handle = bar.querySelector(".tumbatchdrag");
     handle.addEventListener("pointerdown", event => {
@@ -364,12 +593,13 @@
     uploadbar.querySelector(".tumbatchdrag").setAttribute("aria-label", T("settings.repopulate.drag"));
     wireuploadbardrag(uploadbar);
     uploadbar.querySelector(".tumbatchcancel").addEventListener("click", event => {
-      if (!listoperation || listoperation.cancelled) return;
-      listoperation.cancelled = true;
-      event.currentTarget.disabled = true;
-      event.currentTarget.textContent = T("toast.twlist.syncstopping");
-      if (listoperation.verifyoperation) listoperation.verifyoperation.cancelled = true;
-      if (listoperation.cancelrequest) listoperation.cancelrequest();
+      if (listoperation && !listoperation.cancelled) {
+        listoperation.cancelled = true;
+        event.currentTarget.disabled = true;
+        event.currentTarget.textContent = T("toast.twlist.syncstopping");
+        if (listoperation.verifyoperation) listoperation.verifyoperation.cancelled = true;
+        if (listoperation.cancelrequest) listoperation.cancelrequest();
+      } else if (queuedstop) queuedstop.run();
     });
     try {tum.theme.paint(uploadbar)} catch {}
     document.documentElement.appendChild(uploadbar);
@@ -381,6 +611,8 @@
   }
   function renderuploadbar(added, total, note, cancellable = !!listoperation) {
     clearTimeout(uploadbartimer);
+    clearTimeout(queuedlabeltimer);
+    queuedstop = null;
     uploadbartimer = 0;
     const b = ensureuploadbar();
     b.querySelector(".tumbatchfill").style.width = (total ? Math.min(100, Math.round(added / total * 100)) : 0) + "%";
@@ -396,6 +628,8 @@
     }
   }
   function finishuploadbar(note) {
+    clearTimeout(queuedlabeltimer);
+    queuedstop = null;
     const b = ensureuploadbar();
     b.querySelector(".tumbatchfill").style.width = "100%";
     b.querySelector(".tumbatchlabel").textContent = note;
@@ -428,9 +662,10 @@
     const onstart = callbacks && typeof callbacks.onstart === "function" ? callbacks.onstart : null;
     const oncreated = callbacks && typeof callbacks.oncreated === "function" ? callbacks.oncreated : null;
     const onprogress = typeof callbacks === "function" ? callbacks : (callbacks && typeof callbacks.onprogress === "function" ? callbacks.onprogress : null);
-    const operation = {cancelled: false, cancelrequest: null, verifyoperation: null};
+    const operation = {cancelled: false, cancelrequest: null, verifyoperation: null, accountid: String(tum.accountid || "unresolved")};
     let listid = "";
     let requested = 0, unresolved = 0, verifiedcount = null, verifyfailed = false, bannerfailed = false, permissiondenied = false;
+    let quotaPaused = false, quotaResumeAt = 0, queuedjob = null;
     listuploading = true;
     listoperation = operation;
     try {
@@ -452,13 +687,21 @@
       const resolved = await memberids(members, operation);
       const ids = resolved.ids;
       unresolved = resolved.unresolved;
-      for (const id of ids) {
+      const idlist = [...ids];
+      for (let index = 0; index < idlist.length; index++) {
+        const id = idlist[index];
         if (operation.cancelled) break;
         try {
-          const sent = await retrylistrequest(LISTEP.addmember, {listId: listid, userId: id}, operation, wait => {
+          const result = await addlistmember(listid, id, operation, wait => {
             renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
           });
-          if (!sent) break;
+          if (result.limited) {
+            quotaPaused = true;
+            quotaResumeAt = result.resumeat;
+            queuedjob = await queueaddjob(listid, idlist.slice(index), {name: folder.name, total: ids.size, completed: requested, resumeat: quotaResumeAt, accountid: operation.accountid});
+            break;
+          }
+          if (!result.sent) break;
           requested++;
         } catch (error) {
           if (isratelimited(error)) throw error;
@@ -485,16 +728,31 @@
           missing = remote ? [...ids].filter(id => !remote.has(id)) : [];
         }
         if (missing.length && remote) {
-          for (const id of missing) {
-            if (operation.cancelled || !remote) break;
-            const sent = await retrylistrequest(LISTEP.addmember, {listId: listid, userId: id}, operation, wait => {
-              renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
-            });
-            if (!sent) break;
-            requested++;
-            renderuploadbar(requested, ids.size);
+          if (quotaPaused) {
+            queuedjob.ids = [...new Set([...queuedjob.ids, ...missing])];
+            await savequeuedjob(queuedjob);
+          } else {
+            for (let index = 0; index < missing.length; index++) {
+              if (operation.cancelled || !remote) break;
+              const result = await addlistmember(listid, missing[index], operation, wait => {
+                renderuploadbar(requested, ids.size, T("toast.twlist.ratelimitedwait", wait), true);
+              });
+              if (result.limited) {
+                quotaPaused = true;
+                quotaResumeAt = result.resumeat;
+                queuedjob = await queueaddjob(listid, missing.slice(index), {name: folder.name, total: ids.size, completed: requested, resumeat: quotaResumeAt, accountid: operation.accountid});
+                break;
+              }
+              if (!result.sent) break;
+              requested++;
+              renderuploadbar(requested, ids.size);
+            }
+            if (quotaPaused) {
+              queuedjob.ids = [...new Set([...queuedjob.ids, ...missing.filter(id => !remote.has(id))])];
+              await savequeuedjob(queuedjob);
+            }
           }
-          if (missing.length && !operation.cancelled) {
+          if (!quotaPaused) {
             try {remote = await retryremotelistids(listid, verifyoperation)} catch {verifyfailed = true; remote = null}
           }
         }
@@ -503,23 +761,30 @@
       if (remote) verifiedcount = [...ids].filter(id => remote.has(id)).length;
       const result = {id: listid, added: verifiedcount, requested, skipped: verifiedcount == null ? unresolved : unresolved + ids.size - verifiedcount, bannerfailed, cancelled: operation.cancelled, verifyfailed, permissiondenied};
       await refreshcurrentlist(listid);
-      if (operation.cancelled) finishuploadbar(T(verifiedcount == null ? "toast.twlist.uploadstoppedunknown" : "toast.twlist.uploadstopped", verifiedcount));
+      if (operation.cancelled) {
+        if (queuedjob) await removequeuedjob(queuedjob.id);
+        finishuploadbar(T(verifiedcount == null ? "toast.twlist.uploadstoppedunknown" : "toast.twlist.uploadstopped", verifiedcount));
+      }
+      else if (quotaPaused && queuedjob) quotaqueuebar(queuedjob);
       else if (permissiondenied) finishuploadbar(T("toast.twlist.adddenied"));
       else if (verifyfailed || verifiedcount == null) finishuploadbar(T("toast.twlist.verifyfailed"));
       else if (verifiedcount < ids.size || unresolved) finishuploadbar(T("toast.twlist.partial", verifiedcount, ids.size + unresolved));
       else finishuploadbar(T(bannerfailed ? "toast.twlist.donebannerfailed" : "toast.twlist.done", folder.name || T("folder.unnamed"), verifiedcount));
-      return result;
+      return Object.assign(result, quotaPaused ? {quotaPaused: true, resumeat: quotaResumeAt, queued: queuedjob && queuedjob.ids.length} : {});
     } catch (error) {
       if (operation.cancelled) {
+        if (queuedjob) await removequeuedjob(queuedjob.id);
         finishuploadbar(T(verifiedcount == null ? "toast.twlist.uploadstoppedunknown" : "toast.twlist.uploadstopped", verifiedcount));
         return {id: listid, added: verifiedcount, requested, cancelled: true};
       }
-      finishuploadbar(T("toast.twlist.failed"));
+      if (queuedjob) quotaqueuebar(queuedjob);
+      else finishuploadbar(T("toast.twlist.failed"));
       error.batchshown = true;
       throw error;
     } finally {
       if (listoperation === operation) listoperation = null;
       listuploading = false;
+      schedulequeuedjobs();
     }
   }
 
@@ -527,10 +792,11 @@
     const listid = folderlistid(folder);
     if (!listid) throw new Error("missing list id");
     if (listuploading) throw new Error("busy");
-    const operation = {cancelled: false, cancelrequest: null};
+    const operation = {cancelled: false, cancelrequest: null, accountid: String(tum.accountid || "unresolved")};
     listoperation = operation;
     listuploading = true;
     let done = 0, added = 0, removed = 0, totalchanges = 0;
+    let quotaPaused = false, queuedjob = null;
     try {
       renderuploadbar(0, 0, T("toast.twlist.syncchecking"), true);
       const wanted = await memberids(folder.members || [], operation);
@@ -541,16 +807,29 @@
       if (!remote) throw new Error("cancelled");
       const add = [...wanted.ids].filter(id => !remote.has(id));
       const remove = wanted.unresolved ? [] : [...remote].filter(id => !wanted.ids.has(id));
-      const changes = [...add.map(id => ({id, operation: LISTEP.addmember})), ...remove.map(id => ({id, operation: LISTEP.removemember}))];
+      const changes = [...remove.map(id => ({id, operation: LISTEP.removemember})), ...add.map(id => ({id, operation: LISTEP.addmember}))];
       totalchanges = changes.length;
       renderuploadbar(0, changes.length, T("toast.twlist.syncprogress", 0, changes.length), true);
       if (!changes.length) {
         finishuploadbar(T("toast.twlist.synced", 0, 0));
         return {added: 0, removed: 0, unresolved: wanted.unresolved};
       }
-      for (const change of changes) {
+      for (let index = 0; index < changes.length; index++) {
+        const change = changes[index];
         if (operation.cancelled) break;
-        const sent = await retrylistrequest(change.operation, {listId: listid, userId: change.id}, operation, wait => {
+        let sent = false;
+        if (change.operation === LISTEP.addmember) {
+          const result = await addlistmember(listid, change.id, operation, wait => {
+            renderuploadbar(done, changes.length, T("toast.twlist.ratelimitedwait", wait), true);
+          });
+          if (result.limited) {
+            quotaPaused = true;
+            const remaining = changes.slice(index).filter(item => item.operation === LISTEP.addmember).map(item => item.id);
+            queuedjob = await queueaddjob(listid, remaining, {name: folder.name, folderid: folder.id, total: add.length, completed: added, resumeat: result.resumeat, kind: "sync", accountid: operation.accountid});
+            break;
+          }
+          sent = result.sent;
+        } else sent = await retrylistrequest(change.operation, {listId: listid, userId: change.id}, operation, wait => {
           renderuploadbar(done, changes.length, T("toast.twlist.ratelimitedwait", wait), true);
         });
         if (!sent) break;
@@ -559,29 +838,35 @@
         renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
       }
       if (operation.cancelled) {
+        if (queuedjob) await removequeuedjob(queuedjob.id);
         finishuploadbar(T("toast.twlist.syncstopped", done));
         return {added, removed, unresolved: wanted.unresolved, cancelled: true};
       }
       renderuploadbar(done, changes.length, T("toast.twlist.syncprogress", done, changes.length));
       await refreshcurrentlist(listid);
-      finishuploadbar(T("toast.twlist.synced", added, removed));
-      return {added, removed, unresolved: wanted.unresolved};
+      if (quotaPaused && queuedjob) quotaqueuebar(queuedjob);
+      else finishuploadbar(T("toast.twlist.synced", added, removed));
+      return {added, removed, unresolved: wanted.unresolved, quotaPaused, queued: queuedjob && queuedjob.ids.length};
     } catch (error) {
       if (operation.cancelled) {
+        if (queuedjob) await removequeuedjob(queuedjob.id);
         finishuploadbar(T("toast.twlist.syncstopped", 0));
         return {added: 0, removed: 0, cancelled: true};
       }
       if (islistpermissionerror(error)) {
-        finishuploadbar(T("toast.twlist.syncdenied"));
+        if (queuedjob) quotaqueuebar(queuedjob);
+        else finishuploadbar(T("toast.twlist.syncdenied"));
         error.batchshown = true;
         throw error;
       }
-      finishuploadbar(T("toast.twlist.syncfailed"));
+      if (queuedjob) quotaqueuebar(queuedjob);
+      else finishuploadbar(T("toast.twlist.syncfailed"));
       error.batchshown = true;
       throw error;
     } finally {
       if (listoperation === operation) listoperation = null;
       listuploading = false;
+      schedulequeuedjobs();
     }
   }
 
@@ -590,7 +875,7 @@
     if (!listid) throw new Error("missing list id");
     if (listuploading) throw new Error("busy");
     listuploading = true;
-    try {await listrequest(LISTEP.delete, {listId: listid})}
+    try {await listrequest(LISTEP.delete, {listId: listid}); await removequeuedlist(listid).catch(() => {})}
     finally {listuploading = false}
   }
 
@@ -1113,9 +1398,12 @@
     uploadfolder, syncfolder, setlistprivacy, refreshcurrentlist, folderlistid, getlist, deletelist,
     init() {
       window.addEventListener("popstate", schedule);
+      window.addEventListener("tumaccountchange", schedulequeuedjobs);
+      window.addEventListener("focus", schedulequeuedjobs);
       new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
       schedule();
-      setTimeout(() => {try {resumescrape(); resumeapiimport()} catch {}}, 1500);
+      schedulequeuedjobs();
+      setTimeout(() => {try {resumescrape(); resumeapiimport(); schedulequeuedjobs()} catch {}}, 1500);
     }
   };
 })();

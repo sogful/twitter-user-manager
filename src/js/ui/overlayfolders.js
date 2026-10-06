@@ -247,6 +247,10 @@
 
   function navigatepath(path) {
     closeoverlay();
+    if (tum.sharepage) {
+      window.open("https://x.com" + path, "_blank", "noopener,noreferrer");
+      return;
+    }
     const id = "navigate-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
     let settled = false;
     const fallback = () => {

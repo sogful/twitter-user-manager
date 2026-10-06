@@ -78,6 +78,25 @@
   window.tum.accountprofile = DELEGATE || ACCT;
   const NS = ACCT ? "a" + ACCT + (DELEGATE ? ".d" + DELEGATE : "") + "." : "";
   let currentscope = NS;
+  const sharehost = location.hostname === "list.coolsite.cv";
+  let resolveaccountready;
+  const accountready = new Promise(resolve => {resolveaccountready = resolve});
+
+  if (sharehost && coolchromiumuser) {
+    chrome.storage.local.get(["tum.lastscope"], result => {
+      void chrome.runtime.lastError;
+      const scope = result && typeof result["tum.lastscope"] === "string" && /^a\d+(?:\.d[A-Za-z0-9_]+)?\.$/.test(result["tum.lastscope"])
+        ? result["tum.lastscope"] : "";
+      currentscope = scope;
+      const match = /^a(\d+)(?:\.d([A-Za-z0-9_]+))?\.$/.exec(scope);
+      window.tum.accountid = match ? match[1] : null;
+      window.tum.accountprofile = match && match[2] ? match[2] : window.tum.accountid;
+      window.dispatchEvent(new CustomEvent("tumaccountchange"));
+      resolveaccountready();
+    });
+  } else resolveaccountready();
+
+  if (ACCT && coolchromiumuser) chrome.storage.local.set({"tum.lastscope": NS}, () => void chrome.runtime.lastError);
 
   function scopestring(id, active, primary) {
     if (!id) return "";
@@ -85,6 +104,7 @@
     return "a" + id + delegate + ".";
   }
   function checkaccount() {
+    if (sharehost) return;
     const id = accountid();
     const active = activehandle();
     const primary = savedprimary(id);
@@ -95,6 +115,7 @@
     currentscope = scope;
     window.tum.accountid = id;
     window.tum.accountprofile = primary && active !== primary ? active : id;
+    if (coolchromiumuser) chrome.storage.local.set({"tum.lastscope": scope}, () => void chrome.runtime.lastError);
     window.dispatchEvent(new CustomEvent("tumaccountchange"));
   }
 
@@ -138,7 +159,8 @@
     let latestjson = "";
     function notify(v) {for (const cb of listeners) try {cb(v)} catch {}}
 
-    function get() {
+    async function get() {
+      await accountready;
       return new Promise(res => {
         const rk = storagekey();
         if (coolchromiumuser) {
@@ -152,19 +174,21 @@
     }
 
     function set(value) {
-      const rk = storagekey();
-      let copy = value;
-      try {copy = JSON.parse(JSON.stringify(value))} catch {}
-      if (!coolchromiumuser) {
-        try {localStorage.setItem(rk, JSON.stringify(copy))} catch {}
-        return Promise.resolve();
-      }
-      try {latestjson = JSON.stringify(copy)} catch {latestjson = ""}
-      pendingwrites++;
-      writequeue = writequeue.catch(() => {}).then(() => new Promise(res => {
-        chrome.storage.local.set({[rk]: copy}, () => {void chrome.runtime.lastError; pendingwrites--; res()});
-      }));
-      return writequeue;
+      return accountready.then(() => {
+        const rk = storagekey();
+        let copy = value;
+        try {copy = JSON.parse(JSON.stringify(value))} catch {}
+        if (!coolchromiumuser) {
+          try {localStorage.setItem(rk, JSON.stringify(copy))} catch {}
+          return;
+        }
+        try {latestjson = JSON.stringify(copy)} catch {latestjson = ""}
+        pendingwrites++;
+        writequeue = writequeue.catch(() => {}).then(() => new Promise(res => {
+          chrome.storage.local.set({[rk]: copy}, () => {void chrome.runtime.lastError; pendingwrites--; res()});
+        }));
+        return writequeue;
+      });
     }
 
     if (coolchromiumuser) {
@@ -191,4 +215,5 @@
 
   window.tum.storage = create("tum.folders");
   window.tum.storage.create = create;
+  window.tum.storage.accountready = accountready;
 })();
