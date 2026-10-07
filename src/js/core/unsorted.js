@@ -54,6 +54,7 @@
       sourceurl: user.sourceurl !== undefined ? user.sourceurl : (existing && existing.sourceurl) || null,
       reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
       badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
+      downloadedlistid: /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(user.downloadedlistid || "") ? user.downloadedlistid : (existing && existing.downloadedlistid) || null,
       placed: user.placed !== undefined ? user.placed : (typeof x === "number" || !existing || existing.placed !== false),
       cat: user.cat !== undefined ? user.cat : (existing && existing.cat) || null,
       pos: "px",

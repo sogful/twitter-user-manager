@@ -4,25 +4,40 @@
   window.tum = window.tum || {};
   window.tum.sharepage = true;
 
+  function label(button, value) {
+    const text = button.querySelector(".addlabel");
+    if (text) text.textContent = value;
+  }
+
   function attachbutton() {
     const button = document.getElementById("addtotum");
     if (!button || button.dataset.tumReady) return !!button;
     button.dataset.tumReady = "true";
-    button.disabled = false;
-    button.addEventListener("click", async () => {
+    button.href = location.pathname + location.search + "#add";
+    button.removeAttribute("target");
+    button.removeAttribute("rel");
+    button.addEventListener("click", async event => {
+      event.preventDefault();
       if (button.dataset.tumAdded) return;
-      button.disabled = true;
-      button.textContent = "Adding to Twitter User Manager…";
+      button.setAttribute("aria-disabled", "true");
+      button.classList.add("working");
+      label(button, "Adding to Twitter User Manager…");
+      history.replaceState(null, "", location.pathname + location.search + "#add");
       try {
+        await tum.overlay.mount();
         const data = JSON.parse(document.getElementById("listdata").textContent);
         await tum._ov.importsharedentry(data);
         button.dataset.tumAdded = "true";
-        button.textContent = "Added to Twitter User Manager";
+        button.setAttribute("aria-disabled", "true");
+        button.classList.remove("working");
+        button.classList.add("added");
+        label(button, "Added to Twitter User Manager");
         tum.overlay.open();
         hidexcontrols();
       } catch {
-        button.disabled = false;
-        button.textContent = "Couldn’t add to Twitter User Manager";
+        button.removeAttribute("aria-disabled");
+        button.classList.remove("working");
+        label(button, "Couldn’t add to Twitter User Manager");
       }
     });
     return true;

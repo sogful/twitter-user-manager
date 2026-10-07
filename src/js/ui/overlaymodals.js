@@ -111,21 +111,22 @@
       description: folder.description || "", icon: exporticon(folder.icon),
       scalex: folder.scalex || 1, scaley: folder.scaley || 1,
       cat: folder.cat || null,
+      downloadedlist: folder.downloadedlist || null,
       members: (folder.members || []).map(exportmember)
     };
   }
 
-  function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h}}
+  function exportcategory(category) {return {id: category.id, name: category.name, w: category.w, h: category.h, downloadedlist: category.downloadedlist || null}}
 
   function exportcategorydata(category) {
     return {
       category: exportcategory(category),
       folders: tum.folders.list().filter(folder => folder.cat === category.id).map(exportfolderdata),
-      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(exportloosemember)
+      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(member => Object.assign(exportloosemember(member), {downloadedlistid: member.downloadedlistid || null}))
     };
   }
 
-  function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false})}
+  function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false, downloadedlistid: member.downloadedlistid || null})}
 
   function exportdata() {
     downloadjson({version: 3, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
@@ -305,23 +306,39 @@
   const validshareid = id => /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(id || "");
   const validsharekey = key => /^[0-9a-f]{32}$/i.test(key || "");
   const hasshare = f => validshareid(f.sharedid) && validsharekey(f.sharedkey);
+  function downloadedmeta(value) {
+    if (!value || typeof value !== "object" || !validshareid(value.id) || !["folder", "category"].includes(value.type)) return null;
+    const result = {id: value.id, type: value.type, autosync: value.autosync === true};
+    if (typeof value.folderid === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(value.folderid)) result.folderid = value.folderid;
+    if (Number.isFinite(value.lastsync)) result.lastsync = value.lastsync;
+    return result;
+  }
+  async function collisionenabled() {
+    if (tum.settings && typeof tum.settings.get === "function") return !!tum.settings.get("nooverlap");
+    try {return !!(await tum.storage.create("tum.settings", {global: true}).get())?.nooverlap} catch {return false}
+  }
   const shareurl = f => hasshare(f) ? "https://list.coolsite.cv/" + f.sharedid : "";
+  function opensharetab(url) {
+    try {
+      chrome.runtime.sendMessage({type: "tumopenshare", url}, response => {
+        if (chrome.runtime.lastError || !response || !response.ok) window.open(url, "_blank", "noopener,noreferrer");
+      });
+    } catch {window.open(url, "_blank", "noopener,noreferrer")}
+  }
 
   function sharefolderdata(folder) {
     return Object.assign(exportfolderdata(folder), {x: folder.x, y: folder.y});
   }
   function sharecategorydata(category) {
     return {
-      name: category.name, x: category.x, y: category.y, w: category.w, h: category.h,
+      id: category.id, name: category.name, x: category.x, y: category.y, w: category.w, h: category.h,
       folders: tum.folders.list().filter(folder => folder.cat === category.id).map(sharefolderdata),
-      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(exportloosemember)
+      unsorted: tum.unsorted.list().filter(member => member.cat === category.id).map(member => Object.assign(exportloosemember(member), {x: member.x, y: member.y}))
     };
   }
   async function shareentry(item, type, sync = false, open = true) {
     const managed = hasshare(item);
     const id = managed ? item.sharedid : "";
-    const tab = open ? window.open("about:blank", "_blank") : null;
-    if (tab) tab.opener = null;
     const headers = {"content-type": "application/json"};
     if (managed) headers["x-list-key"] = item.sharedkey;
     const payload = type === "category"
@@ -331,14 +348,13 @@
     try {
       response = await fetch(shareendpoint + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", headers, body: JSON.stringify(payload)});
       data = await response.json();
-    } catch {if (tab) tab.close(); toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
-    if (!response.ok || !data || !data.url) {if (tab) tab.close(); toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
+    } catch {toast(sync ? T("toast.share.syncfailed") : T("toast.share.failed")); return}
+    if (!response.ok || !data || !data.url) {toast(data && data.error || (sync ? T("toast.share.syncfailed") : T("toast.share.failed"))); return}
     const patch = {sharedid: data.id, sharedkey: data.key || item.sharedkey, sharedpublished: true};
     if (type === "category") tum.categories.update(item.id, patch);
     else tum.folders.update(item.id, patch);
     if (sync) toast(T("toast.share.synced"));
-    else if (open && tab) tab.location.replace(data.url);
-    else if (open) window.open(data.url, "_blank", "noopener,noreferrer");
+    else if (open) opensharetab(data.url);
     return data.url;
   }
 
@@ -363,28 +379,175 @@
     await Promise.all([tum.folders.whenready(), tum.categories.whenready(), tum.unsorted.whenready()]);
     const zoom = O.zoom();
     const center = {x: (window.innerWidth / 2 - O.pan.x) / zoom, y: (window.innerHeight / 2 - O.pan.y) / zoom};
+    const sourceinfo = downloadedmeta(data && data.downloadedlist);
     if (data && data.type === "category" && data.category) {
       const source = data.category;
-      const category = tum.categories.create({name: source.name, w: source.w, h: source.h, x: center.x - source.w / 2, y: center.y - source.h / 2});
+      const scalew = Math.max(240, Number(source.w) || 480), scaleh = Math.max(180, Number(source.h) || 360);
+      let categoryx = center.x - scalew / 2, categoryy = center.y - scaleh / 2;
+      if (await collisionenabled() && O.nooverlapcategorybox) {
+        const adjusted = O.nooverlapcategorybox(categoryx, categoryy, scalew, scaleh);
+        categoryx = adjusted.left; categoryy = adjusted.top;
+      }
+      const categorymeta = sourceinfo && sourceinfo.type === "category" ? Object.assign({}, sourceinfo, {autosync: false}) : null;
+      const category = tum.categories.create({name: source.name, w: source.w, h: source.h, x: categoryx, y: categoryy, downloadedlist: categorymeta});
       const dx = category.x - (source.x || 0), dy = category.y - (source.y || 0);
       const folders = (data.folders || []).map(folder => {
-        const copy = Object.assign({}, folder, {cat: category.id, x: (folder.x || 0) + dx, y: (folder.y || 0) + dy});
+        const childmeta = categorymeta && /^[A-Za-z0-9_-]{1,80}$/.test(folder.id || "")
+          ? Object.assign({}, categorymeta, {folderid: folder.id}) : null;
+        const copy = Object.assign({}, folder, {cat: category.id, x: (folder.x || 0) + dx, y: (folder.y || 0) + dy, downloadedlist: childmeta});
         delete copy.id; delete copy.sharedid; delete copy.sharedkey; delete copy.sharedpublished; delete copy.twitterlist;
         copy.icon = importicon(copy.icon);
         return copy;
       });
       tum.folders.import(folders, false);
-      tum.unsorted.import((data.unsorted || []).map(member => Object.assign({}, member, {cat: category.id})), false);
+      tum.unsorted.import((data.unsorted || []).map(member => {
+        const copy = Object.assign({}, member, {cat: category.id, downloadedlistid: categorymeta ? categorymeta.id : null});
+        if (Number.isFinite(member.x)) copy.x = member.x + dx;
+        if (Number.isFinite(member.y)) copy.y = member.y + dy;
+        return copy;
+      }), false);
       return {type: "category", id: category.id};
     }
     const source = data && data.folder || data;
     if (!source || !Array.isArray(source.members)) throw new Error("shared folder unavailable");
-    const folder = Object.assign({}, source, {x: center.x - 130, y: center.y - 100, cat: null});
+    const scalex = Math.max(0.5, Math.min(2, Number(source.scalex) || 1));
+    const scaley = Math.max(0.5, Math.min(2, Number(source.scaley) || 1));
+    let folderx = center.x - 100 * scalex, foldery = center.y - 144 * scaley;
+    if (await collisionenabled() && O.nooverlapadjustbox) {
+      const adjusted = O.nooverlapadjustbox(folderx, foldery, 200 * scalex, 288 * scaley);
+      folderx = adjusted.left; foldery = adjusted.top;
+    }
+    const folder = Object.assign({}, source, {x: folderx, y: foldery, cat: null, downloadedlist: sourceinfo && sourceinfo.type === "folder" ? Object.assign({}, sourceinfo, {autosync: false}) : null});
     delete folder.id; delete folder.sharedid; delete folder.sharedkey; delete folder.sharedpublished; delete folder.twitterlist;
     folder.icon = importicon(folder.icon);
     const added = tum.folders.import([folder], false)[0];
     if (!added) throw new Error("shared folder unavailable");
     return {type: "folder", id: added.id};
+  }
+  function sourcefolder(data, metadata) {
+    if (!data) return null;
+    if (data.type === "category") return (data.folders || []).find(folder => folder.id === metadata.folderid) || null;
+    if (data.type === "folder") return data.folder || null;
+    return Array.isArray(data.members) ? data : null;
+  }
+  async function fetchdownloadsource(id) {
+    if (!validshareid(id)) throw new Error("download source unavailable");
+    const response = await fetch("https://list.coolsite.cv/" + id + ".json", {cache: "no-store"});
+    if (!response.ok) throw new Error("download source unavailable");
+    return response.json();
+  }
+  function updatefromsource(folder, source, metadata, position = null) {
+    if (!folder || !source || !Array.isArray(source.members)) return false;
+    const patch = {
+      name: source.name || folder.name,
+      action: source.action || null,
+      color: source.color || folder.color,
+      description: source.description || "",
+      icon: importicon(source.icon || ""),
+      scalex: source.scalex || 1,
+      scaley: source.scaley || 1,
+      members: source.members,
+      cat: folder.cat,
+      x: position && Number.isFinite(position.x) ? position.x : folder.x,
+      y: position && Number.isFinite(position.y) ? position.y : folder.y,
+      downloadedlist: Object.assign({}, metadata, {lastsync: Date.now()})
+    };
+    tum.folders.update(folder.id, patch);
+    return true;
+  }
+  function syncsourcecategory(category, data) {
+    if (!category || !data || data.type !== "category") return false;
+    const metadata = downloadedmeta(category.downloadedlist);
+    if (!metadata) return false;
+    const sourcecategory = data.category || {};
+    const savedmetadata = Object.assign({}, metadata, {lastsync: Date.now()});
+    tum.categories.update(category.id, {name: sourcecategory.name || category.name, w: sourcecategory.w || category.w, h: sourcecategory.h || category.h, downloadedlist: savedmetadata});
+    const sourcefolders = Array.isArray(data.folders) ? data.folders : [];
+    const sourceids = new Set(sourcefolders.map(folder => folder.id));
+    const localfolders = tum.folders.list().filter(folder => folder.cat === category.id && folder.downloadedlist && folder.downloadedlist.id === metadata.id && folder.downloadedlist.type === "category");
+    const bysourceid = new Map(localfolders.map(folder => [folder.downloadedlist.folderid, folder]));
+    for (const folder of localfolders) if (!sourceids.has(folder.downloadedlist.folderid)) tum.folders.remove(folder.id);
+    for (const source of sourcefolders) {
+      const childmeta = Object.assign({}, metadata, {folderid: source.id});
+      const position = {x: category.x + (Number(source.x) || 0) - (Number(sourcecategory.x) || 0), y: category.y + (Number(source.y) || 0) - (Number(sourcecategory.y) || 0)};
+      let target = bysourceid.get(source.id);
+      if (target) {
+        updatefromsource(target, source, childmeta, position);
+        bysourceid.delete(source.id);
+      } else {
+        const created = tum.folders.create(Object.assign({}, source, position, {cat: category.id, downloadedlist: childmeta, icon: importicon(source.icon)}));
+        target = created;
+      }
+    }
+    const sourceusers = Array.isArray(data.unsorted) ? data.unsorted : [];
+    const sourcehandles = new Set(sourceusers.map(member => String(member.handle || "").toLowerCase()));
+    for (const member of tum.unsorted.list()) if (member.cat === category.id && member.downloadedlistid === metadata.id && !sourcehandles.has(member.handle.toLowerCase())) tum.unsorted.remove(member.handle);
+    for (const member of sourceusers) {
+      const existing = tum.unsorted.get(member.handle);
+      const x = existing && existing.downloadedlistid === metadata.id ? existing.x : category.x + (Number(member.x) || 0) - (Number(sourcecategory.x) || 0);
+      const y = existing && existing.downloadedlistid === metadata.id ? existing.y : category.y + (Number(member.y) || 0) - (Number(sourcecategory.y) || 0);
+      tum.unsorted.add(Object.assign({}, member, {cat: category.id, downloadedlistid: metadata.id}), x, y);
+    }
+    return true;
+  }
+  async function syncdownloadedentry(item, type, quiet = false) {
+    const metadata = downloadedmeta(item && item.downloadedlist);
+    if (!metadata) return false;
+    try {
+      const data = await fetchdownloadsource(metadata.id);
+      let changed = false;
+      if (type === "category" && metadata.type === "category" && !metadata.folderid) changed = syncsourcecategory(item, data);
+      else if (type === "folder") changed = updatefromsource(tum.folders.get(item.id), sourcefolder(data, metadata), metadata);
+      if (!changed) throw new Error("download source no longer contains this entry");
+      if (!quiet) toast(T("toast.downloaded.syncdone", item.name || "list"));
+      return true;
+    } catch (error) {
+      if (!quiet) toast(error && error.message || T("toast.downloaded.syncfailed"));
+      return false;
+    }
+  }
+  function setdownloadedautosync(item, type) {
+    const metadata = downloadedmeta(item && item.downloadedlist);
+    if (!metadata) return false;
+    const patch = {downloadedlist: Object.assign({}, metadata, {autosync: !metadata.autosync})};
+    if (type === "category") tum.categories.update(item.id, patch);
+    else tum.folders.update(item.id, patch);
+    toast(T(patch.downloadedlist.autosync ? "toast.downloaded.autoon" : "toast.downloaded.autooff"));
+    return patch.downloadedlist.autosync;
+  }
+  async function claimdownloadsession(id) {
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage({type: "tumclaimdownloadsync", id}, response => {
+          if (chrome.runtime.lastError) {resolve(false); return}
+          resolve(!!(response && response.claimed));
+        });
+      } catch {resolve(false)}
+    });
+  }
+  async function syncdownloadedsession() {
+    const targets = [
+      ...tum.categories.list().filter(category => category.downloadedlist && category.downloadedlist.autosync).map(item => ({item, type: "category"})),
+      ...tum.folders.list().filter(folder => folder.downloadedlist && folder.downloadedlist.autosync).map(item => ({item, type: "folder"}))
+    ];
+    const groups = new Map();
+    for (const target of targets) {
+      const metadata = downloadedmeta(target.item.downloadedlist);
+      if (!metadata) continue;
+      if (!groups.has(metadata.id)) groups.set(metadata.id, []);
+      groups.get(metadata.id).push(target);
+    }
+    for (const [id, group] of groups) {
+      if (!await claimdownloadsession(id)) continue;
+      try {
+        const data = await fetchdownloadsource(id);
+        for (const target of group) {
+          const metadata = downloadedmeta(target.item.downloadedlist);
+          if (target.type === "category" && metadata.type === "category" && !metadata.folderid) syncsourcecategory(target.item, data);
+          else if (target.type === "folder") updatefromsource(tum.folders.get(target.item.id), sourcefolder(data, metadata), metadata);
+        }
+      } catch {}
+    }
   }
   function importintofolder(folder) {
     pickjson(data => {
@@ -424,7 +587,7 @@
         const adjusted = O.nooverlapadjustbox(x, y, 200 * scalex, 288 * scaley);
         x = adjusted.left; y = adjusted.top;
       }
-      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), scalex, scaley, x, y});
+      const created = tum.folders.create({id: f.id, name: f.name, action: f.action, color: f.color, description: f.description, icon: importicon(f.icon), scalex, scaley, x, y, downloadedlist: downloadedmeta(f.downloadedlist)});
       tum.folders.addmembers(created.id, members);
       state.open = true;
       render();
@@ -859,7 +1022,7 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, exportcategoryfile, sharefolder, unsharefolder, sharecategory, unsharecategory, importsharedentry, openconfirm,
+  Object.assign(O, {launchdestroyer, exportdata, importdata, exportfolder, exportcategoryfile, sharefolder, unsharefolder, sharecategory, unsharecategory, importsharedentry, syncdownloadedentry, setdownloadedautosync, syncdownloadedsession, openconfirm,
     shareurl, uploadfolderlist,
     opencreatemodal, openeditmodal, closemodal, savemodal,
     openmergepicker, closemergepicker,

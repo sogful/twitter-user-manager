@@ -351,7 +351,17 @@
   });
 
   window.tum.overlay = {
-    mount() {build()},
+    mount() {
+      build();
+      return new Promise(resolve => {
+        let checks = 0;
+        const ready = () => {
+          if (O.els && O.els.freeform || checks++ >= 240) {resolve(); return}
+          setTimeout(ready, 25);
+        };
+        ready();
+      });
+    },
     begindrag: (user, x, y) => O.begindrag(user, x, y, {type: "page"}),
     updatedrag: (x, y) => O.updatedrag(x, y),
     enddrag: (x, y) => O.enddrag(x, y),

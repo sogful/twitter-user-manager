@@ -1198,6 +1198,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumctxrow:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumctxdanger {color: #f4212e}
+.tumctxdivider {height: 1px; margin: 4px 12px; background: var(--tumborder,#2f3336)}
 .tumctxpanel {
   position: fixed; z-index: 8;
   min-width: 170px; max-width: 240px;
@@ -1228,6 +1229,7 @@ img {-webkit-user-drag: none; user-drag: none}
   text-decoration: underline; text-overflow: ellipsis;
   white-space: nowrap
 }
+.tumctxlink.tuminactive {color: var(--tummuted,#71767b);text-decoration: none;cursor: default;pointer-events: none}
 .tumctxpanel .tumctxrow {
   gap: 8px; padding: 6px 10px;
   font-size: 12px

@@ -1,6 +1,7 @@
 const ENDPOINT = "https://twt.boomlings.eu.org/?screenname=";
 const quotaqueues = new Map();
 const queuequeues = new Map();
+const downloadsyncclaimed = new Set();
 
 async function lookup(handle) {
   try {
@@ -63,6 +64,39 @@ async function breachlookup(handle) {
 */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.type === "tumopenshare" && sender.tab && sender.tab.url) {
+    let source, target;
+    try {
+      source = new URL(sender.tab.url);
+      target = new URL(msg.url);
+    } catch {}
+    if (source && target && source.protocol === "https:" && ["x.com", "www.x.com", "twitter.com", "www.twitter.com", "list.coolsite.cv"].includes(source.hostname)
+      && target.protocol === "https:" && target.hostname === "list.coolsite.cv" && /^\/[23456789abcdefghjkmnpqrstuvwxyz]{5}\/?$/i.test(target.pathname)) {
+      chrome.tabs.create({url: target.href, active: true}, tab => sendResponse({ok: !!tab && !chrome.runtime.lastError}));
+      return true;
+    }
+    sendResponse({ok: false});
+    return false;
+  }
+  if (msg && msg.type === "tumclaimdownloadsync" && sender.tab && sender.tab.url) {
+    let source;
+    try {source = new URL(sender.tab.url)} catch {}
+    if (!source || source.protocol !== "https:" || !["x.com", "www.x.com", "twitter.com", "www.twitter.com"].includes(source.hostname)
+      || !/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(msg.id || "")) {
+      sendResponse({claimed: false});
+      return false;
+    }
+    const key = "tum.downloadsync." + msg.id.toLowerCase();
+    if (downloadsyncclaimed.has(key)) {sendResponse({claimed: false}); return false}
+    downloadsyncclaimed.add(key);
+    if (!chrome.storage.session) {sendResponse({claimed: true}); return false}
+    chrome.storage.session.get([key], values => {
+      if (chrome.runtime.lastError) {sendResponse({claimed: true}); return}
+      if (values && values[key]) {sendResponse({claimed: false}); return}
+      chrome.storage.session.set({[key]: true}, () => sendResponse({claimed: !chrome.runtime.lastError}));
+    });
+    return true;
+  }
   if (msg && msg.type === "tumlistqueue" && sender.tab && /^https:\/\/(?:www\.)?(?:x|twitter)\.com\//i.test(sender.tab.url || "")) {
     const key = "tum.listaddqueue";
     const previous = queuequeues.get(key) || Promise.resolve();

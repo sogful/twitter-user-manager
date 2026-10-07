@@ -16,6 +16,13 @@
   const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {store.set(list)}
+  function downloadedmeta(value) {
+    if (!value || typeof value !== "object" || !/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(value.id || "") || !["folder", "category"].includes(value.type)) return null;
+    const result = {id: value.id, type: value.type, autosync: value.autosync === true};
+    if (typeof value.folderid === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(value.folderid)) result.folderid = value.folderid;
+    if (Number.isFinite(value.lastsync)) result.lastsync = value.lastsync;
+    return result;
+  }
 
   function makecategory(partial, ids) {
     const id = partial && partial.id && !ids.has(partial.id) ? partial.id : uid();
@@ -27,6 +34,7 @@
       y: partial && typeof partial.y === "number" ? partial.y : 120,
       w: partial && typeof partial.w === "number" ? partial.w : 480,
       h: partial && typeof partial.h === "number" ? partial.h : 360,
+      downloadedlist: downloadedmeta(partial && partial.downloadedlist),
       sharedid: partial && /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(partial.sharedid || "") ? partial.sharedid : "",
       sharedkey: partial && /^[0-9a-f]{32}$/i.test(partial.sharedkey || "") ? partial.sharedkey : "",
       sharedpublished: !partial || partial.sharedpublished !== false

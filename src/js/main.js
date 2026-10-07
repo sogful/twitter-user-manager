@@ -19,7 +19,6 @@
 
   function init() {
     if (tum.sharepage) {
-      safe("overlay", () => tum.overlay.mount());
       safe("sharebridge", () => tum.sharebridge.init());
       return;
     }

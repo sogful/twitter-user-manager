@@ -595,6 +595,7 @@
     state.open = true;
     showbackdrop();
     render();
+    if (!tum.sharepage && O.syncdownloadedsession) setTimeout(() => O.syncdownloadedsession(), 0);
   }
   function toggleoverlay() {
     if (state.drag || state.gesture) return;

@@ -24,6 +24,7 @@
   }
 
   function ctxrow(item) {
+    if (item.type === "divider") return el("div", "tumctxdivider");
     const row = el("button", "tumctxrow" + (item.danger ? " tumctxdanger" : ""));
     if (item.disabled) {
       row.disabled = true;
@@ -45,20 +46,20 @@
     title.textContent = item.label;
     panel.appendChild(title);
     if (item.href) {
-      const link = el("a", "tumctxlink");
+      const link = el("a", "tumctxlink" + (item.hrefinactive ? " tuminactive" : ""));
       link.href = item.href;
       if (!item.path) {
         link.target = "_blank";
         link.rel = "noopener noreferrer";
       }
-      if (item.disabled) {
+      if (item.disabled || item.hrefinactive) {
         link.setAttribute("aria-disabled", "true");
         link.tabIndex = -1;
       }
       link.textContent = item.href;
       link.addEventListener("click", event => {
         event.stopPropagation();
-        if (item.disabled) {event.preventDefault(); return}
+        if (item.disabled || item.hrefinactive) {event.preventDefault(); return}
         if (!item.path) return;
         event.preventDefault();
         closectx();
@@ -170,11 +171,27 @@
       type: "panel",
       label: T("menu.sharedlist"),
       href,
+      hrefinactive: !published,
       items: published ? [
         {label: T("menu.syncshare"), icon: ICONS.refresh, onclick: sync},
         {label: T("menu.unpublish"), icon: ICONS.trash, danger: true, onclick: unshare}
       ] : [
         {label: T("menu.republish"), icon: ICONS.upload, onclick: share}
+      ]
+    };
+  }
+  function downloadedpanel(item, type = "folder") {
+    const metadata = item && item.downloadedlist;
+    if (!metadata || !/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(metadata.id || "")) return null;
+    const sync = () => O.syncdownloadedentry(item, type);
+    const toggle = () => O.setdownloadedautosync(item, type);
+    return {
+      type: "panel",
+      label: T("menu.downloadedlist"),
+      href: "https://list.coolsite.cv/" + metadata.id,
+      items: [
+        {label: T("menu.syncdownloaded"), icon: ICONS.refresh, onclick: sync},
+        {label: T(metadata.autosync ? "menu.autosync.off" : "menu.autosync.on"), icon: ICONS.check, onclick: toggle}
       ]
     };
   }
@@ -241,15 +258,22 @@
     const list = listid && listknown && liststate.exists ? twitterlistpanel(folder, liststate.private) : null;
     const listpending = listid && !listknown ? twitterlistpanel(folder, true, true) : null;
     const share = sharedpanel(folder);
+    const downloaded = downloadedpanel(folder);
+    const createuser = !tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: folder.id})}] : [];
+    const twactions = [
+      ...(!share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
+      ...(!tum.sharepage && listknown && !list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : [])
+    ];
     return [
+      ...createuser,
+      ...(createuser.length ? [{type: "divider"}] : []),
       {label: T("menu.edit"), icon: ICONS.pencil, onclick: () => O.openeditmodal(folder)},
       ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(folder.members || [])}] : []),
-      ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "folder", id: folder.id})}] : []),
       {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportfolder(folder)},
       {label: T("menu.merge"), icon: ICONS.folder, onclick: () => O.openmergepicker(folder)},
-      ...(!share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharefolder(folder)}] : []),
-      ...(!tum.sharepage && listknown && !list ? [{label: T("menu.uploadtwlist"), icon: ICONS.upload, onclick: () => O.uploadfolderlist(folder)}] : []),
+      ...(twactions.length ? [{type: "divider"}, ...twactions, {type: "divider"}] : []),
       {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmfolderdelete(folder)},
+      ...(downloaded ? [downloaded] : []),
       ...(share ? [share] : []),
       ...(list ? [list] : listpending ? [listpending] : [])
     ];
@@ -277,19 +301,10 @@
       oklabel: T("confirm.selection.publish.ok"),
       positive: true,
       onok: async () => {
-        const tabs = entries.map(() => {
-          const tab = window.open("about:blank", "_blank");
-          if (tab) tab.opener = null;
-          return tab;
-        });
         for (let index = 0; index < entries.length; index++) {
           const entry = entries[index];
-          const url = entry.type === "category"
-            ? await O.sharecategory(entry.data, false, false)
-            : await O.sharefolder(entry.data, false, false);
-          if (url && tabs[index]) tabs[index].location.replace(url);
-          else if (url) window.open(url, "_blank", "noopener,noreferrer");
-          else if (tabs[index]) tabs[index].close();
+          if (entry.type === "category") await O.sharecategory(entry.data);
+          else await O.sharefolder(entry.data);
         }
       }
     });
@@ -378,20 +393,27 @@
       const category = tum.categories.get(id);
       if (!category) {closectx(); return}
       const share = sharedpanel(category, "category");
+      const downloaded = downloadedpanel(category, "category");
+      const createitems = [
+        ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}] : []),
+        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal({cat: id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}
+      ];
       items = [
+        ...createitems,
+        {type: "divider"},
         {label: T("menu.rename"), icon: ICONS.pencil, onclick: () => O.renamecategory(id)},
         ...(!tum.sharepage ? [{label: T("menu.refreshdata"), icon: ICONS.refresh, onclick: () => refreshdata(categorymembers(category))}] : []),
         {label: T("menu.export"), icon: ICONS.download, onclick: () => O.exportcategoryfile(category)},
-        ...(!share ? [{label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharecategory(category)}] : []),
+        ...(!share ? [{type: "divider"}, {label: T("menu.share"), icon: ICONS.upload, onclick: () => O.sharecategory(category)}, {type: "divider"}] : []),
         {label: T("menu.delete"), icon: ICONS.trash, danger: true, onclick: () => O.confirmcategorydelete(category)},
-        ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "category", id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}] : []),
         ...(share ? [share] : []),
-        {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal({cat: id, cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}
+        ...(downloaded ? [downloaded] : [])
       ];
     } else {
       items = [
         ...(!tum.sharepage ? [{label: T("menu.newuser"), icon: ICONS.plus, onclick: () => newuser({type: "canvas", cx: (event.clientX - O.pan.x) / O.zoom(), cy: (event.clientY - O.pan.y) / O.zoom()})}] : []),
         {label: T("menu.newfolder"), icon: ICONS.folder, onclick: () => O.opencreatemodal()},
+        {type: "divider"},
         {label: T("menu.newcategory"), icon: ICONS.category, onclick: () => O.newcategory(event.clientX, event.clientY)},
         {label: T("menu.import"), icon: ICONS.upload, onclick: () => O.importdata()}
       ];

@@ -32,6 +32,13 @@
     if (typeof value !== "number" || !Number.isFinite(value)) return 1;
     return Math.min(2, Math.max(0.5, Math.round(value * 4) / 4));
   }
+  function downloadedmeta(value) {
+    if (!value || typeof value !== "object" || !/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(value.id || "") || !["folder", "category"].includes(value.type)) return null;
+    const result = {id: value.id, type: value.type, autosync: value.autosync === true};
+    if (typeof value.folderid === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(value.folderid)) result.folderid = value.folderid;
+    if (Number.isFinite(value.lastsync)) result.lastsync = value.lastsync;
+    return result;
+  }
 
   function emit() {for (const cb of listeners) try {cb(list.slice())} catch {}}
   function persist() {tum.storage.set(list)}
@@ -56,6 +63,7 @@
         const id = typeof list === "string" ? list : list && list.id;
         return /^\d+$/.test(String(id || "")) ? {id: String(id), private: !(list && list.private === false)} : null;
       })(),
+      downloadedlist: downloadedmeta(partial.downloadedlist),
       pos: "px",
       x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
       y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
