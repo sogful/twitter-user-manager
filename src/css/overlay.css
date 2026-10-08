@@ -624,6 +624,7 @@ img {-webkit-user-drag: none; user-drag: none}
   width: 1em; height: 1em; display: inline-block;
   vertical-align: -0.15em; object-fit: contain
 }
+.tumnameemoji[data-tumlazy], .tumiconemoji[data-tumlazy] {visibility:hidden}
 .tumbadge svg {fill: currentColor}
 .tumbadgeverified {color: #1d9bf0}
 .tumbadgeblue {color: #1d9bf0}

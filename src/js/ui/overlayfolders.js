@@ -2,6 +2,77 @@
   const O = window.tum._ov;
   const scope = O.scope;
   with (scope) {
+  const pendingfolderimages = new Set();
+  const folderimageobserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      const image = entry.target;
+      if (entry.isIntersecting && folderimageinview(image) && root && root.classList.contains("tumactive")) loadfolderimage(image);
+    }
+  });
+
+  function loadfolderimage(image) {
+    if (!image.isConnected) {
+      folderimageobserver.unobserve(image);
+      pendingfolderimages.delete(image);
+      return;
+    }
+    const source = image.dataset.tumlazy;
+    if (!source) return;
+    image.removeAttribute("data-tumlazy");
+    image.dataset.tumloadedurl = source;
+    image.loading = "eager";
+    image.src = source;
+    folderimageobserver.unobserve(image);
+    pendingfolderimages.delete(image);
+  }
+
+  function observefolderimages(container) {
+    for (const image of container.querySelectorAll("img[data-tumlazy]")) {
+      if (pendingfolderimages.has(image)) continue;
+      image.loading = "lazy";
+      image.decoding = "async";
+      pendingfolderimages.add(image);
+      folderimageobserver.observe(image);
+    }
+  }
+
+  function folderimageinview(image) {
+    const rect = image.getBoundingClientRect();
+    let left = 0, top = 0, right = window.innerWidth, bottom = window.innerHeight;
+    if (!rect.width || !rect.height || rect.right <= left || rect.bottom <= top || rect.left >= right || rect.top >= bottom) return false;
+    for (let node = image.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      if (style.overflowX !== "visible") {
+        const bounds = node.getBoundingClientRect();
+        left = Math.max(left, bounds.left);
+        right = Math.min(right, bounds.right);
+      }
+      if (style.overflowY !== "visible") {
+        const bounds = node.getBoundingClientRect();
+        top = Math.max(top, bounds.top);
+        bottom = Math.min(bottom, bounds.bottom);
+      }
+      if (node === root) break;
+    }
+    return rect.right > left && rect.left < right && rect.bottom > top && rect.top < bottom;
+  }
+
+  function loadvisiblefolderimages() {
+    if (!root || !root.classList.contains("tumactive")) return;
+    for (const image of [...pendingfolderimages]) {
+      if (!image.isConnected) {
+        folderimageobserver.unobserve(image);
+        pendingfolderimages.delete(image);
+      }
+    }
+    for (const image of [...pendingfolderimages]) if (folderimageinview(image)) loadfolderimage(image);
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) loadvisiblefolderimages();
+  });
+
   function memberhasbadge(member, type) {
     const badges = Array.isArray(member.badges) ? member.badges : [];
     const verifiedtype = String(member.verifiedtype || "").toLowerCase();
@@ -149,7 +220,7 @@
       <div class="tumfolderhead">
         <div class="tumfoldertitle">
           <div class="tumfoldericoncol">
-            ${f.icon ? `<span class="tumfolderactionicon">${iconhtml(f.icon)}</span>` : ""}
+            ${f.icon ? `<span class="tumfolderactionicon">${iconhtml(f.icon, true)}</span>` : ""}
             <span class="tumfoldercount">${splitcount(members.length)}</span>
           </div>
           <div class="tumfoldertitlelines">
@@ -180,6 +251,7 @@
       <div class="tumfolderresize tumfolderresizesw" data-edge="sw"></div>
       <div class="tumfolderresize tumfolderresizese" data-edge="se"></div>
     `;
+    observefolderimages(node);
     const list = node.querySelector(".tumfolderlist");
     if (!members.length) {
       list.appendChild(el("div", "tumfolderempty", allmembers.length ? T("folder.filter.empty") : T("folder.empty")));
@@ -200,6 +272,7 @@
         list.replaceChildren(...visible.map(member => buildmemberrow(src, member)));
         if (query && !visible.length) {
           list.appendChild(el("div", "tumfolderempty", T("folder.search.empty")));
+          if (root && root.classList.contains("tumactive")) loadvisiblefolderimages();
           return;
         }
         if (!query && members.length > shown) {
@@ -212,6 +285,7 @@
           });
           list.appendChild(more);
         }
+        if (root && root.classList.contains("tumactive")) loadvisiblefolderimages();
       };
       node._tumfiltermembers = value => {
         query = (value || "").trim().toLowerCase();
@@ -341,11 +415,11 @@
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
-      <img class="tumfoldermemberavatar" src="${miniavatarurl(m.avatarurl)}">
+      <img class="tumfoldermemberavatar" alt="">
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
-          <span class="tumcopy tumfoldermembername"><span class="tummqinner">${emojihtml(m.displayname || m.handle)}</span></span>
-          ${badgeshtml(m.badges, m)}
+          <span class="tumcopy tumfoldermembername"><span class="tummqinner">${emojihtml(m.displayname || m.handle, true)}</span></span>
+          ${badgeshtml(m.badges, m, true)}
           ${m.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
         <span class="tumcopy tumfoldermemberhandle" data-copy="@${escapehtml(m.handle)}">@${escapehtml(m.handle)}${unfindable ? " (" + T("user.unfindable") + ")" : ""}</span>
@@ -357,6 +431,7 @@
     wireaffiliatebadges(row);
     hidebrokenavatar(row, source, m);
     wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
+    observefolderimages(row);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       O.openreasonview(source, m);
@@ -380,11 +455,11 @@
     chip.style.background = tum.theme.css();
     chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
-      <img class="tumloosechipavatar" src="${miniavatarurl(u.avatarurl)}">
+      <img class="tumloosechipavatar" alt="">
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
-          <span class="tumcopy tumloosechipname"><span class="tummqinner">${emojihtml(u.displayname || u.handle)}</span></span>
-          ${badgeshtml(u.badges, u)}
+          <span class="tumcopy tumloosechipname"><span class="tummqinner">${emojihtml(u.displayname || u.handle, true)}</span></span>
+          ${badgeshtml(u.badges, u, true)}
           ${u.reason ? `<span class="tumreasonbadge">${ICONS.pencil}</span>` : ""}
         </div>
         <span class="tumcopy tumloosechiphandle" data-copy="@${escapehtml(u.handle)}">@${escapehtml(u.handle)}${unfindable ? " · " + T("user.unfindable") : ""}</span>
@@ -396,6 +471,7 @@
     wireaffiliatebadges(chip);
     hidebrokenavatar(chip, {type: "unsorted"}, u);
     wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
+    observefolderimages(chip);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
       O.openreasonview({type: "unsorted"}, u);
@@ -410,9 +486,12 @@
 
   function hidebrokenavatar(container, source, user) {
     for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
-      if (!img.getAttribute("src")) img.src = DEFAULT_AVATAR;
+      const avatar = miniavatarurl(user.avatarurl) || DEFAULT_AVATAR;
+      img.dataset.tumlazy = avatar;
+      img.dataset.tumloadedurl = avatar;
       img.addEventListener("error", () => {
-        if (img.src === DEFAULT_AVATAR) return;
+        if (img.dataset.tumloadedurl === DEFAULT_AVATAR) return;
+        img.dataset.tumloadedurl = DEFAULT_AVATAR;
         img.src = DEFAULT_AVATAR;
         if (source && source.type === "folder") tum.folders.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
         else if (source && source.type === "unsorted") tum.unsorted.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
@@ -550,6 +629,6 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-    Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, navigatepath, openprofile, wireavatar, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover});
+  Object.assign(scope, {memberhasbadge, normalizedsort, sortedmembers, closefolderfilters, folderfilterbutton, folderfilternode, positionfolderfilters, refreshfolderfilters, ensurefolderfilters, openfolderfilters, buildfoldernode, navigatepath, openprofile, wireavatar, loadvisiblefolderimages, clearaffiliatetooltip, showaffiliatetooltip, wireaffiliatebadges, buildmemberrow, buildloosechip, hidebrokenavatar, wirecopy, formatusercount, formatuserdate, userhoverperday, appenduserhovertext, appenduserhoverinfo, appenduserhoverrelation, clearuserhover, hideuserhover, placeuserhover, showuserhover, wireuserhover});
   }
 })();

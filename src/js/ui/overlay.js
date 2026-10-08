@@ -88,7 +88,7 @@
     d.textContent = s == null ? "" : s;
     return d.innerHTML;
   }
-  function emojihtml(value) {
+  function emojihtml(value, deferred = false) {
     const text = value == null ? "" : String(value);
     const parts = typeof Intl !== "undefined" && Intl.Segmenter ? [...new Intl.Segmenter(undefined, {granularity: "grapheme"}).segment(text)].map(x => x.segment) : Array.from(text);
     return parts.map(part => {
@@ -96,7 +96,9 @@
       if (!emoji && !/[\u{1F1E6}-\u{1F1FF}]/u.test(part)) return escapehtml(part);
       const points = [...part].map(c => c.codePointAt(0).toString(16));
       const id = (part.includes("\u200d") ? points : points.filter(c => c !== "fe0f")).join("-");
-      return `<img class="tumnameemoji" draggable="false" alt="${escapehtml(part)}" src="https://abs.twimg.com/emoji/v2/svg/${id}.svg">`;
+      const source = `https://abs.twimg.com/emoji/v2/svg/${id}.svg`;
+      const imagereference = deferred ? `data-tumlazy="${source}"` : `src="${source}"`;
+      return `<img class="tumnameemoji" draggable="false" alt="${escapehtml(part)}" ${imagereference}>`;
     }).join("");
   }
   function linkify(text) {
@@ -116,7 +118,7 @@
     try {return chrome.runtime.getURL(path)} catch {return "../../" + path}
   }
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
-  function badgeshtml(badges, user) {
+  function badgeshtml(badges, user, deferred = false) {
     function presetvalue(badge) {
       if (typeof badge !== "string") return null;
       if (/^(verified|blue|verifiedbusiness|verifiedgovernment|verifiedaffiliate|translator|translatorunbadged|translatormod|protected)$/.test(badge)) return badge;
@@ -177,7 +179,9 @@
         : icons[iconvalue];
       return `<span class="${classes.join(" ")}">${icon}</span>`;
     }).join("");
-    const linked = affiliation ? `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(affiliation.handle)}" aria-label="@${escapehtml(affiliation.handle)}"><img src="${escapehtml(miniavatarurl(affiliation.avatarurl))}" alt=""></button>` : "";
+    const affiliateimage = affiliation ? escapehtml(miniavatarurl(affiliation.avatarurl)) : "";
+    const affiliatereference = deferred ? `data-tumlazy="${affiliateimage}"` : `src="${affiliateimage}"`;
+    const linked = affiliation ? `<button type="button" class="tumaffbadge" data-affiliatehandle="${escapehtml(affiliation.handle)}" aria-label="@${escapehtml(affiliation.handle)}"><img ${affiliatereference} alt=""></button>` : "";
     return standard || linked ? `<span class="tumbadges">${standard}${linked}</span>` : "";
   }
   function readablefg(hex) {
@@ -192,9 +196,13 @@
     const h = Math.ceil(s.length / 2);
     return s.slice(0, h) + "<br>" + s.slice(h);
   }
-  function iconhtml(icon) {
+  function iconhtml(icon, deferred = false) {
     if (!icon) return "";
-    if (icon.startsWith("emoji:")) return `<img class="tumiconemoji" src="${tum.iconpicker.emojiurl(icon.slice(6))}">`;
+    if (icon.startsWith("emoji:")) {
+      const source = tum.iconpicker.emojiurl(icon.slice(6));
+      const imagereference = deferred ? `data-tumlazy="${source}"` : `src="${source}"`;
+      return `<img class="tumiconemoji" ${imagereference}>`;
+    }
     if (icon.endsWith(".svg")) return tum.iconpicker.svgfor(icon.startsWith("/") ? "assets/svgs" + icon : icon);
     return escapehtml(icon);
   }
@@ -221,8 +229,10 @@
     if (document.getElementById("tum-host")) return;
     host = document.createElement("div");
     host.id = "tum-host";
+    scope.host = host;
     document.documentElement.appendChild(host);
     shadow = host.attachShadow({mode: "open"});
+    scope.shadow = shadow;
     loadcss().then(buildmarkup);
   }
 
@@ -372,6 +382,7 @@
 
   function buildmarkup() {
     root = el("div", "tumroot");
+    scope.root = root;
     O.root = root;
     loadmarkup().then(html => {
       root.innerHTML = html;
@@ -571,6 +582,9 @@
   function showbackdrop() {
     applytheme();
     root.classList.add("tumactive");
+    const loadvisible = () => {if (scope.loadvisiblefolderimages) scope.loadvisiblefolderimages()};
+    loadvisible();
+    setTimeout(loadvisible, 220);
     schedulemarquees([els.freeform]);
   }
   function hidebackdrop() {
