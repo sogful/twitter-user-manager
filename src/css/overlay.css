@@ -426,7 +426,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfolderfilters {
   position: fixed; z-index: 10;
   display: flex; flex-direction: column;
-  gap: 4px; width: 88px; max-width: calc(100vw - 16px);
+  gap: 4px; width: 96px; max-width: calc(100vw - 16px);
   max-height: min(60vh,320px); padding: 4px 2px;
   overflow: auto; pointer-events: auto;
   background: var(--tumpanel,#131313); border: 0;
@@ -438,7 +438,7 @@ img {-webkit-user-drag: none; user-drag: none}
 
 .tumfolderfilteroptions {display: flex; flex-direction: column}
 .tumfolderfilterbadges {
-  display: grid; grid-template-columns: repeat(3,28px);
+  display: grid; grid-template-columns: repeat(3,30px);
   justify-content: start;
 }
 .tumfolderfilteroption {
@@ -462,7 +462,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldersortoption .tumfolderchoicebox {border-radius: 50%}
 .tumfolderbadgeoption {
   justify-content: flex-start; gap: 2px;
-  width: 28px; height: 24px;
+  width: 30px; height: 24px;
   min-height: 0; padding: 0;
   border-radius: 5px
 }

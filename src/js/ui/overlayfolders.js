@@ -126,7 +126,7 @@
     if (!button) return;
     const buttonrect = button.getBoundingClientRect();
     const menu = els.folderfilters;
-    menu.style.width = Math.max(0, Math.min(foldernode.offsetWidth / 2, window.innerWidth - 16)) + "px";
+    menu.style.width = Math.min(window.innerWidth - 16, Math.max(96, foldernode.offsetWidth / 2)) + "px";
     const width = menu.offsetWidth, height = menu.offsetHeight;
     const stickleft = rect.right + width > window.innerWidth - 8;
     const left = stickleft ? Math.max(8, rect.left - width) : rect.right;
@@ -561,14 +561,16 @@
     else remove();
   }
   function placeuserhover(row, card) {
-    const folder = row.closest(".tumfolder");
-    const source = folder || row;
-    const rect = source.getBoundingClientRect();
-    const width = folder ? folder.offsetWidth : Math.max(160, source.offsetWidth);
-    const cardheight = card.offsetHeight * zoom;
-    const left = rect.right + width * zoom <= window.innerWidth - 8 ? rect.right : Math.max(8, rect.left - width * zoom);
-    const top = Math.min(Math.max(8, row.getBoundingClientRect().top), Math.max(8, window.innerHeight - cardheight - 8));
-    card.style.width = width + "px";
+    card.style.width = "max-content";
+    card.style.maxWidth = Math.min(320, (window.innerWidth - 16) / zoom) + "px";
+    const bounds = row.getBoundingClientRect();
+    const cardbounds = card.getBoundingClientRect();
+    const width = cardbounds.width;
+    const height = cardbounds.height;
+    const right = bounds.right + 4;
+    const proposed = right + width <= window.innerWidth - 8 ? right : bounds.left - width - 4;
+    const left = Math.max(8, Math.min(proposed, window.innerWidth - width - 8));
+    const top = Math.min(Math.max(8, bounds.top), Math.max(8, window.innerHeight - height - 8));
     card.style.left = (left - pan.x) / zoom + "px";
     card.style.top = (top - pan.y) / zoom + "px";
   }

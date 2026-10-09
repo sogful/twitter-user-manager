@@ -367,8 +367,9 @@
     try {response = await fetch(shareendpoint + "/" + item.sharedid, {method: "DELETE", headers: {"x-list-key": item.sharedkey}})}
     catch {toast(T("toast.share.unpublishfailed")); return}
     if (!response.ok) {toast(T("toast.share.unpublishfailed")); return}
-    if (type === "category") tum.categories.update(item.id, {sharedpublished: false});
-    else tum.folders.update(item.id, {sharedpublished: false});
+    const patch = {sharedid: "", sharedkey: "", sharedpublished: true};
+    if (type === "category") tum.categories.update(item.id, patch);
+    else tum.folders.update(item.id, patch);
     toast(T("toast.share.unpublished"));
   }
   function unsharefolder(folder) {return unshareentry(folder, "folder")}
