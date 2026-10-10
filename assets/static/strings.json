@@ -8,7 +8,7 @@
   "action.block": "Block",
   "action.confirm.body": "This will %s all %s imported users in the background. This might cause rate limits and temporarily break follows/blocks on your account.",
   "action.confirm.ok": "%s all",
-  "action.confirm.single.body": "This folder will %s @%s.",
+  "action.confirm.single.body": "You are about to %s @%s.",
   "action.confirm.single.title": "%s @%s?",
   "action.confirm.title": "%s %s people?",
   "action.label.block": "Block",
