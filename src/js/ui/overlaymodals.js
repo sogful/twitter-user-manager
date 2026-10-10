@@ -911,7 +911,6 @@
       title: T("confirm.twlist.title", folder.name || T("folder.unnamed")),
       body: T("confirm.twlist.body", folder.name || T("folder.unnamed"), members.length),
       oklabel: T("confirm.twlist.ok"),
-      positive: true,
       onok: async () => {
         if (!tum.lists || typeof tum.lists.uploadfolder !== "function") {toast(T("toast.twlist.failed")); return}
         try {

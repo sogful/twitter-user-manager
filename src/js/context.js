@@ -146,7 +146,6 @@
         title: T("confirm.refresh.title", users.length),
         body: T("confirm.refresh.body", users.length),
         oklabel: T("confirm.refresh.ok"),
-        positive: true,
         onok: start
       });
     } else start();
@@ -299,7 +298,6 @@
       title: T("confirm.selection.publish.title", entries.length),
       body: T("confirm.selection.publish.body"),
       oklabel: T("confirm.selection.publish.ok"),
-      positive: true,
       onok: async () => {
         for (let index = 0; index < entries.length; index++) {
           const entry = entries[index];
