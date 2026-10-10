@@ -1172,11 +1172,18 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   const pendingstore = tum.storage.create("tum.listpendingimport");
-  function startscrapefallback(listid, folderid, name, expected) {
-    try {pendingstore.set({listid, folderid, name, expected, ts: Date.now()})} catch {}
+  async function startscrapefallback(listid, folderid, name, expected) {
+    try {await importstore.set(null)} catch {}
+    try {await pendingstore.set({listid, folderid, name, expected, ts: Date.now()})} catch {}
     removebar();
     try {tum.overlay.toast(T("import.fallback"))} catch {}
-    location.href = "/i/lists/" + listid + "/members";
+    const path = "/i/lists/" + listid + "/members";
+    if (!tum.overlay || typeof tum.overlay.navigatepath !== "function" || !await tum.overlay.navigatepath(path)) {
+      try {await pendingstore.set(null)} catch {}
+      try {tum.overlay.toast(T("toast.twlist.failed"))} catch {}
+      return;
+    }
+    await resumescrape();
   }
   async function resumescrape() {
     let p;

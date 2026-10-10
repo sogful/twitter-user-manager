@@ -918,10 +918,7 @@
             onstart: () => closeoverlay(),
             oncreated: result => {
               tum.folders.update(folder.id, {twitterlist: {id: result.id, private: true}});
-              try {
-                history.pushState({}, "", "/i/lists/" + encodeURIComponent(result.id));
-                window.dispatchEvent(new PopStateEvent("popstate"));
-              } catch {}
+              tum.overlay.navigatepath("/i/lists/" + encodeURIComponent(result.id));
             }
           });
         } catch (error) {

@@ -367,6 +367,7 @@
     enddrag: (x, y) => O.enddrag(x, y),
     canceldrag: () => O.canceldrag(),
     toast, notifyfolderadd,
+    navigatepath: path => O.navigatepath(path),
     open: () => openoverlay(),
     canvascenter: () => ({x: Math.round((window.innerWidth / 2 - pan.x) / zoom), y: Math.round((window.innerHeight / 2 - pan.y) / zoom)}),
     opencreatemodal: opts => O.opencreatemodal(opts),
