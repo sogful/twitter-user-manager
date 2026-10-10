@@ -368,10 +368,13 @@
     hidesource(user.dimtargets);
     recordhidden(user.handle, user.dimtargets);
 
-    const DEFAULT_AVATAR = "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
-    O.els.chipavatar.onerror = () => {if (O.els.chipavatar.src !== DEFAULT_AVATAR) O.els.chipavatar.src = DEFAULT_AVATAR};
+    const defaultavatar = O.defaultavatarimage || "https://abs.twimg.com/sticky/default_profile_images/default_profile_0_mini.png";
+    const sourceavatar = O.avatarurl(user.avatarurl);
+    const isdefaultavatar = !sourceavatar || /(?:^|\/)default_profile(?:_0)?_(?:mini|normal|bigger|x96|reasonably_small)\.png(?:[?#]|$)/i.test(sourceavatar);
+    const avatar = isdefaultavatar ? defaultavatar : O.miniavatarurl(sourceavatar) || defaultavatar;
+    O.els.chipavatar.onerror = () => {if (O.els.chipavatar.src !== defaultavatar) O.els.chipavatar.src = defaultavatar};
     O.els.chipavatar.style.visibility = "visible";
-    O.els.chipavatar.src = O.miniavatarurl(user.avatarurl) || DEFAULT_AVATAR;
+    O.els.chipavatar.src = avatar;
     O.els.chipname.innerHTML = O.emojihtml(user.displayname || user.handle);
     O.els.chiphandle.textContent = "@" + user.handle;
     O.els.chipbadges.innerHTML = O.badgeshtml(user.badges, user);

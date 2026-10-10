@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitter user manager",
-  "version": "2.20999",
+  "version": "2.209999",
   "description": "sort and get additional info for accounts!",
   "author": "cv",
   "homepage_url": "https://coolsite.cv",
@@ -98,7 +98,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/css/overlay.css", "src/css/page.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/static/strings.json", "assets/svgs/*/*.svg", "assets/images/*.png", "desktopdestroyer/*"],
+      "resources": ["src/css/overlay.css", "src/css/page.css", "src/html/overlay.html", "assets/fonts/*.woff2", "assets/static/icons.json", "assets/static/emoji.json", "assets/static/strings.json", "assets/svgs/*/*.svg", "assets/images/*.png", "assets/images/*.svg", "desktopdestroyer/*"],
       "matches": ["https://x.com/*", "https://twitter.com/*", "https://list.coolsite.cv/*"]
     }
   ]

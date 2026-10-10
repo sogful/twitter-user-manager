@@ -562,7 +562,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
 .tumfoldermemberavatar {
   width: calc(24px * var(--tumfolderuiscale,1)); height: calc(24px * var(--tumfolderuiscale,1));
-  border-radius: 50%; object-fit: cover;
+  border: 0; border-radius: 50%; outline: 0; object-fit: cover; background: #15202b;
   flex-shrink: 0
 }
 .tumfoldermembertext, .tumloosechipinfo {
@@ -734,7 +734,7 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumloosechipavatar {
   width: 40px; height: 40px;
-  border-radius: 50%; object-fit: cover;
+  border: 0; border-radius: 50%; outline: 0; object-fit: cover; background: #15202b;
   flex-shrink: 0
 }
 .tumloosechipname {
@@ -837,7 +837,7 @@ img {-webkit-user-drag: none; user-drag: none}
 .tumroot.tumdragging .tumchip {display: flex}
 .tumchipavatar {
   width: 40px; height: 40px;
-  border-radius: 50%; object-fit: cover
+  border: 0; border-radius: 50%; outline: 0; object-fit: cover; background: #15202b
 }
 .tumchipinfo {
   flex: 1; display: flex;

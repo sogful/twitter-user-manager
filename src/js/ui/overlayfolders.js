@@ -489,13 +489,15 @@
 
   function hidebrokenavatar(container, source, user) {
     for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
-      const avatar = miniavatarurl(user.avatarurl) || DEFAULT_AVATAR;
+      const sourceavatar = avatarurl(user.avatarurl);
+      const isdefault = !sourceavatar || /(?:^|\/)default_profile(?:_0)?_(?:mini|normal|bigger|x96|reasonably_small)\.png(?:[?#]|$)/i.test(sourceavatar);
+      const avatar = isdefault ? defaultavatarimage || DEFAULT_AVATAR : miniavatarurl(sourceavatar);
       img.dataset.tumlazy = avatar;
       img.dataset.tumloadedurl = avatar;
       img.addEventListener("error", () => {
-        if (img.dataset.tumloadedurl === DEFAULT_AVATAR) return;
-        img.dataset.tumloadedurl = DEFAULT_AVATAR;
-        img.src = DEFAULT_AVATAR;
+        if (img.dataset.tumloadedurl === defaultavatarimage) return;
+        img.dataset.tumloadedurl = defaultavatarimage;
+        img.src = defaultavatarimage;
         if (source && source.type === "folder") tum.folders.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
         else if (source && source.type === "unsorted") tum.unsorted.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
       }, {once: true});

@@ -117,6 +117,7 @@
   function svgasseturl(path) {
     try {return chrome.runtime.getURL(path)} catch {return "../../" + path}
   }
+  scope.defaultavatarimage = svgasseturl("assets/images/default-avatar.svg");
   function badgeflag(value) {return value === true || value === 1 || String(value || "").toLowerCase() === "true"}
   function badgeshtml(badges, user, deferred = false) {
     function presetvalue(badge) {
