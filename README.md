@@ -4,6 +4,8 @@
 drag any profile picture or name to bring up an overlay where you can create folders and categories to add users into.<br>
 you might also run into a new <img width="20" src=".github/folder.png"> icon, present in most lists of users on the site, click it to import them as a folder!
 <br><br>
+if you want to share your folders/categories with others, consider using the **Share** option in the context menu to upload it to <a href="https://list.coolsite.cv">list.coolsite.cv</a>, or **Upload as a Twitter list** to try and upload ~150 users/day into a real list, though, as you can tell by the user count, it's really limited server-side.
+<br><br>
 as for the user info, some is pulled from twitter's new about menu (for location/installation info), along with:
 <ul>
   <li>memory.lol (<a href="https://archive.org/details/twitterstream">username history before 2021</a>),</li>
