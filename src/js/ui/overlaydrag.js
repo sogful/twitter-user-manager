@@ -260,6 +260,7 @@
       if (state.drag || state.gesture) return;
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest(".tumfoldermemberremove, .tumloosechipremove, .tumreasonbadge, .tumaffbadge")) return;
+      if (O.startmembergroupdrag && O.startmembergroupdrag(e, source, m)) return;
       if (source && source.type === "unsorted" && O.startselectiondrag && O.startselectiondrag(row, e)) return;
       const startx = e.clientX, starty = e.clientY;
       const pointerid = e.pointerId;
@@ -296,6 +297,54 @@
       document.addEventListener("pointerup", up);
       document.addEventListener("pointercancel", up);
     });
+  }
+
+  function startmembergroupdrag(event, source, user) {
+    const ownkey = source.type === "folder"
+      ? "member:" + source.id + ":" + String(user.handle || "").toLowerCase()
+      : "user:" + String(user.handle || "").toLowerCase();
+    if (event.button !== 0 || !state.selection || !state.selection.has(ownkey) || state.selection.size < 2) return false;
+    const selected = O.selecteditems ? O.selecteditems() : [];
+    if (selected.length < 2 || selected.some(item => item.type !== "user" && item.type !== "foldermember")) return false;
+    if (source.type !== "folder" && !selected.some(item => item.type === "foldermember")) return false;
+    const group = selected.map(item => ({
+      data: {...item.data, badges: item.data.badges || []},
+      source: item.type === "foldermember" ? {type: "folder", id: item.folderid} : {type: "unsorted"}
+    }));
+    if (!group.some(item => item.source.type === source.type
+      && (source.type !== "folder" || item.source.id === source.id)
+      && String(item.data.handle || "").toLowerCase() === String(user.handle || "").toLowerCase())) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const startx = event.clientX, starty = event.clientY, pointerid = event.pointerId;
+    state.gesture = {kind: "membergroup", pointerid};
+    let dragging = false;
+    const move = ev => {
+      if (!state.gesture || state.gesture.pointerid !== pointerid || ev.pointerId !== pointerid) return;
+      if (!dragging && Math.hypot(ev.clientX - startx, ev.clientY - starty) < userthreshold) return;
+      if (!dragging) {
+        dragging = true;
+        begindrag({...user, badges: user.badges || []}, ev.clientX, ev.clientY, source, group);
+      }
+      updatedrag(ev.clientX, ev.clientY);
+    };
+    const finish = ev => {
+      if (!state.gesture || state.gesture.pointerid !== pointerid || ev.pointerId !== pointerid) return;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", finish);
+      document.removeEventListener("pointercancel", finish);
+      state.gesture = null;
+      if (dragging && ev.type === "pointercancel") O.canceldrag();
+      else if (dragging) {
+        enddrag(ev.clientX, ev.clientY);
+        ev.preventDefault();
+        ev.stopPropagation();
+      } else clearselection();
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", finish);
+    document.addEventListener("pointercancel", finish);
+    return true;
   }
 
   /*//////////////////////////////////////////////////////////////////////*/
@@ -359,10 +408,10 @@
     return "";
   }
 
-  function begindrag(user, x, y, source) {
+  function begindrag(user, x, y, source, group) {
     O.clearuserhover();
     if (!user.reason) user.reason = notefor(user.handle);
-    state.drag = {kind: "user", user, source: source || {type: "page"}};
+    state.drag = {kind: "user", user, source: source || {type: "page"}, group: group || null};
     state.open = false;
     setfollowbutton(detectfollowing(user.handle) === true ? "unfollow" : "follow");
     hidesource(user.dimtargets);
@@ -382,6 +431,7 @@
     O.els.chipreason.style.display = user.reason ? "" : "none";
 
     O.els.chip.style.background = tum.theme.css();
+    O.els.chip.classList.toggle("tumfolderdragchip", !!(source && source.type === "folder"));
     O.els.chip.style.setProperty("--tumfg", tum.theme.fg());
     O.root.classList.add("tumdragging");
     showbackdrop();
@@ -520,8 +570,9 @@
   function updatedrag(x, y) {
     if (!state.drag) {stopedge(); return}
     movechip(x, y);
-    const zone = quickzone(x, y);
-    const act = actionbtnunderpoint(x, y);
+    const grouped = state.drag.group && state.drag.group.length > 1;
+    const zone = grouped ? null : quickzone(x, y);
+    const act = grouped ? null : actionbtnunderpoint(x, y);
     const target = (zone || act) ? null : foldertargetunderpoint(x, y);
     for (const n of O.foldernodes || []) {
       n.classList.toggle("tumover", !!target && target.zone === "body" && n.dataset.id === target.id);
@@ -549,12 +600,61 @@
     else if (source.type === "unsorted") tum.unsorted.remove(handle);
   }
 
+  function finishmembergroupdrop(group, target, act, zone, x, y) {
+    if (target && target.zone === "body") {
+      const folder = tum.folders.get(target.id);
+      if (folder) {
+        tum.folders.movegroupmembers(folder.id, group);
+        tum.unsorted.removegroup(group.filter(item => item.source.type === "unsorted").map(item => item.data.handle));
+        O.clearselection();
+        if (!O.keepopen()) {render(); closeoverlay(); return}
+      }
+      state.open = true;
+      showbackdrop();
+      render();
+      return;
+    }
+    if (!target && !act && !zone) {
+      const unique = new Map();
+      for (const item of group) {
+        const key = String(item.data.handle || "").toLowerCase();
+        if (key && !unique.has(key)) unique.set(key, item);
+      }
+      const items = [...unique.values()];
+      const columns = Math.max(1, Math.ceil(Math.sqrt(items.length)));
+      const centerx = (x - pan.x) / O.zoom();
+      const centery = (y - pan.y) / O.zoom();
+      const nooverlap = !!(tum.settings && tum.settings.get("nooverlap"));
+      const users = items.map((item, index) => {
+        const col = index % columns, row = Math.floor(index / columns);
+        const px = centerx + (col - (columns - 1) / 2) * 220;
+        const py = centery + (row - (Math.ceil(items.length / columns) - 1) / 2) * 70;
+        const drop = O.categorydrop(item.data.cat || null, px, py, 200, 58);
+        let left = drop.x - 100, top = drop.y - 29;
+        if (nooverlap) {
+          const adjusted = O.nooverlapadjustbox(left, top, 200, 58, null);
+          left = adjusted.left;
+          top = adjusted.top;
+        }
+        return {data: Object.assign({}, item.data, {cat: drop.cat, placed: true}), x: left + 100, y: top + 29};
+      });
+      tum.folders.removegroupmembers(group);
+      tum.unsorted.movegroup(users);
+      O.clearselection();
+      state.open = true;
+      render();
+      return;
+    }
+    state.open = true;
+    render();
+  }
+
   function enddrag(x, y) {
     stopedge();
     O.categoryhover(null);
     if (!state.drag) return;
 
-    const {user, source} = state.drag;
+    const {user, source, group} = state.drag;
     const act = actionbtnunderpoint(x, y);
     const zone = act ? null : quickzone(x, y);
     const target = (act || zone) ? null : foldertargetunderpoint(x, y);
@@ -562,6 +662,7 @@
     const dragchiprect = O.els.chip.getBoundingClientRect();
     O.root.classList.remove("tumdragging");
     state.drag = null;
+    O.els.chip.classList.remove("tumfolderdragchip");
 
     for (const n of O.foldernodes || []) n.classList.remove("tumover", "tumoverremove");
     O.els.toolclose.classList.remove("tumdiscardover");
@@ -570,6 +671,11 @@
     O.els.quickadd.classList.remove("tumover");
     O.els.quickdelete.classList.remove("tumover");
     O.els.quickreason.classList.remove("tumover");
+
+    if (group && group.length > 1) {
+      finishmembergroupdrop(group, target, act, zone, x, y);
+      return;
+    }
 
     if (act === "destroy") {
       O.launchdestroyer(user);
@@ -666,12 +772,13 @@
     O.els.toolgear.classList.remove("tumsettingsover");
     for (const b of O.els.actionbtns) b.classList.remove("tumover");
     O.root.classList.remove("tumdragging");
+    O.els.chip.classList.remove("tumfolderdragchip");
     state.drag = null;
     state.gesture = null;
     hidebackdrop();
     render();
   }
 
-  Object.assign(O, {attachfolderresize, attachfolderdrag, attachmemberdrag, begindrag, updatedrag, enddrag, canceldrag, mergefolders, restorehidden, removefromsource, schedulerestoreall});
+  Object.assign(O, {attachfolderresize, attachfolderdrag, attachmemberdrag, startmembergroupdrag, begindrag, updatedrag, enddrag, canceldrag, mergefolders, restorehidden, removefromsource, schedulerestoreall});
 
 })();

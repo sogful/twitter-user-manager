@@ -158,7 +158,7 @@
       reason: user.reason !== undefined ? user.reason : (existing && existing.reason) || "",
       badges: cleanbadges(Array.isArray(user.badges) ? user.badges : (existing && existing.badges)),
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "protected", "unfindable", "pending"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "protected", "unfindable", "avatarstale", "pending"]) {
       const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
       if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }
@@ -251,6 +251,41 @@
       persist();
       emit();
       return added;
+    },
+    movegroupmembers(id, entries) {
+      const target = list.find(folder => folder.id === id);
+      if (!target || !Array.isArray(entries)) return 0;
+      if (!Array.isArray(target.members)) target.members = [];
+      const moving = entries.filter(item => item && item.data && item.data.handle
+        && !(item.source && item.source.type === "folder" && item.source.id === id));
+      for (const item of moving) {
+        const key = item.data.handle.toLowerCase();
+        const existing = target.members.find(member => member.handle.toLowerCase() === key);
+        for (const folder of list) if (folder.id !== id && item.source && item.source.type === "folder" && folder.id === item.source.id) {
+          folder.members = (folder.members || []).filter(member => member.handle.toLowerCase() !== key);
+        }
+        target.members = target.members.filter(member => member.handle.toLowerCase() !== key);
+        target.members.unshift(mergedmember(existing, item.data));
+      }
+      if (moving.length) {persist(); emit()}
+      return moving.length;
+    },
+    removegroupmembers(entries) {
+      const handles = new Map();
+      for (const item of entries || []) if (item && item.source && item.source.type === "folder" && item.data && item.data.handle) {
+        const values = handles.get(item.source.id) || new Set();
+        values.add(item.data.handle.toLowerCase());
+        handles.set(item.source.id, values);
+      }
+      let changed = false;
+      for (const [id, keys] of handles) {
+        const folder = list.find(item => item.id === id);
+        if (!folder || !Array.isArray(folder.members)) continue;
+        const next = folder.members.filter(member => !keys.has(member.handle.toLowerCase()));
+        if (next.length !== folder.members.length) {folder.members = next; changed = true}
+      }
+      if (changed) {persist(); emit()}
+      return changed;
     },
     removemember(id, handle) {
       const f = list.find(x => x.id === id);

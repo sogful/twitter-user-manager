@@ -333,11 +333,13 @@
       catch {return {ok: false, status: 0, data: null}}
     }
     function parsed(response) {return response && response.ok ? profilefromresult(finduser(response.data, {n: 30000})) : null}
+    let handlemissing = false;
     if (byhandle) {
       const response = await query(byhandle);
       if (response && response.status === 429) return {ok: false, retry: true, missing: false, rateLimitReset: response.rateLimitReset};
       const user = parsed(response);
       if (user && (!member.userid || String(user.userid) === String(member.userid))) return {ok: true, user};
+      handlemissing = !!(response && response.status === 404);
     }
     if (byid) {
       const response = await query(byid);
@@ -350,7 +352,7 @@
       if (refreshed && String(refreshed.userid) === String(user.userid)) return {ok: true, user: refreshed};
       return {ok: true, user};
     }
-    return {ok: false, retry: false, missing: true};
+    return {ok: false, retry: false, missing: handlemissing};
   }
   function saveprofile(oldhandle, user) {
     const members = [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()];
@@ -370,7 +372,7 @@
       const key = badge && typeof badge === "object" ? "affiliation" : String(badge);
       badges.set(key, badge);
     }
-    const refreshed = Object.assign({}, user, badges.size ? {badges: [...badges.values()]} : {});
+    const refreshed = Object.assign({}, user, {avatarstale: !user.avatarurl && existing.some(member => member.avatarurl)}, badges.size ? {badges: [...badges.values()]} : {});
     const folders = tum.folders.refreshmember(oldhandle, refreshed);
     const unsorted = tum.unsorted.refreshmember(oldhandle, refreshed);
     return folders || unsorted;
@@ -394,18 +396,25 @@
     });
   }
   function markunfindable(member) {
-    const user = {handle: member.handle, userid: member.userid, unfindable: true};
+    const key = String(member.handle || "").toLowerCase();
+    const existing = [...tum.folders.list().flatMap(folder => folder.members || []), ...tum.unsorted.list()].find(item => member.userid && item.userid
+      ? String(item.userid) === String(member.userid)
+      : String(item.handle || "").toLowerCase() === key);
+    const user = {handle: member.handle, userid: member.userid, unfindable: true, avatarstale: !!(existing && existing.avatarurl)};
     tum.folders.refreshmember(member.handle, user);
     tum.unsorted.refreshmember(member.handle, user);
   }
   const pendingenrichment = new Set();
-  async function enrichprofile(handle) {
+  async function enrichprofile(handle, userid) {
     const key = String(handle || "").toLowerCase();
     if (!key || pendingenrichment.has(key)) return;
     pendingenrichment.add(key);
-    const result = await requestprofile({handle});
-    if (result.ok) saveprofile(handle, result.user);
-    pendingenrichment.delete(key);
+    try {
+      const result = await requestprofile({handle, userid});
+      if (result.ok) saveprofile(handle, result.user);
+      else if (result.missing) markunfindable({handle, userid});
+      return result;
+    } finally {pendingenrichment.delete(key)}
   }
   window.tum.accountdata = {enrich: enrichprofile, refresh: startrefresh};
   function storedprofile(data) {

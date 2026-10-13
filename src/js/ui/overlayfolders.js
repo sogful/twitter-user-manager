@@ -416,11 +416,12 @@
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
     row.dataset.folderid = source.id;
+    const avatarwrap = "tumfoldermemberavatarwrap";
     const unfindable = m.unfindable === true;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
     row.innerHTML = `
-      <img class="tumfoldermemberavatar" alt="">
+      <span class="tumavatarwrap ${avatarwrap}"><img class="tumfoldermemberavatar" alt=""><button type="button" class="tumavatarrefresh" aria-label="${escapehtml(T("menu.refreshdata"))}">${ICONS.refresh}</button></span>
       <div class="tumfoldermembertext">
         <div class="tumfoldermembernamerow">
           <span class="tumcopy tumfoldermembername"><span class="tummqinner">${emojihtml(m.displayname || m.handle, true)}</span></span>
@@ -434,8 +435,9 @@
     wirecopy(row);
     wireuserhover(row, m);
     wireaffiliatebadges(row);
-    hidebrokenavatar(row, source, m);
+    hidebrokenavatar(row, m);
     wireavatar(row.querySelector(".tumfoldermemberavatar"), source, m);
+    wireavatarrefresh(row, m);
     observefolderimages(row);
     if (m.reason) row.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
@@ -452,6 +454,7 @@
   function buildloosechip(u) {
     const chip = el("div", "tumloosechip");
     chip.dataset.handle = u.handle;
+    const avatarwrap = "tumloosechipavatarwrap";
     const unfindable = u.unfindable === true;
     if (unfindable) chip.classList.add("tumunfindable");
     if (isdragged({type: "unsorted"}, u.handle)) chip.style.visibility = "hidden";
@@ -460,7 +463,7 @@
     chip.style.background = tum.theme.css();
     chip.style.setProperty("--tumfg", tum.theme.fg());
     chip.innerHTML = `
-      <img class="tumloosechipavatar" alt="">
+      <span class="tumavatarwrap ${avatarwrap}"><img class="tumloosechipavatar" alt=""><button type="button" class="tumavatarrefresh" aria-label="${escapehtml(T("menu.refreshdata"))}">${ICONS.refresh}</button></span>
       <div class="tumloosechipinfo">
         <div class="tumloosechipnamerow">
           <span class="tumcopy tumloosechipname"><span class="tummqinner">${emojihtml(u.displayname || u.handle, true)}</span></span>
@@ -474,8 +477,9 @@
     wirecopy(chip);
     wireuserhover(chip, u);
     wireaffiliatebadges(chip);
-    hidebrokenavatar(chip, {type: "unsorted"}, u);
+    hidebrokenavatar(chip, u);
     wireavatar(chip.querySelector(".tumloosechipavatar"), {type: "unsorted"}, u);
+    wireavatarrefresh(chip, u);
     observefolderimages(chip);
     if (u.reason) chip.querySelector(".tumreasonbadge").addEventListener("click", e => {
       e.stopPropagation();
@@ -489,7 +493,7 @@
     return chip;
   }
 
-  function hidebrokenavatar(container, source, user) {
+  function hidebrokenavatar(container, user) {
     for (const img of container.querySelectorAll(".tumfoldermemberavatar, .tumloosechipavatar")) {
       const sourceavatar = avatarurl(user.avatarurl);
       const isdefault = !sourceavatar || /(?:^|\/)default_profile(?:_0)?_(?:mini|normal|bigger|x96|reasonably_small)\.png(?:[?#]|$)/i.test(sourceavatar);
@@ -497,14 +501,31 @@
       if (!img.hasAttribute("src")) img.src = transparentavatar;
       img.dataset.tumlazy = avatar;
       img.dataset.tumloadedurl = avatar;
+      const wrap = img.closest(".tumavatarwrap");
+      if (wrap && user.avatarstale && !isdefault) wrap.classList.add("tumavatarstale");
       img.addEventListener("error", () => {
-        if (img.dataset.tumloadedurl === defaultavatarimage) return;
-        img.dataset.tumloadedurl = defaultavatarimage;
-        img.src = defaultavatarimage;
-        if (source && source.type === "folder") tum.folders.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
-        else if (source && source.type === "unsorted") tum.unsorted.refreshmember(user.handle, {handle: user.handle, avatarurl: DEFAULT_AVATAR});
+        if (img.dataset.tumloadedurl === defaultavatarimage || isdefault) return;
+        if (wrap) wrap.classList.add("tumavatarstale");
       }, {once: true});
     }
+  }
+  function wireavatarrefresh(container, user) {
+    const button = container.querySelector(".tumavatarrefresh");
+    if (!button) return;
+    button.addEventListener("pointerdown", event => {event.preventDefault(); event.stopPropagation()});
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!tum.accountdata || typeof tum.accountdata.enrich !== "function" || button.disabled) return;
+      button.disabled = true;
+      const wrap = button.closest(".tumavatarwrap");
+      if (wrap) wrap.classList.add("tumavatarrefreshing");
+      Promise.resolve(tum.accountdata.enrich(user.handle, user.userid)).finally(() => {
+        if (!button.isConnected) return;
+        button.disabled = false;
+        if (wrap) wrap.classList.remove("tumavatarrefreshing");
+      });
+    });
   }
   function wirecopy(container) {
     for (const t of container.querySelectorAll(".tumcopy")) {

@@ -308,10 +308,11 @@
     root.addEventListener("wheel", onwheel, {passive: false});
     root.addEventListener("pointerdown", e => {if (e.button === 1) {e.preventDefault(); e.stopPropagation(); startcamerapan(e)}}, true);
     bd.addEventListener("mousedown", e => {if (e.button === 1) e.preventDefault()});
-    bd.addEventListener("pointerdown", e => {
+    const beginselection = (e, host, closeonempty) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      try {bd.setPointerCapture(e.pointerId)} catch {}
+      e.stopPropagation();
+      try {host.setPointerCapture(e.pointerId)} catch {}
       const ctxwasdismissed = O._ctxdismiss;
       O._ctxdismiss = false;
       const startx = e.clientX, starty = e.clientY;
@@ -358,23 +359,29 @@
       const finish = ev => {
         if (!state.gesture || state.gesture.pointerid !== e.pointerId) return;
         if (scrollframe) cancelAnimationFrame(scrollframe);
-        bd.removeEventListener("pointermove", move);
-        bd.removeEventListener("pointerup", finish);
-        bd.removeEventListener("pointercancel", finish);
-        try {bd.releasePointerCapture(e.pointerId)} catch {}
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", finish);
+        document.removeEventListener("pointercancel", finish);
+        try {host.releasePointerCapture(e.pointerId)} catch {}
         state.gesture = null;
         els.selectionbox.hidden = true;
         if (selecting && ev.type === "pointerup") selectinrect(startx, starty, ev.clientX, ev.clientY, prior);
         else if (selecting) setselection(prior);
         else if (!ctxwasdismissed && ev.type === "pointerup") {
           if (state.selection.size) clearselection();
-          else closeoverlay();
+          else if (closeonempty) closeoverlay();
         }
       };
-      bd.addEventListener("pointermove", move);
-      bd.addEventListener("pointerup", finish);
-      bd.addEventListener("pointercancel", finish);
-    });
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", finish);
+      document.addEventListener("pointercancel", finish);
+    };
+    bd.addEventListener("pointerdown", e => beginselection(e, bd, true));
+    root.addEventListener("pointerdown", e => {
+      const category = e.target.closest && e.target.closest(".tumcategory");
+      if (!category || e.target.closest(".tumcategorytitle, .tumfolder, .tumloosechip, .tumcatresize")) return;
+      beginselection(e, category, false);
+    }, true);
   }
 
   function setupscrolllock() {

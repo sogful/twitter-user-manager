@@ -279,10 +279,36 @@
     const nooverlap = !!(tum.settings && tum.settings.get("nooverlap"));
     const fixedcategories = nooverlap ? (O.categorynodes || []).filter(item => !movingcategorynodes.has(item)).map(O.scope.rectof) : [];
     const fixedobjects = nooverlap ? [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(item => !movingobjectnodes.has(item)).map(O.scope.rectof) : [];
-    const findgroupoffset = (items, obstacles, dx, dy) => {
+    const obstacleindex = obstacles => {
+      const cellsize = 384, cells = new Map();
+      for (const obstacle of obstacles) {
+        const minx = Math.floor(obstacle.left / cellsize), maxx = Math.floor((obstacle.left + obstacle.w) / cellsize);
+        const miny = Math.floor(obstacle.top / cellsize), maxy = Math.floor((obstacle.top + obstacle.h) / cellsize);
+        for (let x = minx; x <= maxx; x++) for (let y = miny; y <= maxy; y++) {
+          const key = x + ":" + y;
+          const bucket = cells.get(key) || [];
+          bucket.push(obstacle);
+          cells.set(key, bucket);
+        }
+      }
+      return {cellsize, cells};
+    };
+    const nearbyobstacles = (index, box, dx, dy) => {
+      const size = index.cellsize;
+      const minx = Math.floor((box.left + dx) / size), maxx = Math.floor((box.left + dx + box.w) / size);
+      const miny = Math.floor((box.top + dy) / size), maxy = Math.floor((box.top + dy + box.h) / size);
+      const nearby = new Set();
+      for (let x = minx; x <= maxx; x++) for (let y = miny; y <= maxy; y++) {
+        const bucket = index.cells.get(x + ":" + y);
+        if (bucket) for (const obstacle of bucket) nearby.add(obstacle);
+      }
+      return nearby;
+    };
+    const categoryindex = obstacleindex(fixedcategories), objectindex = obstacleindex(fixedobjects);
+    const findgroupoffset = (items, index, dx, dy) => {
       for (const item of items) {
         const box = item.box;
-        for (const other of obstacles) {
+        for (const other of nearbyobstacles(index, box, dx, dy)) {
           const overlapx = Math.min(box.left + dx + box.w, other.left + other.w) - Math.max(box.left + dx, other.left);
           const overlapy = Math.min(box.top + dy + box.h, other.top + other.h) - Math.max(box.top + dy, other.top);
           if (overlapx <= 0 || overlapy <= 0) continue;
@@ -295,10 +321,10 @@
     };
     const resolvegroupoffset = (dx, dy) => {
       if (!nooverlap) return {dx, dy};
-      for (let pass = 0; pass < 20; pass++) {
-        const categoryoffset = findgroupoffset(categories, fixedcategories, dx, dy);
+      for (let pass = 0; pass < 80; pass++) {
+        const categoryoffset = findgroupoffset(categories, categoryindex, dx, dy);
         if (categoryoffset) {dx = categoryoffset.dx; dy = categoryoffset.dy}
-        const objectoffset = findgroupoffset([...folders.values(), ...users.values()], fixedobjects, dx, dy);
+        const objectoffset = findgroupoffset([...folders.values(), ...users.values()], objectindex, dx, dy);
         if (objectoffset) {dx = objectoffset.dx; dy = objectoffset.dy}
         if (!categoryoffset && !objectoffset) break;
       }
@@ -313,6 +339,7 @@
       return {dx, dy};
     };
     historybegin();
+    let queuedmove = null, moveraf = 0;
     const move = moveevent => {
       if (!state.gesture || state.gesture.pointerid !== pointerid || moveevent.pointerId !== pointerid) return;
       if (!dragging && Math.hypot(moveevent.clientX - startx, moveevent.clientY - starty) < THRESHOLD) return;
@@ -322,10 +349,18 @@
         root.classList.add("tumfolderdragging");
         for (const item of movingnodes) item.node.classList.add("tumdragactive");
       }
-      place(moveevent);
+      queuedmove = moveevent;
+      if (!moveraf) moveraf = requestAnimationFrame(() => {
+        moveraf = 0;
+        if (queuedmove && state.gesture && state.gesture.pointerid === pointerid) place(queuedmove);
+        queuedmove = null;
+      });
     };
     const finish = upevent => {
       if (!state.gesture || state.gesture.pointerid !== pointerid || upevent.pointerId !== pointerid) return;
+      if (moveraf) cancelAnimationFrame(moveraf);
+      moveraf = 0;
+      queuedmove = null;
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", finish);
       document.removeEventListener("pointercancel", finish);
@@ -389,7 +424,10 @@
       return node;
     });
     O.foldernodes = tum.folders.list().map(folder => {
-      const dragging = state.drag && state.drag.source && state.drag.source.type === "folder" && state.drag.source.id === folder.id ? state.drag.user.handle : "";
+      const grouped = state.drag && Array.isArray(state.drag.group)
+        ? state.drag.group.filter(item => item.source.type === "folder" && item.source.id === folder.id).map(item => item.data.handle.toLowerCase()).sort().join(",")
+        : "";
+      const dragging = grouped || (state.drag && state.drag.source && state.drag.source.type === "folder" && state.drag.source.id === folder.id ? state.drag.user.handle : "");
       const signature = rendersignature(folder, dragging + (folder.icon ? "|icon:" + iconhtml(folder.icon) : ""));
       const old = folders.get(folder.id);
       let node = old;
@@ -407,7 +445,8 @@
     });
     for (const user of tum.unsorted.list()) if (user.placed !== false) {
       const key = (user.handle || "").toLowerCase();
-      const dragging = state.drag && state.drag.source && state.drag.source.type === "unsorted" && (state.drag.user.handle || "").toLowerCase() === key ? "dragging" : "";
+      const grouped = state.drag && Array.isArray(state.drag.group) && state.drag.group.some(item => item.source.type === "unsorted" && item.data.handle.toLowerCase() === key);
+      const dragging = grouped || state.drag && state.drag.source && state.drag.source.type === "unsorted" && (state.drag.user.handle || "").toLowerCase() === key ? "dragging" : "";
       const signature = rendersignature(user, dragging);
       let node = loose.get(key);
       if (force || !node || node._tumsignature !== signature) {node = buildloosechip(user); node._tumsignature = signature; changed.push(node)}
@@ -426,6 +465,14 @@
 
   let marqueeraf = 0;
   const marqueeroots = new Set();
+  const marqueeresize = new ResizeObserver(entries => {
+    const targets = [];
+    for (const entry of entries) {
+      if (entry.target.isConnected) targets.push(entry.target);
+      else marqueeresize.unobserve(entry.target);
+    }
+    schedulemarquees(targets);
+  });
   function schedulemarquees(nodes) {
     for (const node of nodes || []) if (node) marqueeroots.add(node);
     if (marqueeraf) return;
@@ -438,6 +485,7 @@
         for (const outer of node.querySelectorAll(".tumfoldername, .tumfolderdesc, .tumfoldermembername, .tumloosechipname")) targets.add(outer);
       }
       marqueeroots.clear();
+      for (const outer of targets) marqueeresize.observe(outer);
       const measured = [...targets].map(outer => {
         const inner = outer.querySelector(".tummqinner");
         return {outer, dist: inner ? inner.scrollWidth - outer.clientWidth : 0};
@@ -447,7 +495,11 @@
           outer.style.setProperty("--mqshift", -dist + "px");
           outer.style.setProperty("--mqdur", Math.max(4, dist / 25).toFixed(1) + "s");
           outer.classList.add("tummarqueeon");
-        } else outer.classList.remove("tummarqueeon");
+        } else {
+          outer.classList.remove("tummarqueeon");
+          outer.style.removeProperty("--mqshift");
+          outer.style.removeProperty("--mqdur");
+        }
       }
     });
   }
@@ -455,14 +507,14 @@
   function isdragged(source, handle) {
     const d = state.drag;
     if (!d || !d.source || !d.user) return false;
-    if ((d.user.handle || "").toLowerCase() !== (handle || "").toLowerCase()) return false;
-    if (d.source.type !== source.type) return false;
-    if (source.type === "folder") return d.source.id === source.id;
-    return source.type === "unsorted";
+    const matches = item => item && String(item.data.handle || "").toLowerCase() === String(handle || "").toLowerCase()
+      && item.source.type === source.type && (source.type !== "folder" || item.source.id === source.id);
+    if (Array.isArray(d.group) && d.group.some(matches)) return true;
+    return matches({source: d.source, data: d.user});
   }
 
   function updatequickstate() {
-    const active = !!(state.drag && state.drag.kind === "user");
+    const active = !!(state.drag && state.drag.kind === "user" && !(state.drag.group && state.drag.group.length > 1));
     els.quickdelete.classList.toggle("tumdisabled", !active);
     els.quickreason.classList.toggle("tumdisabled", !active);
     for (const b of els.actionbtns) b.classList.toggle("tumdisabled", !active);

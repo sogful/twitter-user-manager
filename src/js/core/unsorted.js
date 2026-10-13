@@ -61,7 +61,7 @@
       x: typeof x === "number" ? x : (existing ? existing.x : 80),
       y: typeof y === "number" ? y : (existing ? existing.y : 80)
     };
-    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "protected", "unfindable", "pending"]) {
+    for (const key of ["userid", "createdat", "followers", "following", "tweets", "mediatweets", "favorites", "highlights", "verifiedtype", "verificationkind", "translatortype", "blueverified", "affiliateverified", "protected", "unfindable", "avatarstale", "pending"]) {
       const value = user[key] !== undefined && user[key] !== null ? user[key] : (existing && existing[key]);
       if (value !== undefined) entry[key] = key === "blueverified" ? badgeflag(value) : value;
     }
@@ -132,6 +132,29 @@
       list = next;
       persist();
       emit();
+      return added;
+    },
+    removegroup(handles) {
+      const keys = new Set((handles || []).map(handle => String(handle || "").toLowerCase()).filter(Boolean));
+      if (!keys.size) return false;
+      const next = list.filter(member => !keys.has(member.handle.toLowerCase()));
+      if (next.length === list.length) return false;
+      list = next;
+      persist();
+      emit();
+      return true;
+    },
+    movegroup(users) {
+      if (!Array.isArray(users) || !users.length) return 0;
+      const keys = new Set(users.map(item => String(item && item.data && item.data.handle || "").toLowerCase()).filter(Boolean));
+      list = list.filter(member => !keys.has(member.handle.toLowerCase()));
+      let added = 0;
+      for (const item of users) {
+        if (!item || !item.data || !item.data.handle) continue;
+        list.push(mergedmember(null, item.data, item.x, item.y));
+        added++;
+      }
+      if (added) {persist(); emit()}
       return added;
     },
     remove(handle) {
