@@ -560,6 +560,10 @@ img {-webkit-user-drag: none; user-drag: none}
 }
 .tumfoldermember {padding: 0 calc(5px * var(--tumfolderuiscale,1)); border-radius: 8px}
 .tumfoldermember:hover {background: var(--tumhover,rgba(255,255,255,0.06))}
+.tumfoldermember.tumselected {
+  outline: 1px solid var(--tumtext,#e7e9ea); outline-offset: -1px;
+  background: rgba(29,155,240,0.12)
+}
 .tumfoldermemberavatar {
   width: calc(24px * var(--tumfolderuiscale,1)); height: calc(24px * var(--tumfolderuiscale,1));
   border: 0; border-radius: 50%; outline: 0; object-fit: cover; background: #15202b;

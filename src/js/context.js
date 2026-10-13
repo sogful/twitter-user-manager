@@ -282,6 +282,7 @@
     if (node.classList.contains("tumfolder")) return state.selection.has("folder:" + node.dataset.id);
     if (node.classList.contains("tumcategory")) return state.selection.has("category:" + node.dataset.id);
     if (node.classList.contains("tumloosechip")) return state.selection.has("user:" + String(node.dataset.handle || "").toLowerCase());
+    if (node.classList.contains("tumfoldermember")) return state.selection.has("member:" + node.dataset.folderid + ":" + String(node.dataset.handle || "").toLowerCase());
     return false;
   }
   function selectionmembers(items) {
@@ -289,6 +290,7 @@
     for (const item of items) {
       if (item.type === "folder") members.push(...(item.data.members || []));
       else if (item.type === "user") members.push(item.data);
+      else if (item.type === "foldermember") members.push(item.data);
       else if (item.type === "category") members.push(...categorymembers(item.data));
     }
     return members;
@@ -315,6 +317,7 @@
       onok: () => {
         for (const item of items) if (item.type === "folder") tum.folders.remove(item.id);
         for (const item of items) if (item.type === "user") tum.unsorted.remove(item.handle);
+        for (const item of items) if (item.type === "foldermember") tum.folders.removemember(item.folderid, item.handle);
         for (const item of items) if (item.type === "category") tum.categories.remove(item.id);
         O.clearselection();
         render();
@@ -344,7 +347,7 @@
     const version = ++contextversion;
     let items;
     const selection = typeof O.selecteditems === "function" ? O.selecteditems() : [];
-    const selectednode = chip || foldernode || categorynode;
+    const selectednode = chip || memberrow || foldernode || categorynode;
 
     if (selection.length && (!selectednode || selectioncontains(selectednode))) {
       items = selectionmenu(selection);

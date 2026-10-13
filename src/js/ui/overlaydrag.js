@@ -11,7 +11,7 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function attachfolderresize(node, f) {
-    const scales = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+    const scales = Array.from({length: 13}, (_, index) => 0.5 + index * 0.125);
     for (const handle of node.querySelectorAll(".tumfolderresize")) {
       handle.addEventListener("pointerdown", e => {
         if (state.drag || state.gesture || e.button !== 0) return;
@@ -45,8 +45,8 @@
         const sizeit = ev => {
           const zoom = Number(O.zoom()) || 1;
           const dx = (ev.clientX - startx) / zoom, dy = (ev.clientY - starty) / zoom;
-          const targetx = west || east ? Math.min(2, Math.max(0.5, Math.round(((oldwidth + (west ? -dx : dx)) / 200) * 4) / 4)) : oldscalex;
-          const targety = north || south ? Math.min(2, Math.max(0.5, Math.round(((oldheight + (north ? -dy : dy)) / 288) * 4) / 4)) : oldscaley;
+          const targetx = west || east ? Math.min(2, Math.max(0.5, Math.round(((oldwidth + (west ? -dx : dx)) / 200) * 8) / 8)) : oldscalex;
+          const targety = north || south ? Math.min(2, Math.max(0.5, Math.round(((oldheight + (north ? -dy : dy)) / 288) * 8) / 8)) : oldscaley;
           const xscales = west || east ? scales : [oldscalex];
           const yscales = north || south ? scales : [oldscaley];
           const nooverlap = tum.settings && tum.settings.get("nooverlap");

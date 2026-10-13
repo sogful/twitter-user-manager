@@ -319,18 +319,45 @@
       const prior = additive ? new Set(state.selection) : new Set();
       state.gesture = {kind: "selection", pointerid: e.pointerId};
       let selecting = false;
+      let pointerx = startx, pointery = starty, scrollframe = 0;
+      const update = () => {
+        setselectionbox(startx, starty, pointerx, pointery);
+        selectinrect(startx, starty, pointerx, pointery, prior);
+      };
+      const autoscroll = () => {
+        scrollframe = 0;
+        if (!selecting || !state.gesture || state.gesture.pointerid !== e.pointerId) return;
+        const target = shadow.elementFromPoint(pointerx, pointery);
+        const list = target && target.closest(".tumfolderlist");
+        if (!list) return;
+        const rect = list.getBoundingClientRect();
+        const edge = Math.min(48, rect.height / 3);
+        let delta = 0;
+        if (pointery < rect.top + edge) delta = -Math.ceil(Math.min(18, Math.max(2, (rect.top + edge - pointery) * 0.45)));
+        else if (pointery > rect.bottom - edge) delta = Math.ceil(Math.min(18, Math.max(2, (pointery - rect.bottom + edge) * 0.45)));
+        if (!delta) return;
+        const before = list.scrollTop;
+        list.scrollTop += delta;
+        if (before === list.scrollTop) return;
+        update();
+        scrollframe = requestAnimationFrame(autoscroll);
+      };
       const move = ev => {
         if (!state.gesture || state.gesture.pointerid !== e.pointerId) return;
         const dx = ev.clientX - startx, dy = ev.clientY - starty;
+        pointerx = ev.clientX;
+        pointery = ev.clientY;
         if (!selecting) {
           if (Math.hypot(dx, dy) < THRESHOLD) return;
           selecting = true;
           els.selectionbox.hidden = false;
         }
-        setselectionbox(startx, starty, ev.clientX, ev.clientY);
+        update();
+        if (!scrollframe) scrollframe = requestAnimationFrame(autoscroll);
       };
       const finish = ev => {
         if (!state.gesture || state.gesture.pointerid !== e.pointerId) return;
+        if (scrollframe) cancelAnimationFrame(scrollframe);
         bd.removeEventListener("pointermove", move);
         bd.removeEventListener("pointerup", finish);
         bd.removeEventListener("pointercancel", finish);
@@ -338,6 +365,7 @@
         state.gesture = null;
         els.selectionbox.hidden = true;
         if (selecting && ev.type === "pointerup") selectinrect(startx, starty, ev.clientX, ev.clientY, prior);
+        else if (selecting) setselection(prior);
         else if (!ctxwasdismissed && ev.type === "pointerup") {
           if (state.selection.size) clearselection();
           else closeoverlay();

@@ -2,6 +2,7 @@
   const O = window.tum._ov;
   const scope = O.scope;
   with (scope) {
+  const transparentavatar = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
   const pendingfolderimages = new Set();
   const folderimageobserver = new IntersectionObserver(entries => {
     for (const entry of entries) {
@@ -414,6 +415,7 @@
   function buildmemberrow(source, m) {
     const row = el("div", "tumfoldermember");
     row.dataset.handle = m.handle;
+    row.dataset.folderid = source.id;
     const unfindable = m.unfindable === true;
     if (unfindable) row.classList.add("tumunfindable");
     if (isdragged(source, m.handle)) row.style.visibility = "hidden";
@@ -492,6 +494,7 @@
       const sourceavatar = avatarurl(user.avatarurl);
       const isdefault = !sourceavatar || /(?:^|\/)default_profile(?:_0)?_(?:mini|normal|bigger|x96|reasonably_small)\.png(?:[?#]|$)/i.test(sourceavatar);
       const avatar = isdefault ? defaultavatarimage || DEFAULT_AVATAR : miniavatarurl(sourceavatar);
+      if (!img.hasAttribute("src")) img.src = transparentavatar;
       img.dataset.tumlazy = avatar;
       img.dataset.tumloadedurl = avatar;
       img.addEventListener("error", () => {

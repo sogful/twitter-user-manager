@@ -30,7 +30,7 @@
   const uid = () => "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   function folderscale(value) {
     if (typeof value !== "number" || !Number.isFinite(value)) return 1;
-    return Math.min(2, Math.max(0.5, Math.round(value * 4) / 4));
+    return Math.min(2, Math.max(0.5, Math.round(value * 8) / 8));
   }
   function downloadedmeta(value) {
     if (!value || typeof value !== "object" || !/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(value.id || "") || !["folder", "category"].includes(value.type)) return null;

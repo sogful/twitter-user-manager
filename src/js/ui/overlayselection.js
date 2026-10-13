@@ -45,11 +45,20 @@
     if (node.classList.contains("tumfolder")) return "folder:" + node.dataset.id;
     if (node.classList.contains("tumcategory")) return "category:" + node.dataset.id;
     if (node.classList.contains("tumloosechip")) return "user:" + String(node.dataset.handle || "").toLowerCase();
+    if (node.classList.contains("tumfoldermember")) return "member:" + node.dataset.folderid + ":" + String(node.dataset.handle || "").toLowerCase();
     return "";
   }
   function syncselection() {
     const selection = state.selection || new Set();
     for (const node of els.freeform.querySelectorAll(".tumfolder, .tumcategory, .tumloosechip")) node.classList.toggle("tumselected", selection.has(selectionkey(node)));
+    const selectedcategories = new Set([...selection].filter(key => key.startsWith("category:")).map(key => key.slice(9)));
+    const selectedfolders = new Set([...selection].filter(key => key.startsWith("folder:")).map(key => key.slice(7)));
+    const folders = new Map(tum.folders.list().map(folder => [folder.id, folder]));
+    for (const row of els.freeform.querySelectorAll(".tumfoldermember")) {
+      const folder = folders.get(row.dataset.folderid);
+      const covered = selectedfolders.has(row.dataset.folderid) || folder && selectedcategories.has(folder.cat);
+      row.classList.toggle("tumselected", !covered && selection.has(selectionkey(row)));
+    }
   }
   function setselection(selection) {
     state.selection = new Set(selection || []);
@@ -70,6 +79,19 @@
       const rect = node.getBoundingClientRect();
       if (rect.left >= left && rect.top >= top && rect.right <= right && rect.bottom <= bottom) next.add(selectionkey(node));
     }
+    const folders = new Map(tum.folders.list().map(folder => [folder.id, folder]));
+    const coveredfolders = new Set([...next].filter(key => key.startsWith("folder:")).map(key => key.slice(7)));
+    const coveredcategories = new Set([...next].filter(key => key.startsWith("category:")).map(key => key.slice(9)));
+    for (const folder of folders.values()) if (coveredcategories.has(folder.cat)) coveredfolders.add(folder.id);
+    for (const key of [...next]) if (key.startsWith("member:")) {
+      const folderid = key.slice(7, key.lastIndexOf(":"));
+      if (coveredfolders.has(folderid)) next.delete(key);
+    }
+    for (const row of els.freeform.querySelectorAll(".tumfoldermember")) {
+      if (coveredfolders.has(row.dataset.folderid)) continue;
+      const rect = row.getBoundingClientRect();
+      if (rect.left >= left && rect.top >= top && rect.right <= right && rect.bottom <= bottom) next.add(selectionkey(row));
+    }
     setselection(next);
   }
   function selecteditems() {
@@ -78,6 +100,10 @@
     for (const category of tum.categories.list()) if (selected.has("category:" + category.id)) out.push({type: "category", id: category.id, data: category});
     for (const folder of tum.folders.list()) if (selected.has("folder:" + folder.id)) out.push({type: "folder", id: folder.id, data: folder});
     for (const user of tum.unsorted.list()) if (selected.has("user:" + String(user.handle || "").toLowerCase())) out.push({type: "user", handle: user.handle, data: user});
+    for (const folder of tum.folders.list()) for (const member of folder.members || []) {
+      const key = "member:" + folder.id + ":" + String(member.handle || "").toLowerCase();
+      if (selected.has(key)) out.push({type: "foldermember", folderid: folder.id, handle: member.handle, data: member});
+    }
     return out;
   }
   const HISTORYLIMIT = 500;
@@ -197,22 +223,49 @@
     if (!ownkey || !state.selection.has(ownkey) || state.selection.size < 2 || event.button !== 0 || state.drag || state.gesture) return false;
     const selectedcategories = new Set([...state.selection].filter(key => key.startsWith("category:")).map(key => key.slice(9)));
     const categories = tum.categories.list().filter(category => selectedcategories.has(category.id)).map(category => ({
-      id: category.id, node: (O.categorynodes || []).find(item => item.dataset.id === category.id), x: category.x || 0, y: category.y || 0
+      id: category.id,
+      node: (O.categorynodes || []).find(item => item.dataset.id === category.id),
+      x: category.x || 0,
+      y: category.y || 0,
+      w: category.w || 480,
+      h: category.h || 360,
+      box: {left: category.x || 0, top: category.y || 0, w: category.w || 480, h: category.h || 360}
     })).filter(item => item.node);
     const folders = new Map();
     for (const folder of tum.folders.list()) {
       const direct = state.selection.has("folder:" + folder.id);
-      if (!direct && !selectedcategories.has(folder.cat)) continue;
+      const contained = selectedcategories.has(folder.cat);
+      if (!direct && !contained) continue;
       const item = (O.foldernodes || []).find(node2 => node2.dataset.id === folder.id);
-      if (item) folders.set(folder.id, {id: folder.id, node: item, x: folder.x || 0, y: folder.y || 0});
+      if (item) folders.set(folder.id, {
+        id: folder.id,
+        node: item,
+        x: folder.x || 0,
+        y: folder.y || 0,
+        w: item.offsetWidth,
+        h: item.offsetHeight,
+        cat: folder.cat || null,
+        contained,
+        box: O.scope.rectof(item)
+      });
     }
     const users = new Map();
     for (const user of tum.unsorted.list()) {
       const key = String(user.handle || "").toLowerCase();
       const direct = state.selection.has("user:" + key);
-      if (!direct && !selectedcategories.has(user.cat)) continue;
+      const contained = selectedcategories.has(user.cat);
+      if (!direct && !contained) continue;
       const item = [...els.freeform.querySelectorAll(".tumloosechip")].find(node2 => String(node2.dataset.handle || "").toLowerCase() === key);
-      if (item) users.set(key, {handle: user.handle, node: item, x: user.x || 0, y: user.y || 0});
+      if (item) users.set(key, {
+        handle: user.handle,
+        data: user,
+        node: item,
+        x: user.x || 0,
+        y: user.y || 0,
+        cat: user.cat || null,
+        contained,
+        box: O.scope.rectof(item)
+      });
     }
     if (!categories.length && !folders.size && !users.size) return false;
     event.preventDefault();
@@ -221,8 +274,39 @@
     state.gesture = {kind: "selectiondrag", pointerid};
     let dragging = false;
     const movingnodes = [...categories, ...folders.values(), ...users.values()];
+    const movingcategorynodes = new Set(categories.map(item => item.node));
+    const movingobjectnodes = new Set([...folders.values(), ...users.values()].map(item => item.node));
+    const nooverlap = !!(tum.settings && tum.settings.get("nooverlap"));
+    const fixedcategories = nooverlap ? (O.categorynodes || []).filter(item => !movingcategorynodes.has(item)).map(O.scope.rectof) : [];
+    const fixedobjects = nooverlap ? [...els.freeform.querySelectorAll(".tumfolder, .tumloosechip")].filter(item => !movingobjectnodes.has(item)).map(O.scope.rectof) : [];
+    const findgroupoffset = (items, obstacles, dx, dy) => {
+      for (const item of items) {
+        const box = item.box;
+        for (const other of obstacles) {
+          const overlapx = Math.min(box.left + dx + box.w, other.left + other.w) - Math.max(box.left + dx, other.left);
+          const overlapy = Math.min(box.top + dy + box.h, other.top + other.h) - Math.max(box.top + dy, other.top);
+          if (overlapx <= 0 || overlapy <= 0) continue;
+          if (overlapx < overlapy) dx += (box.left + dx + box.w / 2 >= other.left + other.w / 2 ? 1 : -1) * (overlapx + 1);
+          else dy += (box.top + dy + box.h / 2 >= other.top + other.h / 2 ? 1 : -1) * (overlapy + 1);
+          return {dx, dy};
+        }
+      }
+      return null;
+    };
+    const resolvegroupoffset = (dx, dy) => {
+      if (!nooverlap) return {dx, dy};
+      for (let pass = 0; pass < 20; pass++) {
+        const categoryoffset = findgroupoffset(categories, fixedcategories, dx, dy);
+        if (categoryoffset) {dx = categoryoffset.dx; dy = categoryoffset.dy}
+        const objectoffset = findgroupoffset([...folders.values(), ...users.values()], fixedobjects, dx, dy);
+        if (objectoffset) {dx = objectoffset.dx; dy = objectoffset.dy}
+        if (!categoryoffset && !objectoffset) break;
+      }
+      return {dx, dy};
+    };
     const place = moveevent => {
-      const dx = Math.round((moveevent.clientX - startx) / zoom), dy = Math.round((moveevent.clientY - starty) / zoom);
+      let dx = Math.round((moveevent.clientX - startx) / zoom), dy = Math.round((moveevent.clientY - starty) / zoom);
+      ({dx, dy} = resolvegroupoffset(dx, dy));
       for (const item of categories) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
       for (const item of folders.values()) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
       for (const item of users.values()) {item.node.style.left = (item.x + dx) + "px"; item.node.style.top = (item.y + dy) + "px"}
@@ -251,7 +335,22 @@
       if (dragging && upevent.type === "pointerup") {
         const {dx, dy} = place(upevent);
         for (const item of categories) tum.categories.update(item.id, {x: item.x + dx, y: item.y + dy}, true);
-        if (folders.size) tum.folders.bulkmove([...folders.values()].map(item => ({id: item.id, x: item.x + dx, y: item.y + dy})));
+        for (const item of folders.values()) {
+          let x = item.x + dx, y = item.y + dy;
+          const drop = item.contained ? {cat: item.cat} : O.categorydrop(item.cat, x + item.w / 2, y + item.h / 2, item.w, item.h);
+          if (!item.contained) {
+            x = drop.x - item.w / 2;
+            y = drop.y - item.h / 2;
+            if (nooverlap) {
+              const adjusted = O.nooverlapadjustbox(x, y, item.w, item.h, item.node);
+              x = adjusted.left;
+              y = adjusted.top;
+            }
+            item.node.style.left = x + "px";
+            item.node.style.top = y + "px";
+          }
+          tum.folders.update(item.id, {x, y, cat: drop.cat}, true);
+        }
         if (users.size) tum.unsorted.bulkmove([...users.values()].map(item => ({handle: item.handle, x: item.x + dx, y: item.y + dy})));
       } else if (!dragging) clearselection();
       else render(true);
