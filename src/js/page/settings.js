@@ -50,6 +50,10 @@
   function onsettings() {return location.pathname.indexOf("/settings") === 0}
   function onus() {return location.pathname.replace(/\/$/, "") === FAKE}
   function navtab() {return document.querySelector('[data-testid="usermanagerLink"]')}
+  function settingsnav() {
+    return [...document.querySelectorAll(NAVSEL)].find(list =>
+      list.querySelector('[data-testid="helpCenterLink"], a[role="tab"][href^="/settings/"]')) || null;
+  }
 
   function ensureflashstyle() {
     if (document.getElementById("tumusmstyle")) return;
@@ -73,9 +77,12 @@
   /*//////////////////////////////////////////////////////////////////////*/
 
   function ensurenav() {
-    if (!onsettings()) return;
-    const list = document.querySelector(NAVSEL);
-    if (!list) return;
+    const tabs = [...document.querySelectorAll('[data-testid="usermanagerLink"]')];
+    if (!onsettings()) {tabs.forEach(tab => tab.remove()); return}
+    const list = settingsnav();
+    if (!list) {tabs.forEach(tab => tab.remove()); return}
+    const existing = tabs.find(tab => tab.closest(NAVSEL) === list) || null;
+    for (const tab of tabs) if (tab !== existing) tab.remove();
     if (navtab()) {markselected(); return}
     const tpl = list.querySelector('a[role="tab"][data-testid$="Link"]') || list.querySelector('a[role="tab"]');
     if (!tpl) return;

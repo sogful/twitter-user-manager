@@ -44,6 +44,24 @@
     return m[1];
   }
 
+  function profileheaderhandle() {
+    const box = document.querySelector('[data-testid="UserName"]');
+    if (!box) return null;
+    for (const anchor of box.querySelectorAll("a[href]")) {
+      const match = /^\/([A-Za-z0-9_]+)\/?$/.exec(anchor.getAttribute("href") || "");
+      if (match) return match[1].toLowerCase();
+    }
+    const handle = [...box.querySelectorAll("span")].find(node => node.children.length === 0 && /^@[A-Za-z0-9_]+$/.test((node.textContent || "").trim()));
+    if (handle) return handle.textContent.trim().slice(1).toLowerCase();
+    return null;
+  }
+
+  function clearprofileextensions() {
+    for (const node of document.querySelectorAll(".tumextrablock, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday, .tumprofilepostdetails, .tumprofessionaldetail, .tumtranslatorregularbadge")) node.remove();
+  }
+
+  let activeprofilehandle = null;
+
   /*//////////////////////////////////////////////////////////////////////*/
 
   const SVGNS = "http://www.w3.org/2000/svg";
@@ -242,8 +260,11 @@
     const sig = JSON.stringify([p.category, p.categoryId, p.type, p.restId]);
     if (existing && existing.dataset.sig === sig) return;
     if (existing) existing.remove();
-    const category = [...document.querySelectorAll("span")].find(s => !s.children.length && (s.textContent || "").trim() === p.category);
-    if (!category) return;
+    const items = document.querySelector(ITEMSSEL);
+    const control = items && (items.querySelector('[data-testid="UserProfessionalCategory"]')
+      || [...items.querySelectorAll('button,[role="button"],a[href]')].find(node =>
+        [...node.querySelectorAll("span")].some(span => !span.children.length && (span.textContent || "").trim() === p.category)));
+    if (!control) return;
     const detail = document.createElement("span");
     detail.className = "tumprofessionaldetail";
     detail.dataset.sig = sig;
@@ -252,8 +273,7 @@
     if (p.categoryId != null) values.push("#" + p.categoryId);
     if (p.restId) values.push(p.restId);
     detail.textContent = values.join(", ");
-    const button = category.closest("button");
-    (button || category).insertAdjacentElement("afterend", detail);
+    control.insertAdjacentElement("afterend", detail);
   }
 
   function monthyear(msec) {return new Date(msec).toLocaleDateString("en-GB", {month: "long", year: "numeric"})}
@@ -520,8 +540,14 @@
 
   function scan() {
     const handle = currenthandle();
-    if (!handle) {document.querySelectorAll(".tumtranslatorregularbadge").forEach(node => node.remove()); if (tum.settings && !tum.settings.get("extrainfo")) removeextras(); return}
-    const key = handle.toLowerCase();
+    const key = handle ? handle.toLowerCase() : null;
+    if (key !== activeprofilehandle) {
+      clearprofileextensions();
+      activeprofilehandle = key;
+    }
+    if (!handle) {if (tum.settings && !tum.settings.get("extrainfo")) removeextras(); return}
+    const renderedhandle = profileheaderhandle();
+    if (renderedhandle !== key) return;
     const u = userdata.get(key);
     applytranslatorregular(handle, u);
     if (tum.settings && !tum.settings.get("extrainfo")) {removeextras(); return}

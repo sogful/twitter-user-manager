@@ -250,6 +250,17 @@
         || [...icon.querySelectorAll("path")].some(path => /^M12 1\.75C6\.34/.test(path.getAttribute("d") || ""))));
   }
 
+  function profileheaderhandle(namebox) {
+    if (!namebox) return null;
+    for (const anchor of namebox.querySelectorAll("a[href]")) {
+      const match = /^\/([A-Za-z0-9_]+)\/?$/.exec(anchor.getAttribute("href") || "");
+      if (match) return match[1].toLowerCase();
+    }
+    const handle = [...namebox.querySelectorAll("span")].find(node => node.children.length === 0 && /^@[A-Za-z0-9_]+$/.test((node.textContent || "").trim()));
+    if (handle) return handle.textContent.trim().slice(1).toLowerCase();
+    return null;
+  }
+
   function markaffiliatecheck(namebox, user) {
     if (!namebox) return;
     const badges = Array.isArray(user && user.badges) ? user.badges : [];
@@ -378,7 +389,7 @@
     const namebox = document.querySelector('[data-testid="UserName"]');
     const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
     const existing = document.querySelector(".tumpageprofilereasonbadge");
-    if (!m || !nameel) {
+    if (!m || !nameel || profileheaderhandle(namebox) !== m[1].toLowerCase()) {
       if (existing) existing.remove();
       return;
     }
@@ -408,6 +419,11 @@
     }
     const targets = [];
     const namebox = document.querySelector('[data-testid="UserName"]');
+    if (!namebox || profileheaderhandle(namebox) !== handle.toLowerCase()) {
+      for (const badge of document.querySelectorAll(".tumpageprofileaccountbadge")) badge.remove();
+      if (namebox) markaffiliatecheck(namebox, null);
+      return;
+    }
     const nameel = namebox && namebox.querySelector('div[dir="ltr"]');
     if (namebox && nameel) targets.push({box: namebox, line: nameel, sticky: false});
     const displayname = String(user && user.displayname || "").trim().toLowerCase();
@@ -438,8 +454,8 @@
       const existingbadges = [...target.box.querySelectorAll(selector)];
       const existing = existingbadges[0];
       for (const badge of existingbadges) badge.removeAttribute("title");
+      if (!user) {for (const badge of existingbadges) badge.remove(); continue}
       const nextbadge = makeaccountbadge(handle, user, true, !hasnativecheck(target.box), target.sticky, !hasnativetranslator(target.box));
-      if (!user && existing) continue;
       if (existing && nextbadge && existing.dataset.signature === nextbadge.dataset.signature) {
         nextbadge.remove();
         for (const duplicate of existingbadges.slice(1)) duplicate.remove();
