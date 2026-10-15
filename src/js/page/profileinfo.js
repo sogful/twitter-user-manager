@@ -38,6 +38,47 @@
 
   const cache = new Map(); // handle (lowercased) -> email | null (looked up, none) | undefined (unknown)
 
+  let activeprofileundo = [];
+
+  function rememberprofileundo(undo) {activeprofileundo.push(undo)}
+
+  function setprofiletext(node, value) {
+    const previous = node.textContent;
+    if (previous === value) return;
+    node.textContent = value;
+    rememberprofileundo(() => {if (node.textContent === value) node.textContent = previous});
+  }
+
+  function setprofiletextnode(node, value) {
+    const previous = node.nodeValue;
+    if (previous === value) return;
+    node.nodeValue = value;
+    rememberprofileundo(() => {if (node.nodeValue === value) node.nodeValue = previous});
+  }
+
+  function setprofileattribute(node, name, value) {
+    const previous = node.getAttribute(name);
+    if (value == null) node.removeAttribute(name);
+    else node.setAttribute(name, value);
+    rememberprofileundo(() => {
+      const current = node.getAttribute(name);
+      if (current !== value) return;
+      if (previous == null) node.removeAttribute(name);
+      else node.setAttribute(name, previous);
+    });
+  }
+
+  function setprofilestyle(node, name, value) {
+    const previous = node.style.getPropertyValue(name);
+    const priority = node.style.getPropertyPriority(name);
+    node.style.setProperty(name, value);
+    rememberprofileundo(() => {
+      if (node.style.getPropertyValue(name) !== value) return;
+      if (previous) node.style.setProperty(name, previous, priority);
+      else node.style.removeProperty(name);
+    });
+  }
+
   function currenthandle() {
     const m = PROFILEPATH.exec(location.pathname);
     if (!m || SKIP.test(location.pathname)) return null;
@@ -58,6 +99,8 @@
 
   function clearprofileextensions() {
     for (const node of document.querySelectorAll(".tumextrablock, .tumbasedinitem, .tumbasedin, .tumhd, .tumperday, .tumprofilepostdetails, .tumprofessionaldetail, .tumtranslatorregularbadge")) node.remove();
+    for (const undo of activeprofileundo.reverse()) try {undo()} catch {}
+    activeprofileundo = [];
   }
 
   let activeprofilehandle = null;
@@ -142,19 +185,19 @@
     if (!leaf && !textnode) return;
     const link = join.closest('a, [role="link"]') || join.querySelector('a, [role="link"]');
     if (link) {
-      link.removeAttribute("href");
-      link.removeAttribute("role");
-      link.removeAttribute("tabindex");
-      link.removeAttribute("title");
-      link.style.cursor = "text";
-      link.style.textDecoration = "none";
+      setprofileattribute(link, "href", null);
+      setprofileattribute(link, "role", null);
+      setprofileattribute(link, "tabindex", null);
+      setprofileattribute(link, "title", null);
+      setprofilestyle(link, "cursor", "text");
+      setprofilestyle(link, "text-decoration", "none");
     }
-    join.dataset.tumjoin = "1";
-    join.style.cursor = "text";
-    join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) s.style.display = "none"});
+    setprofileattribute(join, "data-tumjoin", "1");
+    setprofilestyle(join, "cursor", "text");
+    join.querySelectorAll("svg").forEach((s, i) => {if (i > 0) setprofilestyle(s, "display", "none")});
     const date = d.toLocaleDateString("en-GB", {day: "numeric", month: "long", year: "numeric"});
-    if (leaf) leaf.textContent = T("profile.joined", date);
-    else textnode.nodeValue = T("profile.joined", date);
+    if (leaf) setprofiletext(leaf, T("profile.joined", date));
+    else setprofiletextnode(textnode, T("profile.joined", date));
   }
 
   function applycounts(handle, u) {
@@ -162,9 +205,9 @@
       if (typeof n !== "number") return;
       const exact = fmtnum(n);
       document.querySelectorAll(sel).forEach(a => {
-        a.removeAttribute("title");
+        setprofileattribute(a, "title", null);
         const leaf = [...a.querySelectorAll("span")].find(s => !s.children.length && /^[\d.,]+[KMB]?$/i.test((s.textContent || "").trim()));
-        if (leaf && leaf.textContent.trim() !== exact) leaf.textContent = exact;
+        if (leaf && leaf.textContent.trim() !== exact) setprofiletext(leaf, exact);
       });
     };
     set('a[href$="/' + handle + '/verified_followers"], a[href$="/' + handle + '/followers"]', u.followers);
@@ -203,7 +246,7 @@
     const pd = perday(u);
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => d.children.length === 0 && /^[\d.,KMB]+\s+posts$/i.test((d.textContent || "").trim()));
     if (!el || el.querySelector(".tumperday, .tumprofilepostdetails")) return;
-    if (typeof u.tweets === "number") el.textContent = T("profile.posts", fmtnum(u.tweets));
+    if (typeof u.tweets === "number") setprofiletext(el, T("profile.posts", fmtnum(u.tweets)));
     const stats = [];
     if (typeof u.highlights === "number") stats.push(T(u.highlights === 1 ? "profile.highlight" : "profile.highlights", u.highlights));
     if (typeof u.favorites === "number") stats.push(T("profile.likes", fmtnum(u.favorites)));
@@ -218,7 +261,7 @@
     const el = [...document.querySelectorAll('[data-testid="primaryColumn"] div')].find(d => {
       return d.children.length === 0 && /^[\d.,]+[KMB]?\s+likes$/i.test((d.textContent || "").trim()) && d.parentElement && d.parentElement.querySelector(":scope > h2");
     });
-    if (el) el.textContent = T("profile.likes", fmtnum(u.favorites));
+    if (el) setprofiletext(el, T("profile.likes", fmtnum(u.favorites)));
   }
 
   function hdbutton(href) {
@@ -234,7 +277,7 @@
     if (u.banner) {
       const banner = document.querySelector('a[href$="/' + handle + '/header_photo"]');
       if (banner && !banner.querySelector(":scope > .tumhd")) {
-        if (getComputedStyle(banner).position === "static") banner.style.position = "relative";
+        if (getComputedStyle(banner).position === "static") setprofilestyle(banner, "position", "relative");
         banner.appendChild(hdbutton(u.banner));
       }
     }
@@ -244,7 +287,7 @@
       if (big && big[1] > 80) {
         const av = big[0];
         if (!av.querySelector(":scope > .tumhd")) {
-          if (getComputedStyle(av).position === "static") av.style.position = "relative";
+          if (getComputedStyle(av).position === "static") setprofilestyle(av, "position", "relative");
           const b = hdbutton(fullres(u.avatar));
           b.style.bottom = "10px"; b.style.right = "10px";
           av.appendChild(b);
@@ -261,12 +304,11 @@
     if (existing && existing.dataset.sig === sig) return;
     if (existing) existing.remove();
     const items = document.querySelector(ITEMSSEL);
-    const control = items && (items.querySelector('[data-testid="UserProfessionalCategory"]')
-      || [...items.querySelectorAll('button,[role="button"],a[href]')].find(node =>
-        [...node.querySelectorAll("span")].some(span => !span.children.length && (span.textContent || "").trim() === p.category)));
+    const control = items && items.querySelector('[data-testid="UserProfessionalCategory"]');
     if (!control) return;
     const detail = document.createElement("span");
     detail.className = "tumprofessionaldetail";
+    detail.style.color = itemgray(items);
     detail.dataset.sig = sig;
     const values = [];
     if (p.type) values.push(p.type.toLowerCase());
@@ -418,8 +460,8 @@
       if (existing && existing.dataset.sig === sig) return;
       if (existing) existing.remove();
       
-      loc.style.overflow = "visible";
-      loc.style.verticalAlign = "top";
+      setprofilestyle(loc, "overflow", "visible");
+      setprofilestyle(loc, "vertical-align", "top");
       const line = document.createElement("span");
       line.className = "tumbasedin";
       line.dataset.sig = sig;
