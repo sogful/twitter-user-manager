@@ -128,8 +128,12 @@
 
   function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false, downloadedlistid: member.downloadedlistid || null})}
 
+  function exportprofilefolder(folder) {return Object.assign(exportfolderdata(folder), {x: folder.x, y: folder.y})}
+  function exportprofilecategory(category) {return Object.assign(exportcategory(category), {x: category.x, y: category.y})}
+  function exportprofilemember(member) {return Object.assign(exportloosemember(member), {x: member.x, y: member.y})}
+
   function exportdata() {
-    downloadjson({version: 3, folders: tum.folders.list().map(exportfolderdata), categories: tum.categories.list().map(exportcategory), unsorted: tum.unsorted.list().map(exportloosemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
+    downloadjson({version: 4, folders: tum.folders.list().map(exportprofilefolder), categories: tum.categories.list().map(exportprofilecategory), unsorted: tum.unsorted.list().map(exportprofilemember)}, "tumprofile " + stamp() + " (＠" + ownhandle() + ").json");
     toast(T("toast.exported.folders", tum.folders.list().length));
   }
   function importdata() {pickjson(applyimport)}
@@ -211,18 +215,14 @@
     const previous = profilesnapshot();
     const sourcefolders = Array.isArray(data && data.folders) ? data.folders.filter(folder => folder && typeof folder === "object").map(folder => {
       const item = {...folder};
-      for (const key of ["x", "y", "badgefilters", "sort", "twitterlist"]) delete item[key];
+      for (const key of ["badgefilters", "sort", "twitterlist"]) delete item[key];
       return item;
     }) : [];
     const sourcecategories = Array.isArray(data && data.categories) ? data.categories.filter(category => category && typeof category === "object").map(category => {
-      const item = {...category};
-      delete item.x; delete item.y;
-      return item;
+      return {...category};
     }) : [];
     const sourceunsorted = Array.isArray(data && data.unsorted) ? data.unsorted.filter(member => member && member.handle).map(member => {
-      const item = {...member};
-      delete item.x; delete item.y;
-      return item;
+      return {...member};
     }) : [];
     const categoryids = new Set(replace ? [] : tum.categories.list().map(category => category.id));
     const categorymap = new Map(), categorylayouts = new Map(), categoryslots = new Map(), categorysourceids = new Map();
@@ -233,7 +233,9 @@
       categorymap.set(category.id, id);
       const width = typeof category.w === "number" && Number.isFinite(category.w) && category.w > 0 ? category.w : 480;
       const height = typeof category.h === "number" && Number.isFinite(category.h) && category.h > 0 ? category.h : 360;
-      const layout = Object.assign({}, category, {id, x: 0, y: 0, w: width, h: height});
+      const x = Number.isFinite(category.x) ? category.x : 0;
+      const y = Number.isFinite(category.y) ? category.y : 0;
+      const layout = Object.assign({}, category, {id, x, y, w: width, h: height});
       categorylayouts.set(category.id, layout);
       categorysourceids.set(id, category.id);
       return layout;
@@ -245,8 +247,15 @@
         category.h = Math.max(category.h, 4 + Math.ceil(count / columns) * 288);
       }
     }
-    const positions = placeimportmodules(categories, sourcefolders, sourceunsorted, sourcecategoryids, replace);
+    const positionlesscategories = categories.filter(category => {
+      const source = sourcecategories.find(item => item.id === categorysourceids.get(category.id));
+      return !source || !Number.isFinite(source.x) || !Number.isFinite(source.y);
+    });
+    const positionlessfolders = sourcefolders.filter(folder => !sourcecategoryids.has(folder.cat) && (!Number.isFinite(folder.x) || !Number.isFinite(folder.y)));
+    const positionlessmembers = sourceunsorted.filter(member => !sourcecategoryids.has(member.cat) && (!Number.isFinite(member.x) || !Number.isFinite(member.y)));
+    const positions = placeimportmodules(positionlesscategories, positionlessfolders, positionlessmembers, sourcecategoryids, replace);
     const autolayout = (item, index, loose) => {
+      if (Number.isFinite(item.x) && Number.isFinite(item.y)) return {x: item.x, y: item.y};
       const category = categorylayouts.get(item.cat);
       if (!category) return (loose ? positions.memberpositions : positions.folderpositions).get(item) || tum.overlay.canvascenter();
       const slot = categoryslots.get(item.cat) || 0;
@@ -260,6 +269,17 @@
     };
     const folders = sourcefolders.map((folder, index) => Object.assign({}, folder, autolayout(folder, index, false), {cat: categorymap.get(folder.cat) || null}));
     const unsorted = sourceunsorted.map((member, index) => Object.assign({}, member, autolayout(member, index, true), {cat: categorymap.get(member.cat) || null}));
+    if (!replace) {
+      let edge = 0;
+      for (const folder of tum.folders.list()) edge = Math.max(edge, (folder.x || 0) + 214 * (folder.scalex || 1));
+      for (const category of tum.categories.list()) edge = Math.max(edge, (category.x || 0) + (category.w || 480));
+      for (const member of tum.unsorted.list()) edge = Math.max(edge, (member.x || 0) + 90);
+      const left = Math.min(0, ...folders.map(folder => folder.x), ...categories.map(category => category.x), ...unsorted.map(member => member.x));
+      const shift = edge - left + 80;
+      for (const category of categories) category.x += shift;
+      for (const folder of folders) folder.x += shift;
+      for (const member of unsorted) member.x += shift;
+    }
     tum.categories.import(categories, replace);
     tum.folders.import(folders.map(folder => Object.assign({}, folder, {icon: importicon(folder.icon)})), replace);
     tum.unsorted.import(unsorted, replace);
