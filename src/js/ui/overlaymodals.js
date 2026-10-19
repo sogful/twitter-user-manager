@@ -128,8 +128,18 @@
 
   function exportloosemember(member) {return Object.assign(exportmember(member), {cat: member.cat || null, placed: member.placed !== false, downloadedlistid: member.downloadedlistid || null})}
 
-  function exportprofilefolder(folder) {return Object.assign(exportfolderdata(folder), {x: folder.x, y: folder.y})}
-  function exportprofilecategory(category) {return Object.assign(exportcategory(category), {x: category.x, y: category.y})}
+  function exportprofileshare(item) {
+    const sharedid = item && item.sharedid;
+    const sharedkey = item && item.sharedkey;
+    if (!/^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(sharedid || "") || !/^[0-9a-f]{32}$/i.test(sharedkey || "")) return {};
+    return {sharedid, sharedkey, sharedpublished: item.sharedpublished !== false};
+  }
+  function exportprofilefolder(folder) {
+    return Object.assign(exportfolderdata(folder), {x: folder.x, y: folder.y}, exportprofileshare(folder));
+  }
+  function exportprofilecategory(category) {
+    return Object.assign(exportcategory(category), {x: category.x, y: category.y}, exportprofileshare(category));
+  }
   function exportprofilemember(member) {return Object.assign(exportloosemember(member), {x: member.x, y: member.y})}
 
   function exportdata() {
@@ -876,7 +886,11 @@
   }
 
   function deletenoteduser() {
-    if (state.reasontarget) removefromsource(state.reasontarget.source, state.reasontarget.handle);
+    if (state.reasontarget) {
+      const {source, handle} = state.reasontarget;
+      if (source.type === "folder") tum.folders.setmemberreason(source.id, handle, "", null);
+      else tum.unsorted.setreason(handle, "", null);
+    }
     closereasonmodal();
     state.open = true;
     render();

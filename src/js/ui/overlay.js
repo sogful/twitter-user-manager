@@ -191,11 +191,14 @@
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 150 ? "#000" : "white";
   }
+  function countsegment(value) {
+    return value.length > 2 ? `<span class="tumfoldercountwide">${value}</span>` : value;
+  }
   function splitcount(n) {
     const s = String(n);
-    if (s.length < 4) return s;
+    if (s.length < 4) return countsegment(s);
     const h = Math.ceil(s.length / 2);
-    return s.slice(0, h) + "<br>" + s.slice(h);
+    return `${countsegment(s.slice(0, h))}<br>${countsegment(s.slice(h))}`;
   }
   function iconhtml(icon, deferred = false) {
     if (!icon) return "";

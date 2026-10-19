@@ -325,6 +325,7 @@ img {-webkit-user-drag: none; user-drag: none}
   line-height: 1.05; flex-shrink: 0;
   text-align: center; width: 100%
 }
+.tumfoldercountwide {font-size: calc(8.5px * var(--tumfolderuiscale,1))}
 .tumfolderexport {
   width: calc(20px * var(--tumfolderuiscale,1)); height: calc(20px * var(--tumfolderuiscale,1));
   border-radius: 50%; background: var(--tumheaderbtnbg,rgba(0,0,0,0.25));
@@ -721,6 +722,7 @@ img {-webkit-user-drag: none; user-drag: none}
   .tumfolderhead {padding: 3px; gap: 4px}
   .tumfoldertitle, .tumfoldertoprow {gap: 3px}
   .tumfoldericoncol {width: 12px}
+  .tumfoldercountwide {font-size: calc(7px * var(--tumfolderuiscale,1))}
   .tumfolderdesc {display: block}
   .tumfolderheadbtns {gap: 2px}
   .tumfolderaction {width: 14px; height: 14px}

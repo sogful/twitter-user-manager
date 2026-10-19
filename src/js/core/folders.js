@@ -64,6 +64,9 @@
         return /^\d+$/.test(String(id || "")) ? {id: String(id), private: !(list && list.private === false)} : null;
       })(),
       downloadedlist: downloadedmeta(partial.downloadedlist),
+      sharedid: /^[23456789abcdefghjkmnpqrstuvwxyz]{5}$/i.test(partial.sharedid || "") ? partial.sharedid : "",
+      sharedkey: /^[0-9a-f]{32}$/i.test(partial.sharedkey || "") ? partial.sharedkey : "",
+      sharedpublished: !partial || partial.sharedpublished !== false,
       pos: "px",
       x: typeof partial.x === "number" ? partial.x : 60 + (createcount % 6) * 62,
       y: typeof partial.y === "number" ? partial.y : 80 + (createcount % 4) * 84,
