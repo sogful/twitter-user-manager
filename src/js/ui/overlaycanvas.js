@@ -308,8 +308,9 @@
 
   /*//////////////////////////////////////////////////////////////////////*/
 
-  let toasttimer = 0;
+  let toasttimer = 0, toastversion = 0;
   function toast(msg, options) {
+    const version = ++toastversion;
     els.toast.replaceChildren();
     const text = document.createElement("span");
     text.className = "tumtoasttext";
@@ -324,14 +325,23 @@
         event.stopPropagation();
         if (button.disabled) return;
         button.disabled = true;
-        clearTimeout(toasttimer);
+        if (version === toastversion) {
+          clearTimeout(toasttimer);
+          toasttimer = 0;
+          els.toast.classList.remove("tumshow");
+        }
         await options.onclick();
       });
       els.toast.appendChild(button);
     }
     els.toast.classList.add("tumshow");
     clearTimeout(toasttimer);
-    toasttimer = setTimeout(() => els.toast.classList.remove("tumshow"), options ? 5000 : 2600);
+    toasttimer = setTimeout(() => {
+      if (version === toastversion) {
+        els.toast.classList.remove("tumshow");
+        toasttimer = 0;
+      }
+    }, options ? 5000 : 2600);
   }
   function notifyfolderadd(folder, user, actionhappened, onundo) {
     if (!folder || !user || !user.handle || actionhappened) return;
