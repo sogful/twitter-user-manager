@@ -5,6 +5,15 @@
   function rendersignature(value, extra) {
     try {return JSON.stringify(value) + (extra || "")} catch {return String(Date.now())}
   }
+  function folderrendersignature(value, extra) {
+    return rendersignature([
+      value.id, value.name, value.action, value.color, value.icon, value.sort,
+      value.badgefilters, value.cat, value.description, value.scalex, value.scaley,
+      value.x, value.y, value.twitterlist, value.downloadedlist,
+      value.sharedid, value.sharedkey, value.sharedpublished,
+      (value.members || []).length
+    ], extra);
+  }
   function updatefoldersearchclear(node) {
     const search = node.querySelector(".tumfoldersearch");
     const clear = node.querySelector(".tumfolderclear");
@@ -428,15 +437,16 @@
         ? state.drag.group.filter(item => item.source.type === "folder" && item.source.id === folder.id).map(item => item.data.handle.toLowerCase()).sort().join(",")
         : "";
       const dragging = grouped || (state.drag && state.drag.source && state.drag.source.type === "folder" && state.drag.source.id === folder.id ? state.drag.user.handle : "");
-      const signature = rendersignature(folder, dragging + (folder.icon ? "|icon:" + iconhtml(folder.icon) : ""));
+      const signature = folderrendersignature(folder, dragging + (folder.icon ? "|icon:" + iconhtml(folder.icon) : ""));
       const old = folders.get(folder.id);
       let node = old;
-      if (force || !node || node._tumsignature !== signature) {
+      if (force || !node || node._tumsignature !== signature || node.tummembers !== folder.members) {
         const list = old && old.querySelector(".tumfolderlist");
         const search = old && old.querySelector(".tumfoldersearch");
         const view = old ? {scroll: list ? list.scrollTop : 0, query: search ? search.value.trim() : ""} : null;
         node = buildfoldernode(folder);
         node._tumsignature = signature;
+        node.tummembers = folder.members;
         node._tumrestore = view;
         changed.push(node);
       }

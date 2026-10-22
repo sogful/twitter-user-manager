@@ -53,7 +53,7 @@
     {value: "translatormod", labelkey: "folder.filter.badge.translatormod"}
   ];
 
-    scope.MEMBERCAP = 200; // render cap per folder list
+    scope.memberpagecap = 200;
     scope.showncap = new Map();
     scope.THRESHOLD = 6;
     scope.URLRE = /(https?:\/\/[^\s<]+)/g;

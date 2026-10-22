@@ -346,7 +346,7 @@
     event.preventDefault();
     const version = ++contextversion;
     let items;
-    const selection = typeof O.selecteditems === "function" ? O.selecteditems() : [];
+    const selection = state.selection && state.selection.size && typeof O.selecteditems === "function" ? O.selecteditems() : [];
     const selectednode = chip || memberrow || foldernode || categorynode;
 
     if (selection.length && (!selectednode || selectioncontains(selectednode))) {

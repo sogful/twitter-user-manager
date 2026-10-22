@@ -259,8 +259,8 @@
     } else {
       const src = {type: "folder", id: f.id};
       const foldercount = tum.folders.list().length;
-      const membercap = foldercount > 180 ? 12 : foldercount > 60 ? 24 : MEMBERCAP;
-      let shown = Math.min(members.length, Math.max(membercap, showncap.get(f.id) || 0));
+      const memberpage = Math.max(1, Math.min(memberpagecap, Math.floor(240 / Math.max(1, foldercount))));
+      let shown = Math.min(members.length, Math.max(memberpage, showncap.get(f.id) || 0));
       let query = "";
       const matchesquery = member => [
         member.displayname,
@@ -269,19 +269,20 @@
         member.unfindable ? T("user.unfindable") : ""
       ].join(" ").toLowerCase().includes(query);
       const renderrows = () => {
-        const visible = query ? members.filter(matchesquery) : members.slice(0, shown);
+        const filtered = query ? members.filter(matchesquery) : members;
+        const visible = filtered.slice(0, shown);
         list.replaceChildren(...visible.map(member => buildmemberrow(src, member)));
-        if (query && !visible.length) {
+        if (query && !filtered.length) {
           list.appendChild(el("div", "tumfolderempty", T("folder.search.empty")));
           if (root && root.classList.contains("tumactive")) loadvisiblefolderimages();
           return;
         }
-        if (!query && members.length > shown) {
-          const more = el("div", "tumfoldermore", T("folder.more", members.length - shown));
+        if (filtered.length > shown) {
+          const more = el("div", "tumfoldermore", T("folder.more", filtered.length - shown));
           more.addEventListener("click", event => {
             event.stopPropagation();
-            shown = Math.min(members.length, shown + membercap);
-            showncap.set(f.id, shown);
+            shown = Math.min(filtered.length, shown + memberpage);
+            if (!query) showncap.set(f.id, shown);
             renderrows();
           });
           list.appendChild(more);
@@ -290,6 +291,8 @@
       };
       node._tumfiltermembers = value => {
         query = (value || "").trim().toLowerCase();
+        shown = query ? memberpage : Math.min(members.length, Math.max(memberpage, showncap.get(f.id) || 0));
+        list.scrollTop = 0;
         renderrows();
       };
       renderrows();
